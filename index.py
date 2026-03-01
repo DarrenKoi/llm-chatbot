@@ -1,4 +1,6 @@
 import json
+import logging
+from concurrent.futures import ThreadPoolExecutor
 
 from flask import Flask, request, jsonify, send_from_directory
 
@@ -7,7 +9,10 @@ from services.llm_service import chat
 from services.conversation_service import get_history, append_message, append_messages
 from services.cube_service import send_rich_notification
 
+logger = logging.getLogger(__name__)
+
 app = Flask(__name__)
+executor = ThreadPoolExecutor(max_workers=config.MAX_WORKERS)
 
 
 @app.route("/health")
@@ -32,23 +37,29 @@ def receive_cube():
     user_msg = {"role": "user", "content": user_message}
     append_message(user_id, user_msg)
 
-    # Build full message list: system + history + new message
-    messages = [{"role": "system", "content": config.LLM_SYSTEM_PROMPT}] + history + [user_msg]
+    # Process LLM call in background thread, respond immediately
+    executor.submit(_process_llm_request, user_id, channel_id, history, user_msg)
 
-    # Call LLM (with tool-use loop)
-    reply_text, new_messages = chat(messages)
+    return jsonify({"status": "accepted"}), 202
 
-    # Persist assistant/tool messages to history
-    append_messages(user_id, new_messages)
 
-    # Check if any tool produced an image URL
-    image_url = _extract_image_url(new_messages)
+def _process_llm_request(user_id: str, channel_id: str, history: list[dict], user_msg: dict):
+    """Background worker: call LLM and send reply via Cube."""
+    try:
+        messages = [{"role": "system", "content": config.LLM_SYSTEM_PROMPT}] + history + [user_msg]
 
-    # Send response back via Cube (stub)
-    if channel_id:
-        send_rich_notification(channel_id, reply_text, image_url=image_url)
+        reply_text, new_messages = chat(messages)
 
-    return jsonify({"reply": reply_text, "image_url": image_url})
+        append_messages(user_id, new_messages)
+
+        image_url = _extract_image_url(new_messages)
+
+        if channel_id:
+            send_rich_notification(channel_id, reply_text, image_url=image_url)
+    except Exception:
+        logger.exception("Error processing LLM request for user %s", user_id)
+        if channel_id:
+            send_rich_notification(channel_id, "Sorry, something went wrong. Please try again.")
 
 
 @app.route("/static/charts/<filename>")

@@ -16,6 +16,7 @@ CUBE_API_URL = os.environ.get("CUBE_API_URL", "")
 
 # Flask
 FLASK_PORT = int(os.environ.get("FLASK_PORT", 5000))
+MAX_WORKERS = int(os.environ.get("MAX_WORKERS", 4))
 
 # Redis (empty = in-memory fallback)
 REDIS_URL = os.environ.get("REDIS_URL", "")
