@@ -1,7 +1,7 @@
 import json
 from collections import OrderedDict
 
-import config
+from api import config
 
 _backend = None
 

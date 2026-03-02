@@ -2,7 +2,6 @@ import sys
 from pathlib import Path
 
 import pytest
-from flask import Flask
 
 # Ensure project root is on sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -11,11 +10,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 @pytest.fixture()
 def app():
     """Create a Flask test app with chatbot blueprint."""
-    from index import chatbot_bp
+    from api import create_application
 
-    app = Flask(__name__)
+    app = create_application()
     app.config["TESTING"] = True
-    app.register_blueprint(chatbot_bp)
     return app
 
 

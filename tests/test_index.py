@@ -1,7 +1,7 @@
 import json
 from unittest.mock import patch, MagicMock
 
-from index import _extract_image_url
+from api.routes import _extract_image_url
 
 
 def test_health(client):
@@ -18,12 +18,12 @@ def test_receive_cube_missing_message(client):
     assert resp.status_code == 400
 
 
-@patch("index.send_rich_notification")
-@patch("index.log_request")
-@patch("index.chat")
-@patch("index.append_messages")
-@patch("index.append_message")
-@patch("index.get_history", return_value=[])
+@patch("api.routes.send_rich_notification")
+@patch("api.routes.log_request")
+@patch("api.routes.chat")
+@patch("api.routes.append_messages")
+@patch("api.routes.append_message")
+@patch("api.routes.get_history", return_value=[])
 def test_receive_cube_valid(
     mock_get_hist, mock_append, mock_append_multi,
     mock_chat, mock_log, mock_send, client,
@@ -31,7 +31,7 @@ def test_receive_cube_valid(
     mock_chat.return_value = ("Hello!", [{"role": "assistant", "content": "Hello!"}], {"llm_calls": [], "tool_executions": []})
 
     # Run synchronously by replacing executor.submit with direct call
-    with patch("index.executor") as mock_executor:
+    with patch("api.routes.executor") as mock_executor:
         mock_executor.submit.side_effect = lambda fn, *args: fn(*args)
         resp = client.post(
             "/api/v1/receive/cube",

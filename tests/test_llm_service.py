@@ -32,12 +32,12 @@ def _make_tool_call(call_id="call_1", name="query_data", arguments=None):
     return tc
 
 
-@patch("services.llm_service.execute_tool")
-@patch("services.llm_service.client")
+@patch("api.services.llm_service.execute_tool")
+@patch("api.services.llm_service.client")
 def test_simple_reply(mock_client, mock_exec_tool):
     mock_client.chat.completions.create.return_value = _make_response("Hi there")
 
-    from services.llm_service import chat
+    from api.services.llm_service import chat
     text, new_msgs, metadata = chat([{"role": "user", "content": "Hello"}])
 
     assert text == "Hi there"
@@ -48,8 +48,8 @@ def test_simple_reply(mock_client, mock_exec_tool):
     mock_exec_tool.assert_not_called()
 
 
-@patch("services.llm_service.execute_tool")
-@patch("services.llm_service.client")
+@patch("api.services.llm_service.execute_tool")
+@patch("api.services.llm_service.client")
 def test_tool_use_loop(mock_client, mock_exec_tool):
     tc = _make_tool_call()
     # First call: LLM wants to use a tool
@@ -59,7 +59,7 @@ def test_tool_use_loop(mock_client, mock_exec_tool):
     mock_client.chat.completions.create.side_effect = [resp_with_tool, resp_final]
     mock_exec_tool.return_value = ('{"results": []}', {"name": "query_data", "args": {}, "duration_ms": 10, "success": True})
 
-    from services.llm_service import chat
+    from api.services.llm_service import chat
     text, new_msgs, metadata = chat([{"role": "user", "content": "Show sales"}])
 
     assert text == "Sales are 1200"
@@ -70,15 +70,15 @@ def test_tool_use_loop(mock_client, mock_exec_tool):
     mock_exec_tool.assert_called_once()
 
 
-@patch("services.llm_service.execute_tool")
-@patch("services.llm_service.client")
+@patch("api.services.llm_service.execute_tool")
+@patch("api.services.llm_service.client")
 def test_max_rounds_exceeded(mock_client, mock_exec_tool):
     tc = _make_tool_call()
     # Every call returns a tool call, never a final answer
     mock_client.chat.completions.create.return_value = _make_response(content=None, tool_calls=[tc])
     mock_exec_tool.return_value = ('{"results": []}', {"name": "query_data", "args": {}, "duration_ms": 1, "success": True})
 
-    from services.llm_service import chat
+    from api.services.llm_service import chat
     text, new_msgs, metadata = chat([{"role": "user", "content": "loop"}])
 
     assert "try again" in text.lower()

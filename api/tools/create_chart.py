@@ -1,8 +1,8 @@
 import json
-import os
 import uuid
+from pathlib import Path
 
-import config
+from api import config
 
 
 def execute(chart_type: str, title: str, data: dict) -> str:
@@ -14,10 +14,10 @@ def execute(chart_type: str, title: str, data: dict) -> str:
     except ImportError:
         return json.dumps({"error": "matplotlib not installed"})
 
-    os.makedirs(config.CHART_IMAGE_DIR, exist_ok=True)
+    Path(config.CHART_IMAGE_DIR).mkdir(parents=True, exist_ok=True)
 
     filename = f"{uuid.uuid4().hex}.png"
-    filepath = os.path.join(config.CHART_IMAGE_DIR, filename)
+    filepath = Path(config.CHART_IMAGE_DIR) / filename
 
     labels = data.get("labels", ["A", "B", "C"])
     values = data.get("values", [1, 2, 3])
@@ -34,4 +34,4 @@ def execute(chart_type: str, title: str, data: dict) -> str:
     plt.close(fig)
 
     image_url = f"{config.CHART_IMAGE_BASE_URL}/{filename}"
-    return json.dumps({"image_url": image_url, "filepath": filepath})
+    return json.dumps({"image_url": image_url, "filepath": str(filepath)})

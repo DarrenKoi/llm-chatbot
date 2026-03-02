@@ -5,17 +5,20 @@ Flask-based chatbot on the internal "Cube" platform, powered by local LLMs.
 ## Rules
 
 - **No external LLM services** — never use OpenAI, Anthropic, or any cloud AI APIs. All LLM calls go through local endpoints using OpenAI-compatible format (`/v1/chat/completions`).
-- **Environment-based config** — all secrets and service URLs come from env vars (see `config.py`). Never hardcode credentials or URLs.
+- **Environment-based config** — all secrets and service URLs come from env vars (see `api/config.py`). Never hardcode credentials or URLs.
 - **Korean language support** — user messages arrive in Korean. Keep UI-facing strings and error messages compatible.
 - **Use `pathlib`** — always use `pathlib.Path` for file paths instead of `os.path`. All OS compatibility matters.
 - **Korean commit messages** — write git commit messages in Korean.
 
 ## Architecture
 
-- `config.py` — all env-based configuration
-- `index.py` — Flask routes and request handling (Blueprint: `chatbot_bp`)
-- `services/` — business logic (LLM, Cube, conversation history, logging)
-- `tools/` — tool-use functions callable by the LLM (chart creation, data queries)
+- `index.py` — simple entry point, imports `create_application` from `api`
+- `wsgi.ini` — uWSGI configuration
+- `api/__init__.py` — Flask app factory (`create_application`)
+- `api/config.py` — all env-based configuration
+- `api/routes.py` — Flask routes and request handling (Blueprint: `chatbot_bp`)
+- `api/services/` — business logic (LLM, Cube, conversation history, logging)
+- `api/tools/` — tool-use functions callable by the LLM (chart creation, data queries)
 
 ## Dev Environment
 

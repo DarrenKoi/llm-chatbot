@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -30,5 +31,5 @@ CONVERSATION_MAX_MESSAGES = int(os.environ.get("CONVERSATION_MAX_MESSAGES", 20))
 CONVERSATION_TTL_SECONDS = int(os.environ.get("CONVERSATION_TTL_SECONDS", 3600))
 
 # Chart images
-CHART_IMAGE_DIR = os.environ.get("CHART_IMAGE_DIR", os.path.join(os.path.dirname(__file__), "data", "chart-images"))
+CHART_IMAGE_DIR = os.environ.get("CHART_IMAGE_DIR", str(Path(__file__).resolve().parent.parent / "data" / "chart-images"))
 CHART_IMAGE_BASE_URL = os.environ.get("CHART_IMAGE_BASE_URL", "http://localhost:5000/static/charts")

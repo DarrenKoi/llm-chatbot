@@ -1,6 +1,6 @@
 import logging
 
-import config
+from api import config
 
 logger = logging.getLogger(__name__)
 

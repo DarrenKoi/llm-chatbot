@@ -3,8 +3,8 @@ import time
 
 from openai import OpenAI
 
-import config
-from tools import TOOL_DEFINITIONS, execute_tool
+from api import config
+from api.tools import TOOL_DEFINITIONS, execute_tool
 
 client = OpenAI(base_url=config.LLM_BASE_URL, api_key=config.LLM_API_KEY)
 

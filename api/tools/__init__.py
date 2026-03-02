@@ -1,8 +1,8 @@
 import json
 import time
 
-from tools.query_data import execute as query_data_execute
-from tools.create_chart import execute as create_chart_execute
+from api.tools.query_data import execute as query_data_execute
+from api.tools.create_chart import execute as create_chart_execute
 
 TOOL_DEFINITIONS = [
     {

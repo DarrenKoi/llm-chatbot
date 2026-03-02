@@ -1,7 +1,7 @@
 import json
 from unittest.mock import patch, MagicMock
 
-import config
+from api import config
 
 
 class TestInMemoryBackend:
@@ -10,7 +10,7 @@ class TestInMemoryBackend:
     def _fresh_module(self):
         """Re-import conversation_service with reset global state."""
         import importlib
-        import services.conversation_service as mod
+        import api.services.conversation_service as mod
         mod._backend = None
         importlib.reload(mod)
         return mod
@@ -74,7 +74,7 @@ class TestRedisBackend:
 
         with patch("redis.from_url", return_value=mock_redis):
             import importlib
-            import services.conversation_service as mod
+            import api.services.conversation_service as mod
             mod._backend = None
             importlib.reload(mod)
 
