@@ -3,7 +3,7 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Blueprint, request, jsonify, send_from_directory
 
 import config
 from services.llm_service import chat
@@ -13,16 +13,16 @@ from services.log_service import log_request
 
 logger = logging.getLogger(__name__)
 
-app = Flask(__name__)
+chatbot_bp = Blueprint("chatbot", __name__)
 executor = ThreadPoolExecutor(max_workers=config.MAX_WORKERS)
 
 
-@app.route("/health")
+@chatbot_bp.route("/health")
 def health():
     return jsonify({"status": "ok"})
 
 
-@app.route("/api/v1/receive/cube", methods=["POST"])
+@chatbot_bp.route("/api/v1/receive/cube", methods=["POST"])
 def receive_cube():
     data = request.get_json()
 
@@ -91,7 +91,7 @@ def _process_llm_request(user_id: str, channel_id: str, history: list[dict], use
         })
 
 
-@app.route("/static/charts/<filename>")
+@chatbot_bp.route("/static/charts/<filename>")
 def serve_chart(filename):
     return send_from_directory(config.CHART_IMAGE_DIR, filename)
 
@@ -108,5 +108,10 @@ def _extract_image_url(messages: list[dict]) -> str | None:
     return None
 
 
+# Standalone mode for development/testing
 if __name__ == "__main__":
+    from flask import Flask
+
+    app = Flask(__name__)
+    app.register_blueprint(chatbot_bp)
     app.run(host="0.0.0.0", port=config.FLASK_PORT)
