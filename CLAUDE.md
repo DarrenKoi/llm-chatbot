@@ -7,6 +7,7 @@ Flask-based chatbot on the internal "Cube" platform, powered by local LLMs.
 - **No external LLM services** — never use OpenAI, Anthropic, or any cloud AI APIs. All LLM calls go through local endpoints using OpenAI-compatible format (`/v1/chat/completions`).
 - **Environment-based config** — all secrets and service URLs come from env vars (see `config.py`). Never hardcode credentials or URLs.
 - **Korean language support** — user messages arrive in Korean. Keep UI-facing strings and error messages compatible.
+- **Use `pathlib`** — always use `pathlib.Path` for file paths instead of `os.path`. All OS compatibility matters.
 
 ## Architecture
 
@@ -20,3 +21,9 @@ Flask-based chatbot on the internal "Cube" platform, powered by local LLMs.
 - Code at home (no Cube/LLM access), test at office
 - Use `.env` file for local overrides; never commit it
 - `pip install -r requirements.txt` to set up
+
+## Testing
+
+- `pytest tests/ -v` — run all tests (works at home, no external services needed)
+- Tests use mocks for LLM, Redis, MongoDB, and Cube APIs
+- Test files: `tests/test_*.py`, shared fixtures in `tests/conftest.py`

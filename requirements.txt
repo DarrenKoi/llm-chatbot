@@ -4,3 +4,5 @@ python-dotenv
 redis
 matplotlib
 pymongo
+pytest
+pytest-mock
