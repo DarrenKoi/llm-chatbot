@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 from flask import Flask, request, jsonify, send_from_directory
@@ -8,6 +9,7 @@ import config
 from services.llm_service import chat
 from services.conversation_service import get_history, append_message, append_messages
 from services.cube_service import send_rich_notification
+from services.log_service import log_request
 
 logger = logging.getLogger(__name__)
 
@@ -45,10 +47,11 @@ def receive_cube():
 
 def _process_llm_request(user_id: str, channel_id: str, history: list[dict], user_msg: dict):
     """Background worker: call LLM and send reply via Cube."""
+    start = time.monotonic()
     try:
         messages = [{"role": "system", "content": config.LLM_SYSTEM_PROMPT}] + history + [user_msg]
 
-        reply_text, new_messages = chat(messages)
+        reply_text, new_messages, metadata = chat(messages)
 
         append_messages(user_id, new_messages)
 
@@ -56,10 +59,36 @@ def _process_llm_request(user_id: str, channel_id: str, history: list[dict], use
 
         if channel_id:
             send_rich_notification(channel_id, reply_text, image_url=image_url)
-    except Exception:
+
+        log_request({
+            "user_id": user_id,
+            "channel_id": channel_id,
+            "user_message": user_msg["content"],
+            "reply_text": reply_text,
+            "model": config.LLM_MODEL,
+            "status": "success",
+            "error": None,
+            "total_duration_ms": int((time.monotonic() - start) * 1000),
+            "llm_calls": metadata["llm_calls"],
+            "tool_executions": metadata["tool_executions"],
+        })
+    except Exception as e:
         logger.exception("Error processing LLM request for user %s", user_id)
         if channel_id:
             send_rich_notification(channel_id, "Sorry, something went wrong. Please try again.")
+
+        log_request({
+            "user_id": user_id,
+            "channel_id": channel_id,
+            "user_message": user_msg["content"],
+            "reply_text": None,
+            "model": config.LLM_MODEL,
+            "status": "error",
+            "error": str(e),
+            "total_duration_ms": int((time.monotonic() - start) * 1000),
+            "llm_calls": [],
+            "tool_executions": [],
+        })
 
 
 @app.route("/static/charts/<filename>")

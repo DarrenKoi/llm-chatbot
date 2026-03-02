@@ -18,6 +18,10 @@ CUBE_API_URL = os.environ.get("CUBE_API_URL", "")
 FLASK_PORT = int(os.environ.get("FLASK_PORT", 5000))
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS", 4))
 
+# MongoDB
+MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "llm_chatbot")
+
 # Redis (empty = in-memory fallback)
 REDIS_URL = os.environ.get("REDIS_URL", "")
 
