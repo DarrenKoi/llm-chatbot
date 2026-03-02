@@ -8,6 +8,7 @@ Flask-based chatbot on the internal "Cube" platform, powered by local LLMs.
 - **Environment-based config** — all secrets and service URLs come from env vars (see `config.py`). Never hardcode credentials or URLs.
 - **Korean language support** — user messages arrive in Korean. Keep UI-facing strings and error messages compatible.
 - **Use `pathlib`** — always use `pathlib.Path` for file paths instead of `os.path`. All OS compatibility matters.
+- **Korean commit messages** — write git commit messages in Korean.
 
 ## Architecture
 
