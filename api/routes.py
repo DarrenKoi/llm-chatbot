@@ -8,7 +8,7 @@ from flask import Blueprint, request, jsonify, send_from_directory, send_file
 from api import config
 from api.services.llm_service import chat
 from api.services.conversation_service import get_history, append_message, append_messages
-from api.services.cdn import save_uploaded_image, get_image_file
+from api.services.cdn import save_uploaded_image, get_image_variant_file
 from api.services.cube_service import send_rich_notification
 from api.services.log_service import log_request
 
@@ -49,12 +49,32 @@ def upload_cdn_image():
 
 @chatbot_bp.route("/cdn/images/<image_id>")
 def get_cdn_image(image_id: str):
-    image = get_image_file(image_id)
+    width_arg = request.args.get("w")
+    height_arg = request.args.get("h")
+    thumbnail_arg = request.args.get("thumbnail", "").lower()
+
+    try:
+        width = int(width_arg) if width_arg else None
+        height = int(height_arg) if height_arg else None
+    except ValueError:
+        return jsonify({"error": "w and h must be integers"}), 400
+
+    thumbnail = thumbnail_arg in {"1", "true", "yes", "y"}
+
+    try:
+        image = get_image_variant_file(image_id, width=width, height=height, thumbnail=thumbnail)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except RuntimeError as e:
+        return jsonify({"error": str(e)}), 503
+
     if image is None:
         return jsonify({"error": "Image not found"}), 404
 
     file_path, content_type = image
-    return send_file(file_path, mimetype=content_type)
+    response = send_file(file_path, mimetype=content_type)
+    response.headers["Cache-Control"] = "public, max-age=86400"
+    return response
 
 
 @chatbot_bp.route("/api/v1/receive/cube", methods=["POST"])

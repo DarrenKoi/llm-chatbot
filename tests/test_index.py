@@ -2,6 +2,7 @@ import json
 from io import BytesIO
 from unittest.mock import patch
 
+import pytest
 import api.services.cdn.cdn_service as cdn_service
 from api import config
 from api.routes import _extract_image_url
@@ -114,3 +115,88 @@ def test_cdn_upload_invalid_extension(client, monkeypatch, tmp_path):
         content_type="multipart/form-data",
     )
     assert resp.status_code == 400
+
+
+def test_cdn_resize_image(client, monkeypatch, tmp_path):
+    image_module = pytest.importorskip("PIL.Image")
+
+    monkeypatch.setattr(config, "CDN_STORAGE_DIR", tmp_path / "cdn")
+    monkeypatch.setattr(config, "CDN_REDIS_URL", "")
+    monkeypatch.setattr(config, "CDN_MAX_RESIZE_WIDTH", 2048)
+    monkeypatch.setattr(config, "CDN_MAX_RESIZE_HEIGHT", 2048)
+    cdn_service._metadata_backend = None
+
+    src = image_module.new("RGB", (300, 150), color="red")
+    src_buffer = BytesIO()
+    src.save(src_buffer, format="PNG")
+
+    upload = client.post(
+        "/api/v1/cdn/upload",
+        data={"file": (BytesIO(src_buffer.getvalue()), "source.png")},
+        content_type="multipart/form-data",
+    )
+    assert upload.status_code == 201
+    image_id = upload.get_json()["image_id"]
+
+    resized = client.get(f"/cdn/images/{image_id}?w=120")
+    assert resized.status_code == 200
+
+    resized_img = image_module.open(BytesIO(resized.data))
+    assert resized_img.size[0] <= 120
+    assert resized_img.size[1] < 150
+
+
+def test_cdn_thumbnail_image(client, monkeypatch, tmp_path):
+    image_module = pytest.importorskip("PIL.Image")
+
+    monkeypatch.setattr(config, "CDN_STORAGE_DIR", tmp_path / "cdn")
+    monkeypatch.setattr(config, "CDN_REDIS_URL", "")
+    monkeypatch.setattr(config, "CDN_THUMBNAIL_WIDTH", 64)
+    monkeypatch.setattr(config, "CDN_THUMBNAIL_HEIGHT", 64)
+    monkeypatch.setattr(config, "CDN_MAX_RESIZE_WIDTH", 2048)
+    monkeypatch.setattr(config, "CDN_MAX_RESIZE_HEIGHT", 2048)
+    cdn_service._metadata_backend = None
+
+    src = image_module.new("RGB", (500, 300), color="blue")
+    src_buffer = BytesIO()
+    src.save(src_buffer, format="PNG")
+
+    upload = client.post(
+        "/api/v1/cdn/upload",
+        data={"file": (BytesIO(src_buffer.getvalue()), "source.png")},
+        content_type="multipart/form-data",
+    )
+    assert upload.status_code == 201
+    image_id = upload.get_json()["image_id"]
+
+    thumb = client.get(f"/cdn/images/{image_id}?thumbnail=true")
+    assert thumb.status_code == 200
+
+    thumb_img = image_module.open(BytesIO(thumb.data))
+    assert thumb_img.size[0] <= 64
+    assert thumb_img.size[1] <= 64
+
+
+def test_cdn_resize_invalid_query(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "CDN_STORAGE_DIR", tmp_path / "cdn")
+    monkeypatch.setattr(config, "CDN_REDIS_URL", "")
+    cdn_service._metadata_backend = None
+
+    # upload minimal valid png
+    png_bytes = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc`\x00\x00"
+        b"\x00\x02\x00\x01\xe5'\xd4\xa2\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    upload = client.post(
+        "/api/v1/cdn/upload",
+        data={"file": (BytesIO(png_bytes), "dot.png")},
+        content_type="multipart/form-data",
+    )
+    image_id = upload.get_json()["image_id"]
+
+    bad = client.get(f"/cdn/images/{image_id}?w=abc")
+    assert bad.status_code == 400
+
+    bad_mix = client.get(f"/cdn/images/{image_id}?thumbnail=true&w=10")
+    assert bad_mix.status_code == 400

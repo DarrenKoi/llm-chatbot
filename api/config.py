@@ -58,6 +58,7 @@ PVC_ROOT = Path(os.environ.get("PVC_ROOT", str(WORKSPACE_ROOT / "pvc" / "downloa
 CDN_STORAGE_DIR = Path(os.environ.get("CDN_STORAGE_DIR", str(PVC_ROOT / "cdn" / "images"))).expanduser()
 CDN_BASE_URL = os.environ.get("CDN_BASE_URL", "http://localhost:5000/cdn/images")
 CDN_MAX_UPLOAD_BYTES = int(os.environ.get("CDN_MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
+CDN_STORAGE_LIMIT_BYTES = int(os.environ.get("CDN_STORAGE_LIMIT_BYTES", 8 * 1024 * 1024 * 1024))
 CDN_ALLOWED_EXTENSIONS = tuple(
     ext.strip().lower()
     for ext in os.environ.get("CDN_ALLOWED_EXTENSIONS", "png,jpg,jpeg,gif,webp").split(",")
@@ -65,3 +66,8 @@ CDN_ALLOWED_EXTENSIONS = tuple(
 )
 CDN_IMAGE_TTL_SECONDS = int(os.environ.get("CDN_IMAGE_TTL_SECONDS", 0))
 CDN_REDIS_URL = os.environ.get("CDN_REDIS_URL", REDIS_FALLBACK_URL or REDIS_URL)
+CDN_RETENTION_DAYS = int(os.environ.get("CDN_RETENTION_DAYS", 30))
+CDN_MAX_RESIZE_WIDTH = int(os.environ.get("CDN_MAX_RESIZE_WIDTH", 2048))
+CDN_MAX_RESIZE_HEIGHT = int(os.environ.get("CDN_MAX_RESIZE_HEIGHT", 2048))
+CDN_THUMBNAIL_WIDTH = int(os.environ.get("CDN_THUMBNAIL_WIDTH", 320))
+CDN_THUMBNAIL_HEIGHT = int(os.environ.get("CDN_THUMBNAIL_HEIGHT", 320))
