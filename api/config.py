@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from platform import system
 
 from dotenv import load_dotenv
 
@@ -42,3 +43,25 @@ CONVERSATION_TTL_SECONDS = int(os.environ.get("CONVERSATION_TTL_SECONDS", 3600))
 # Chart images
 CHART_IMAGE_DIR = os.environ.get("CHART_IMAGE_DIR", str(BASE_DIR / "data" / "chart-images"))
 CHART_IMAGE_BASE_URL = os.environ.get("CHART_IMAGE_BASE_URL", "http://localhost:5000/static/charts")
+
+# Workspace / PVC (cross-platform)
+_linux_workspace_root = Path("/project/workSpace")
+if system() == "Linux" and _linux_workspace_root.exists():
+    _default_workspace_root = _linux_workspace_root
+else:
+    _default_workspace_root = BASE_DIR
+
+WORKSPACE_ROOT = Path(os.environ.get("WORKSPACE_ROOT", str(_default_workspace_root))).expanduser()
+PVC_ROOT = Path(os.environ.get("PVC_ROOT", str(WORKSPACE_ROOT / "pvc" / "download"))).expanduser()
+
+# CDN
+CDN_STORAGE_DIR = Path(os.environ.get("CDN_STORAGE_DIR", str(PVC_ROOT / "cdn" / "images"))).expanduser()
+CDN_BASE_URL = os.environ.get("CDN_BASE_URL", "http://localhost:5000/cdn/images")
+CDN_MAX_UPLOAD_BYTES = int(os.environ.get("CDN_MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
+CDN_ALLOWED_EXTENSIONS = tuple(
+    ext.strip().lower()
+    for ext in os.environ.get("CDN_ALLOWED_EXTENSIONS", "png,jpg,jpeg,gif,webp").split(",")
+    if ext.strip()
+)
+CDN_IMAGE_TTL_SECONDS = int(os.environ.get("CDN_IMAGE_TTL_SECONDS", 0))
+CDN_REDIS_URL = os.environ.get("CDN_REDIS_URL", REDIS_FALLBACK_URL or REDIS_URL)

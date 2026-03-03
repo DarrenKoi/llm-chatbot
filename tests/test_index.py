@@ -1,6 +1,9 @@
 import json
-from unittest.mock import patch, MagicMock
+from io import BytesIO
+from unittest.mock import patch
 
+import api.services.cdn.cdn_service as cdn_service
+from api import config
 from api.routes import _extract_image_url
 
 
@@ -65,3 +68,49 @@ def test_extract_image_url_not_found():
 def test_extract_image_url_invalid_json():
     messages = [{"role": "tool", "content": "not json"}]
     assert _extract_image_url(messages) is None
+
+
+def test_cdn_upload_and_get_image(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "CDN_STORAGE_DIR", tmp_path / "cdn")
+    monkeypatch.setattr(config, "CDN_REDIS_URL", "")
+    cdn_service._metadata_backend = None
+
+    # 1x1 transparent PNG
+    png_bytes = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc`\x00\x00"
+        b"\x00\x02\x00\x01\xe5'\xd4\xa2\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+    upload = client.post(
+        "/api/v1/cdn/upload",
+        data={"file": (BytesIO(png_bytes), "dot.png")},
+        content_type="multipart/form-data",
+    )
+    assert upload.status_code == 201
+
+    payload = upload.get_json()
+    assert payload["image_id"]
+    assert payload["image_url"].endswith(payload["image_id"])
+
+    download = client.get(f"/cdn/images/{payload['image_id']}")
+    assert download.status_code == 200
+    assert download.mimetype == "image/png"
+    assert download.data == png_bytes
+
+
+def test_cdn_upload_missing_file(client):
+    resp = client.post("/api/v1/cdn/upload", data={}, content_type="multipart/form-data")
+    assert resp.status_code == 400
+
+
+def test_cdn_upload_invalid_extension(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "CDN_STORAGE_DIR", tmp_path / "cdn")
+    monkeypatch.setattr(config, "CDN_REDIS_URL", "")
+    cdn_service._metadata_backend = None
+
+    resp = client.post(
+        "/api/v1/cdn/upload",
+        data={"file": (BytesIO(b"hello"), "note.txt")},
+        content_type="multipart/form-data",
+    )
+    assert resp.status_code == 400

@@ -3,11 +3,12 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from flask import Blueprint, request, jsonify, send_from_directory
+from flask import Blueprint, request, jsonify, send_from_directory, send_file
 
 from api import config
 from api.services.llm_service import chat
 from api.services.conversation_service import get_history, append_message, append_messages
+from api.services.cdn import save_uploaded_image, get_image_file
 from api.services.cube_service import send_rich_notification
 from api.services.log_service import log_request
 
@@ -20,6 +21,40 @@ executor = ThreadPoolExecutor(max_workers=config.MAX_WORKERS)
 @chatbot_bp.route("/health")
 def health():
     return jsonify({"status": "ok"})
+
+
+@chatbot_bp.route("/api/v1/cdn/upload", methods=["POST"])
+def upload_cdn_image():
+    if "file" not in request.files:
+        return jsonify({"error": "No file provided"}), 400
+
+    file = request.files["file"]
+    try:
+        stored = save_uploaded_image(file)
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
+    except Exception:
+        logger.exception("CDN upload failed")
+        return jsonify({"error": "Failed to upload image"}), 500
+
+    return jsonify(
+        {
+            "image_id": stored["image_id"],
+            "image_url": stored["image_url"],
+            "content_type": stored["content_type"],
+            "size_bytes": stored["size_bytes"],
+        }
+    ), 201
+
+
+@chatbot_bp.route("/cdn/images/<image_id>")
+def get_cdn_image(image_id: str):
+    image = get_image_file(image_id)
+    if image is None:
+        return jsonify({"error": "Image not found"}), 404
+
+    file_path, content_type = image
+    return send_file(file_path, mimetype=content_type)
 
 
 @chatbot_bp.route("/api/v1/receive/cube", methods=["POST"])
