@@ -20,6 +20,9 @@
 - 현재 기본 `SCHEDULER_JOB_MISFIRE_GRACE_SECONDS`는 `60`으로, 서버 재기동 후 과거 스케줄 catch-up 실행을 최소화한다.
 - Redis 잠금 백엔드가 없으면 안전을 위해 스케줄러 잡 실행을 스킵한다.
 
+## uWSGI 재시작 정책
+- `wsgi.ini`에서 `reload-mercy=0`, `worker-reload-mercy=0`으로 설정해 `touch-reload` 시 실행 중 스케줄러 잡을 즉시 종료하고 빠르게 재시작한다.
+
 ## CDN 규칙
 - CDN 업로드/조회 엔드포인트:
   - `POST /api/v1/cdn/upload` (multipart/form-data)
