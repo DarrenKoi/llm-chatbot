@@ -3,6 +3,7 @@
 - APScheduler에 strict job control(`coalesce=True`, `max_instances=1`, `misfire_grace_time`)을 적용했다.
 - 스케줄러 락 설정을 `api/config.py` 및 `.env.example`로 노출했다.
 - 사용자 요청에 따라 스케줄러 락 prefix를 `scheduler:sknn_v3`로 반영했다.
+- 운영 정책에 맞춰 `SCHEDULER_JOB_MISFIRE_GRACE_SECONDS` 기본값을 `60`으로 낮춰 재시작 후 과거 잡 즉시 실행(catch-up)을 줄였다.
 - 신규 테스트 `tests/test_scheduler.py`를 작성하고 실행했다.
 - 검증 명령:
   - `pytest tests/test_scheduler.py tests/test_index.py -v` (16 passed)
@@ -21,7 +22,7 @@
     - `SCHEDULER_LOCK_PREFIX` (기본값: `scheduler:sknn_v3`)
     - `SCHEDULER_LOCK_TTL_SECONDS`
     - `SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS`
-    - `SCHEDULER_JOB_MISFIRE_GRACE_SECONDS`
+    - `SCHEDULER_JOB_MISFIRE_GRACE_SECONDS` (기본값: `60`)
   - `api/utils/scheduler.py`:
     - `_RedisDistributedLock` 추가 (acquire/release + renew loop)
     - `_run_locked_job()` 추가 (잡 실행 시 Redis 락 획득 실패/미사용 시 스킵)
