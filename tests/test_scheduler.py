@@ -39,22 +39,22 @@ def test_run_locked_job_executes_and_releases(monkeypatch):
     fake_redis = _FakeRedis()
     called = []
 
-    monkeypatch.setattr(config, "SCHEDULER_LOCK_PREFIX", "sknn_v3")
+    monkeypatch.setattr(config, "SCHEDULER_LOCK_PREFIX", "scheduler:sknn_v3")
     monkeypatch.setattr(config, "SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS", 0)
     monkeypatch.setattr(scheduler_mod, "_get_scheduler_redis_client", lambda: fake_redis)
 
     scheduler_mod._run_locked_job("job_a", lambda: called.append("run"))
 
     assert called == ["run"]
-    assert fake_redis.get("sknn_v3:job_a") is None
+    assert fake_redis.get("scheduler:sknn_v3:job_a") is None
 
 
 def test_run_locked_job_skips_when_lock_already_held(monkeypatch):
     fake_redis = _FakeRedis()
-    fake_redis.set("sknn_v3:job_b", "other-token", nx=True, ex=3600)
+    fake_redis.set("scheduler:sknn_v3:job_b", "other-token", nx=True, ex=3600)
     called = []
 
-    monkeypatch.setattr(config, "SCHEDULER_LOCK_PREFIX", "sknn_v3")
+    monkeypatch.setattr(config, "SCHEDULER_LOCK_PREFIX", "scheduler:sknn_v3")
     monkeypatch.setattr(config, "SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS", 0)
     monkeypatch.setattr(scheduler_mod, "_get_scheduler_redis_client", lambda: fake_redis)
 

@@ -15,7 +15,7 @@
 
 ## 스케줄러 락 규칙
 - 스케줄러 잡 실행(`api/utils/scheduler.py`)은 Redis 분산 락을 사용한다.
-- 락 키 접두사는 `SCHEDULER_LOCK_PREFIX`이며 기본값은 `sknn_v3`이다.
+- 락 키 접두사는 `SCHEDULER_LOCK_PREFIX`이며 기본값은 `scheduler:sknn_v3`이다.
 - 락/잡 제어는 `SCHEDULER_LOCK_TTL_SECONDS`, `SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS`, `SCHEDULER_JOB_MISFIRE_GRACE_SECONDS`로 조정한다.
 - Redis 잠금 백엔드가 없으면 안전을 위해 스케줄러 잡 실행을 스킵한다.
 

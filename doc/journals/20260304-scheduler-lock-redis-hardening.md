@@ -2,7 +2,7 @@
 - `api/utils/scheduler.py`에 Redis 분산 락 기반 실행 제어를 추가해, 다중 uWSGI worker 환경에서도 동일 스케줄러 잡이 중복 실행되지 않도록 처리했다.
 - APScheduler에 strict job control(`coalesce=True`, `max_instances=1`, `misfire_grace_time`)을 적용했다.
 - 스케줄러 락 설정을 `api/config.py` 및 `.env.example`로 노출했다.
-- 사용자 요청에 따라 스케줄러 락 prefix를 `sknn_v3`로 반영했다.
+- 사용자 요청에 따라 스케줄러 락 prefix를 `scheduler:sknn_v3`로 반영했다.
 - 신규 테스트 `tests/test_scheduler.py`를 작성하고 실행했다.
 - 검증 명령:
   - `pytest tests/test_scheduler.py tests/test_index.py -v` (16 passed)
@@ -18,7 +18,7 @@
 - 핵심 변경:
   - `api/config.py`:
     - `SCHEDULER_REDIS_URL`
-    - `SCHEDULER_LOCK_PREFIX` (기본값: `sknn_v3`)
+    - `SCHEDULER_LOCK_PREFIX` (기본값: `scheduler:sknn_v3`)
     - `SCHEDULER_LOCK_TTL_SECONDS`
     - `SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS`
     - `SCHEDULER_JOB_MISFIRE_GRACE_SECONDS`
@@ -39,4 +39,4 @@
 - 배포 후 로그에서 `Skipping scheduler job`/`lock already held` 메시지 비율을 모니터링해 락/스케줄 주기를 조정한다.
 
 ## 4. 메모리 업데이트
-- `MEMORY.md`에 스케줄러 Redis 분산 락 규칙(`sknn_v3` prefix, TTL/renew/misfire 설정, Redis 미가용 시 안전 스킵)을 추가했다.
+- `MEMORY.md`에 스케줄러 Redis 분산 락 규칙(`scheduler:sknn_v3` prefix, TTL/renew/misfire 설정, Redis 미가용 시 안전 스킵)을 추가했다.
