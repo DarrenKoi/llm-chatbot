@@ -3,7 +3,12 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent.parent
+ENV_PATH = BASE_DIR / ".env"
+if ENV_PATH.exists():
+    load_dotenv(ENV_PATH)
+else:
+    load_dotenv(BASE_DIR / ".env.example")
 
 # LLM
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "http://localhost:8000/v1")
@@ -25,14 +30,15 @@ MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "llm_chatbot")
 
 # Redis (empty = in-memory fallback)
 REDIS_URL = os.environ.get("REDIS_URL", "")
+REDIS_FALLBACK_URL = os.environ.get("REDIS_FALLBACK_URL", "")
 
 # Logging
-LOG_DIR = os.environ.get("LOG_DIR", str(Path(__file__).resolve().parent.parent / "logs"))
+LOG_DIR = os.environ.get("LOG_DIR", str(BASE_DIR / "logs"))
 
 # Conversation history
 CONVERSATION_MAX_MESSAGES = int(os.environ.get("CONVERSATION_MAX_MESSAGES", 20))
 CONVERSATION_TTL_SECONDS = int(os.environ.get("CONVERSATION_TTL_SECONDS", 3600))
 
 # Chart images
-CHART_IMAGE_DIR = os.environ.get("CHART_IMAGE_DIR", str(Path(__file__).resolve().parent.parent / "data" / "chart-images"))
+CHART_IMAGE_DIR = os.environ.get("CHART_IMAGE_DIR", str(BASE_DIR / "data" / "chart-images"))
 CHART_IMAGE_BASE_URL = os.environ.get("CHART_IMAGE_BASE_URL", "http://localhost:5000/static/charts")

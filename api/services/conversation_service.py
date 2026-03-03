@@ -6,14 +6,31 @@ from api import config
 _backend = None
 
 
+def _redis_urls() -> list[str]:
+    urls: list[str] = []
+    if config.REDIS_URL:
+        urls.append(config.REDIS_URL)
+    if config.REDIS_FALLBACK_URL and config.REDIS_FALLBACK_URL != config.REDIS_URL:
+        urls.append(config.REDIS_FALLBACK_URL)
+    return urls
+
+
 def _get_backend():
     global _backend
     if _backend is not None:
         return _backend
-    if config.REDIS_URL:
+    redis_urls = _redis_urls()
+    if redis_urls:
         import redis
-        _backend = _RedisBackend(redis.from_url(config.REDIS_URL))
-    else:
+        for redis_url in redis_urls:
+            try:
+                client = redis.from_url(redis_url)
+                client.ping()
+                _backend = _RedisBackend(client)
+                break
+            except Exception:
+                continue
+    if _backend is None:
         _backend = _InMemoryBackend()
     return _backend
 
