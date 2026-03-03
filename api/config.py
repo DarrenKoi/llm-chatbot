@@ -26,6 +26,9 @@ MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "llm_chatbot")
 # Redis (empty = in-memory fallback)
 REDIS_URL = os.environ.get("REDIS_URL", "")
 
+# Logging
+LOG_DIR = os.environ.get("LOG_DIR", str(Path(__file__).resolve().parent.parent / "logs"))
+
 # Conversation history
 CONVERSATION_MAX_MESSAGES = int(os.environ.get("CONVERSATION_MAX_MESSAGES", 20))
 CONVERSATION_TTL_SECONDS = int(os.environ.get("CONVERSATION_TTL_SECONDS", 3600))
