@@ -33,6 +33,13 @@ MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "llm_chatbot")
 REDIS_URL = os.environ.get("REDIS_URL", "")
 REDIS_FALLBACK_URL = os.environ.get("REDIS_FALLBACK_URL", "")
 
+# Scheduler (Redis-based distributed lock)
+SCHEDULER_REDIS_URL = os.environ.get("SCHEDULER_REDIS_URL", REDIS_FALLBACK_URL or REDIS_URL)
+SCHEDULER_LOCK_PREFIX = os.environ.get("SCHEDULER_LOCK_PREFIX", "sknn_v3")
+SCHEDULER_LOCK_TTL_SECONDS = int(os.environ.get("SCHEDULER_LOCK_TTL_SECONDS", 3600))
+SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS = int(os.environ.get("SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS", 30))
+SCHEDULER_JOB_MISFIRE_GRACE_SECONDS = int(os.environ.get("SCHEDULER_JOB_MISFIRE_GRACE_SECONDS", 1800))
+
 # Logging
 LOG_DIR = os.environ.get("LOG_DIR", str(BASE_DIR / "logs"))
 
