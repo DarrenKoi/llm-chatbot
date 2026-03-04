@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+import uuid
 
 from api import config
 from api.utils.scheduler import _lock as lock_mod
@@ -19,22 +20,34 @@ class _FakeRedis:
     def get(self, key):
         return self.store.get(key)
 
-    def eval(self, script, numkeys, key, *args):
-        token = args[0]
-        current = self.store.get(key)
+    def lock(self, name, timeout=None, blocking=True, thread_local=True):
+        return _FakeRedisLock(self, name)
 
-        if "del" in script:
-            if current == token:
-                del self.store[key]
-                return 1
-            return 0
 
-        if "expire" in script:
-            if current == token:
-                return 1
-            return 0
+class _FakeRedisLock:
+    def __init__(self, client: _FakeRedis, key: str):
+        self._client = client
+        self._key = key
+        self._token: str | None = None
 
-        return 0
+    def acquire(self, blocking=False):
+        if self._key in self._client.store:
+            return False
+        self._token = uuid.uuid4().hex
+        self._client.store[self._key] = self._token
+        return True
+
+    def release(self):
+        current = self._client.store.get(self._key)
+        if self._token is None or current != self._token:
+            raise RuntimeError("lock not owned")
+        del self._client.store[self._key]
+
+    def extend(self, additional_time, replace_ttl=False):
+        current = self._client.store.get(self._key)
+        if self._token is None or current != self._token:
+            return False
+        return True
 
 
 def test_run_locked_job_executes_and_releases(monkeypatch):

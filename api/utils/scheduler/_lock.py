@@ -1,6 +1,5 @@
 import logging
 import threading
-import uuid
 from typing import Callable
 
 from api import config
@@ -8,20 +7,6 @@ from api import config
 logger = logging.getLogger(__name__)
 
 _redis_client = None
-
-_LOCK_RELEASE_SCRIPT = """
-if redis.call('get', KEYS[1]) == ARGV[1] then
-    return redis.call('del', KEYS[1])
-end
-return 0
-"""
-
-_LOCK_RENEW_SCRIPT = """
-if redis.call('get', KEYS[1]) == ARGV[1] then
-    return redis.call('expire', KEYS[1], ARGV[2])
-end
-return 0
-"""
 
 
 def _normalize_positive(value: int, default: int) -> int:
@@ -56,15 +41,20 @@ class _RedisDistributedLock:
     def __init__(self, client, key: str, ttl_seconds: int, renew_interval_seconds: int):
         self._client = client
         self._key = key
-        self._token = uuid.uuid4().hex
         self._ttl_seconds = _normalize_positive(ttl_seconds, 3600)
         self._renew_interval_seconds = renew_interval_seconds
         self._renew_thread: threading.Thread | None = None
         self._renew_stop_event = threading.Event()
+        self._lock = self._client.lock(
+            name=self._key,
+            timeout=self._ttl_seconds,
+            blocking=False,
+            thread_local=False,
+        )
 
     def acquire(self) -> bool:
         try:
-            acquired = self._client.set(self._key, self._token, nx=True, ex=self._ttl_seconds)
+            acquired = self._lock.acquire(blocking=False)
         except Exception:
             logger.exception("Failed to acquire scheduler lock: %s", self._key)
             return False
@@ -78,7 +68,7 @@ class _RedisDistributedLock:
     def release(self) -> None:
         self._stop_renewal()
         try:
-            self._client.eval(_LOCK_RELEASE_SCRIPT, 1, self._key, self._token)
+            self._lock.release()
         except Exception:
             logger.exception("Failed to release scheduler lock: %s", self._key)
 
@@ -106,13 +96,10 @@ class _RedisDistributedLock:
     def _renew_loop(self) -> None:
         while not self._renew_stop_event.wait(self._renew_interval_seconds):
             try:
-                renewed = self._client.eval(
-                    _LOCK_RENEW_SCRIPT,
-                    1,
-                    self._key,
-                    self._token,
-                    str(self._ttl_seconds),
-                )
+                try:
+                    renewed = self._lock.extend(self._ttl_seconds, replace_ttl=True)
+                except TypeError:
+                    renewed = self._lock.extend(self._ttl_seconds)
                 if not renewed:
                     logger.warning("Scheduler lock lost while renewing: %s", self._key)
                     return
