@@ -110,9 +110,9 @@ def test_start_scheduler_uses_strict_job_defaults(monkeypatch):
     assert mock_scheduler.add_job.call_count == 1
     kwargs = mock_scheduler.add_job.call_args.kwargs
     assert kwargs["id"] == "cleanup_uwsgi_logs"
-    assert kwargs["max_instances"] == 1
-    assert kwargs["coalesce"] is True
-    assert kwargs["misfire_grace_time"] == 900
+    assert "max_instances" not in kwargs, "per-job max_instances should come from job_defaults"
+    assert "coalesce" not in kwargs, "per-job coalesce should come from job_defaults"
+    assert "misfire_grace_time" not in kwargs, "per-job misfire_grace_time should come from job_defaults"
     mock_scheduler.start.assert_called_once()
 
 
@@ -134,7 +134,6 @@ def test_discover_and_register_supports_scheduled_job_decorator(monkeypatch):
     )
     fake_module_info = SimpleNamespace(name="api.utils.scheduler.tasks.fake")
 
-    monkeypatch.setattr(config, "SCHEDULER_JOB_MISFIRE_GRACE_SECONDS", 900)
     monkeypatch.setattr(registry_mod.pkgutil, "iter_modules", lambda *_args, **_kwargs: [fake_module_info])
     monkeypatch.setattr(registry_mod.importlib, "import_module", lambda _name: fake_module)
 
@@ -147,6 +146,6 @@ def test_discover_and_register_supports_scheduled_job_decorator(monkeypatch):
     assert kwargs["id"] == "decorator_job"
     assert kwargs["trigger"] == "interval"
     assert kwargs["minutes"] == 5
-    assert kwargs["max_instances"] == 1
-    assert kwargs["coalesce"] is True
-    assert kwargs["misfire_grace_time"] == 900
+    assert "max_instances" not in kwargs, "per-job max_instances should come from job_defaults"
+    assert "coalesce" not in kwargs, "per-job coalesce should come from job_defaults"
+    assert "misfire_grace_time" not in kwargs, "per-job misfire_grace_time should come from job_defaults"

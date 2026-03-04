@@ -9,10 +9,6 @@ logger = logging.getLogger(__name__)
 _redis_client = None
 
 
-def _normalize_positive(value: int, default: int) -> int:
-    return value if value > 0 else default
-
-
 def _scheduler_lock_key(job_id: str) -> str:
     prefix = config.SCHEDULER_LOCK_PREFIX.strip(":") or "scheduler:lock"
     return f"{prefix}:{job_id}"
@@ -41,7 +37,7 @@ class _RedisDistributedLock:
     def __init__(self, client, key: str, ttl_seconds: int, renew_interval_seconds: int):
         self._client = client
         self._key = key
-        self._ttl_seconds = _normalize_positive(ttl_seconds, 3600)
+        self._ttl_seconds = ttl_seconds
         self._renew_interval_seconds = renew_interval_seconds
         self._renew_thread: threading.Thread | None = None
         self._renew_stop_event = threading.Event()

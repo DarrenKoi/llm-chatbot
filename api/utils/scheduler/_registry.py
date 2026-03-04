@@ -4,8 +4,7 @@ import logging
 import pkgutil
 from typing import Any, Callable
 
-from api import config
-from api.utils.scheduler._lock import _normalize_positive, run_locked_job
+from api.utils.scheduler._lock import run_locked_job
 
 logger = logging.getLogger(__name__)
 
@@ -70,9 +69,6 @@ def _register_decorated_jobs(scheduler, module) -> int:
             _build_job_callable(job_func, lock_id=meta["lock_id"], use_distributed_lock=meta["use_distributed_lock"]),
             id=meta["id"],
             replace_existing=True,
-            max_instances=1,
-            coalesce=True,
-            misfire_grace_time=_normalize_positive(config.SCHEDULER_JOB_MISFIRE_GRACE_SECONDS, 1800),
             **meta["trigger_kwargs"],
         )
         registered += 1
