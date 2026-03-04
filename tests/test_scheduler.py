@@ -1,7 +1,9 @@
 from unittest.mock import MagicMock
 
 from api import config
-from api.utils import scheduler as scheduler_mod
+from api.utils.scheduler import _lock as lock_mod
+from api.utils.scheduler import _registry as registry_mod
+import api.utils.scheduler as scheduler_pkg
 
 
 class _FakeRedis:
@@ -41,9 +43,9 @@ def test_run_locked_job_executes_and_releases(monkeypatch):
 
     monkeypatch.setattr(config, "SCHEDULER_LOCK_PREFIX", "scheduler:sknn_v3")
     monkeypatch.setattr(config, "SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS", 0)
-    monkeypatch.setattr(scheduler_mod, "_get_scheduler_redis_client", lambda: fake_redis)
+    monkeypatch.setattr(lock_mod, "_get_scheduler_redis_client", lambda: fake_redis)
 
-    scheduler_mod._run_locked_job("job_a", lambda: called.append("run"))
+    lock_mod.run_locked_job("job_a", lambda: called.append("run"))
 
     assert called == ["run"]
     assert fake_redis.get("scheduler:sknn_v3:job_a") is None
@@ -56,18 +58,18 @@ def test_run_locked_job_skips_when_lock_already_held(monkeypatch):
 
     monkeypatch.setattr(config, "SCHEDULER_LOCK_PREFIX", "scheduler:sknn_v3")
     monkeypatch.setattr(config, "SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS", 0)
-    monkeypatch.setattr(scheduler_mod, "_get_scheduler_redis_client", lambda: fake_redis)
+    monkeypatch.setattr(lock_mod, "_get_scheduler_redis_client", lambda: fake_redis)
 
-    scheduler_mod._run_locked_job("job_b", lambda: called.append("run"))
+    lock_mod.run_locked_job("job_b", lambda: called.append("run"))
 
     assert called == []
 
 
 def test_run_locked_job_skips_without_redis(monkeypatch):
     called = []
-    monkeypatch.setattr(scheduler_mod, "_get_scheduler_redis_client", lambda: None)
+    monkeypatch.setattr(lock_mod, "_get_scheduler_redis_client", lambda: None)
 
-    scheduler_mod._run_locked_job("job_c", lambda: called.append("run"))
+    lock_mod.run_locked_job("job_c", lambda: called.append("run"))
 
     assert called == []
 
@@ -85,11 +87,11 @@ def test_start_scheduler_uses_strict_job_defaults(monkeypatch):
         return mock_scheduler
 
     monkeypatch.setattr(config, "SCHEDULER_JOB_MISFIRE_GRACE_SECONDS", 900)
-    monkeypatch.setattr(scheduler_mod, "BackgroundScheduler", _fake_scheduler_factory)
-    monkeypatch.setattr(scheduler_mod, "_scheduler", None)
+    monkeypatch.setattr(scheduler_pkg, "BackgroundScheduler", _fake_scheduler_factory)
+    monkeypatch.setattr(scheduler_pkg, "_scheduler", None)
 
-    scheduler_mod.start_scheduler()
-    scheduler_mod.start_scheduler()
+    scheduler_pkg.start_scheduler()
+    scheduler_pkg.start_scheduler()
 
     assert mock_scheduler.add_job.call_count == 1
     kwargs = mock_scheduler.add_job.call_args.kwargs

@@ -1,20 +1,13 @@
 import logging
 import threading
-import time
 import uuid
 from typing import Callable
-from pathlib import Path
-
-from apscheduler.schedulers.background import BackgroundScheduler
 
 from api import config
 
 logger = logging.getLogger(__name__)
 
-_scheduler: BackgroundScheduler | None = None
 _redis_client = None
-
-UWSGI_LOG_MAX_AGE_DAYS = 7
 
 _LOCK_RELEASE_SCRIPT = """
 if redis.call('get', KEYS[1]) == ARGV[1] then
@@ -29,17 +22,6 @@ if redis.call('get', KEYS[1]) == ARGV[1] then
 end
 return 0
 """
-
-
-def _cleanup_uwsgi_logs() -> None:
-    """Delete uWSGI daemonize log files older than 1 week."""
-    log_dir = Path(config.LOG_DIR)
-    cutoff = time.time() - (UWSGI_LOG_MAX_AGE_DAYS * 86400)
-
-    for log_file in log_dir.glob("uwsgi-*.log"):
-        if log_file.stat().st_mtime < cutoff:
-            log_file.unlink()
-            logger.info("Deleted old uWSGI log: %s", log_file.name)
 
 
 def _normalize_positive(value: int, default: int) -> int:
@@ -139,7 +121,7 @@ class _RedisDistributedLock:
                 return
 
 
-def _run_locked_job(job_id: str, job_func: Callable[[], None]) -> None:
+def run_locked_job(job_id: str, job_func: Callable[[], None]) -> None:
     redis_client = _get_scheduler_redis_client()
     if redis_client is None:
         logger.error("Skipping scheduler job '%s': Redis lock backend unavailable.", job_id)
@@ -159,36 +141,3 @@ def _run_locked_job(job_id: str, job_func: Callable[[], None]) -> None:
         job_func()
     finally:
         lock.release()
-
-
-def _cleanup_uwsgi_logs_job() -> None:
-    _run_locked_job("cleanup_uwsgi_logs", _cleanup_uwsgi_logs)
-
-
-def start_scheduler() -> None:
-    """Start the background scheduler. Safe to call multiple times."""
-    global _scheduler
-    if _scheduler is not None:
-        return
-
-    _scheduler = BackgroundScheduler(
-        daemon=True,
-        job_defaults={
-            "coalesce": True,
-            "max_instances": 1,
-            "misfire_grace_time": _normalize_positive(config.SCHEDULER_JOB_MISFIRE_GRACE_SECONDS, 1800),
-        },
-    )
-    _scheduler.add_job(
-        _cleanup_uwsgi_logs_job,
-        trigger="cron",
-        hour=3,
-        minute=0,
-        id="cleanup_uwsgi_logs",
-        replace_existing=True,
-        max_instances=1,
-        coalesce=True,
-        misfire_grace_time=_normalize_positive(config.SCHEDULER_JOB_MISFIRE_GRACE_SECONDS, 1800),
-    )
-    _scheduler.start()
-    logger.info("Background scheduler started")
