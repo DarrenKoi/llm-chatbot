@@ -9,6 +9,10 @@ def discover_and_register(scheduler) -> None:
     from api.utils.scheduler import tasks
 
     for module_info in pkgutil.iter_modules(tasks.__path__, tasks.__name__ + "."):
+        short_name = module_info.name.rsplit(".", 1)[-1]
+        if short_name.startswith("_"):
+            continue
+
         try:
             mod = importlib.import_module(module_info.name)
         except Exception:
