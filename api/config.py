@@ -24,6 +24,8 @@ CUBE_API_URL = os.environ.get("CUBE_API_URL", "")
 # Flask
 FLASK_PORT = int(os.environ.get("FLASK_PORT", 5000))
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS", 4))
+APP_NAME = os.environ.get("APP_NAME", "llm_chatbot")
+APP_ENV = os.environ.get("APP_ENV", os.environ.get("FLASK_ENV", "development"))
 
 # Redis (empty = in-memory fallback)
 REDIS_URL = os.environ.get("REDIS_URL", "")
@@ -41,6 +43,7 @@ LOG_DIR = Path(os.environ.get("LOG_DIR", str(BASE_DIR / "logs"))).expanduser()
 ACTIVITY_LOG_THEME = os.environ.get("ACTIVITY_LOG_THEME", "activity")
 # Backward-compatible alias for legacy callers; the logger now uses LOG_DIR/theme layout.
 ACTIVITY_LOG_DIR = Path(os.environ.get("ACTIVITY_LOG_DIR", str(LOG_DIR / ACTIVITY_LOG_THEME))).expanduser()
+LOG_RETENTION_DAYS = int(os.environ.get("LOG_RETENTION_DAYS", 7))
 ACTIVITY_LOG_MAX_BYTES = int(os.environ.get("ACTIVITY_LOG_MAX_BYTES", 20 * 1024 * 1024))
 ACTIVITY_LOG_BACKUP_COUNT = int(os.environ.get("ACTIVITY_LOG_BACKUP_COUNT", 30))
 TOPIC_LOG_MAX_BYTES = int(os.environ.get("TOPIC_LOG_MAX_BYTES", 10 * 1024 * 1024))

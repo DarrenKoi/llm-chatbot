@@ -4,7 +4,7 @@ import logging
 import sys
 from datetime import datetime, timezone
 from logging import Handler
-from logging.handlers import RotatingFileHandler
+from logging.handlers import TimedRotatingFileHandler
 from threading import Lock
 from typing import Any
 
@@ -59,15 +59,16 @@ def _request_context() -> dict[str, Any]:
 def _build_file_handler(
     *,
     file_path,
-    max_bytes: int,
-    backup_count: int,
+    retention_days: int,
     json_output: bool,
-) -> RotatingFileHandler:
-    handler = RotatingFileHandler(
+) -> TimedRotatingFileHandler:
+    handler = TimedRotatingFileHandler(
         file_path,
-        maxBytes=max_bytes,
-        backupCount=backup_count,
+        when="midnight",
+        interval=1,
+        backupCount=max(1, retention_days),
         encoding="utf-8",
+        utc=True,
     )
     if json_output:
         handler.setFormatter(JsonLineFormatter())
@@ -97,8 +98,7 @@ def setup_logging() -> None:
             activity_dir = get_theme_log_dir(activity_theme)
             file_handler = _build_file_handler(
                 file_path=activity_dir / "activity.jsonl",
-                max_bytes=config.ACTIVITY_LOG_MAX_BYTES,
-                backup_count=config.ACTIVITY_LOG_BACKUP_COUNT,
+                retention_days=config.LOG_RETENTION_DAYS,
                 json_output=True,
             )
             _set_handler_tag(file_handler, _ACTIVITY_HANDLER_TAG)
@@ -142,8 +142,7 @@ def get_topic_logger(topic: str, *, json_output: bool = False) -> logging.Logger
     topic_dir = get_theme_log_dir(safe_topic)
     file_handler = _build_file_handler(
         file_path=topic_dir / f"{safe_topic}.{suffix}",
-        max_bytes=config.TOPIC_LOG_MAX_BYTES,
-        backup_count=config.TOPIC_LOG_BACKUP_COUNT,
+        retention_days=config.LOG_RETENTION_DAYS,
         json_output=json_output,
     )
     _set_handler_tag(file_handler, handler_tag)
@@ -156,11 +155,14 @@ def get_theme_logger(
     *,
     name: str = "events",
     json_output: bool = False,
+    retention_days: int | None = None,
     max_bytes: int | None = None,
     backup_count: int | None = None,
 ) -> logging.Logger:
     """Return a rotating logger saved under ``logs/<theme>/<name>.(log|jsonl)``."""
     setup_logging()
+    # Compatibility: old callers may still pass max_bytes from size-based logger API.
+    _ = max_bytes
     safe_theme = normalize_name(theme, field_name="theme")
     safe_name = normalize_name(name, field_name="name")
     logger_name = f"theme.{safe_theme}.{safe_name}.json" if json_output else f"theme.{safe_theme}.{safe_name}"
@@ -176,8 +178,7 @@ def get_theme_logger(
     themed_dir = get_theme_log_dir(safe_theme)
     file_handler = _build_file_handler(
         file_path=themed_dir / f"{safe_name}.{suffix}",
-        max_bytes=max_bytes or config.TOPIC_LOG_MAX_BYTES,
-        backup_count=backup_count if backup_count is not None else config.TOPIC_LOG_BACKUP_COUNT,
+        retention_days=retention_days if retention_days is not None else (backup_count or config.LOG_RETENTION_DAYS),
         json_output=json_output,
     )
     _set_handler_tag(file_handler, handler_tag)
