@@ -8,14 +8,22 @@ from flask import Blueprint, request, jsonify, send_from_directory
 from api import config
 from api.services.llm.llm_service import chat
 from api.services.conversation_service import get_history, append_message, append_messages
-from api.services.cube_service import send_rich_notification
-from api.services.log_service import log_request
 from api.utils.logger import log_activity
 
 logger = logging.getLogger(__name__)
 
 chatbot_bp = Blueprint("chatbot", __name__)
 executor = ThreadPoolExecutor(max_workers=config.MAX_WORKERS)
+
+
+def send_rich_notification(channel_id: str, text: str, image_url: str | None = None):
+    """Temporary local stub for cube notification sending."""
+    logger.info("[CUBE STUB] channel=%s text=%s image=%s", channel_id, text[:100], image_url)
+
+
+def log_request(doc: dict) -> None:
+    """Request logging stub for environments without persistent log store."""
+    logger.info("request_log=%s", doc)
 
 
 @chatbot_bp.route("/health")
