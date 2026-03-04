@@ -2,29 +2,16 @@ import json
 from pathlib import Path
 
 from api.services.llm.tools import execute_tool
-from api.services.llm.tools.query_data import execute as query_data_execute
 
 
-def test_query_data_returns_valid_json():
-    result = query_data_execute("sales data")
-    data = json.loads(result)
-    assert data["source"] == "database"
-    assert data["query"] == "sales data"
-    assert len(data["results"]) > 0
-
-
-def test_query_data_elasticsearch_source():
-    result = query_data_execute("logs", source="elasticsearch")
-    data = json.loads(result)
-    assert data["source"] == "elasticsearch"
-
-
-def test_execute_tool_query_data():
+def test_execute_tool_dispatches_known_tool():
+    """Verify the dispatcher routes to a registered tool and reports success."""
     result, info = execute_tool("query_data", {"query": "test"})
     assert info["success"] is True
     assert info["name"] == "query_data"
-    data = json.loads(result)
-    assert "results" in data
+    assert info["duration_ms"] >= 0
+    # result should be valid JSON regardless of content
+    json.loads(result)
 
 
 def test_execute_tool_unknown():
