@@ -3,6 +3,7 @@ import logging
 
 from api import config
 from api.utils.logger import (
+    get_theme_logger,
     get_topic_logger,
     log_activity,
     rollover_activity_logs,
@@ -24,7 +25,7 @@ def _reset_logger_state() -> None:
 
     manager = logging.root.manager
     for name, logger_obj in manager.loggerDict.items():
-        if isinstance(logger_obj, logging.Logger) and name.startswith("topic."):
+        if isinstance(logger_obj, logging.Logger) and (name.startswith("topic.") or name.startswith("theme.")):
             _remove_tagged_handlers(logger_obj)
 
 
@@ -34,14 +35,15 @@ def _flush_handlers(logger: logging.Logger) -> None:
 
 
 def test_log_activity_writes_json_line(tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "ACTIVITY_LOG_DIR", tmp_path / "activity-logs")
+    monkeypatch.setattr(config, "LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(config, "ACTIVITY_LOG_THEME", "activity")
     _reset_logger_state()
 
     setup_logging()
     log_activity("request_accepted", user_id="u1", status="ok")
     _flush_handlers(logging.getLogger("activity"))
 
-    log_file = config.ACTIVITY_LOG_DIR / "activity.jsonl"
+    log_file = config.LOG_DIR / "activity" / "activity.jsonl"
     assert log_file.exists()
 
     first_line = log_file.read_text(encoding="utf-8").splitlines()[0]
@@ -53,7 +55,7 @@ def test_log_activity_writes_json_line(tmp_path, monkeypatch):
 
 
 def test_topic_json_logger_and_rollover(tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "ACTIVITY_LOG_DIR", tmp_path / "activity-logs")
+    monkeypatch.setattr(config, "LOG_DIR", tmp_path / "logs")
     monkeypatch.setattr(config, "TOPIC_LOG_MAX_BYTES", 1024)
     monkeypatch.setattr(config, "TOPIC_LOG_BACKUP_COUNT", 3)
     _reset_logger_state()
@@ -62,10 +64,25 @@ def test_topic_json_logger_and_rollover(tmp_path, monkeypatch):
     topic_logger.info("jobs_event", extra={"activity_data": {"event": "jobs_event", "job_id": "daily-cleanup"}})
     _flush_handlers(topic_logger)
 
-    topic_log_file = config.ACTIVITY_LOG_DIR / "jobs.jsonl"
+    topic_log_file = config.LOG_DIR / "jobs" / "jobs.jsonl"
     assert topic_log_file.exists()
     payload = json.loads(topic_log_file.read_text(encoding="utf-8").splitlines()[0])
     assert payload["event"] == "jobs_event"
     assert payload["job_id"] == "daily-cleanup"
 
     assert rollover_activity_logs() >= 1
+
+
+def test_theme_logger_writes_under_theme_folder(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(config, "TOPIC_LOG_MAX_BYTES", 1024)
+    monkeypatch.setattr(config, "TOPIC_LOG_BACKUP_COUNT", 3)
+    _reset_logger_state()
+
+    theme_logger = get_theme_logger("audit", name="security", json_output=False)
+    theme_logger.info("access granted")
+    _flush_handlers(theme_logger)
+
+    themed_log_file = config.LOG_DIR / "audit" / "security.log"
+    assert themed_log_file.exists()
+    assert "access granted" in themed_log_file.read_text(encoding="utf-8")

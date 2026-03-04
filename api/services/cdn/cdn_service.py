@@ -171,7 +171,8 @@ def save_file_bytes(data: bytes, extension: str, content_type: str, original_fil
         raise ValueError(f"File is too large (max {config.CDN_MAX_UPLOAD_BYTES} bytes)")
     _assert_storage_limit(len(data))
 
-    storage_dir = _original_dir()
+    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    storage_dir = _original_dir() / date_str
     storage_dir.mkdir(parents=True, exist_ok=True)
 
     file_id = uuid.uuid4().hex

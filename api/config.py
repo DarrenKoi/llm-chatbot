@@ -37,10 +37,10 @@ SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS = int(os.environ.get("SCHEDULER_LOCK_RENEW
 SCHEDULER_JOB_MISFIRE_GRACE_SECONDS = int(os.environ.get("SCHEDULER_JOB_MISFIRE_GRACE_SECONDS", 60))
 
 # Logging
-LOG_DIR = os.environ.get("LOG_DIR", str(BASE_DIR / "logs"))
-ACTIVITY_LOG_DIR = Path(
-    os.environ.get("ACTIVITY_LOG_DIR", str(BASE_DIR / "api" / "utils" / "logger" / "logs"))
-).expanduser()
+LOG_DIR = Path(os.environ.get("LOG_DIR", str(BASE_DIR / "logs"))).expanduser()
+ACTIVITY_LOG_THEME = os.environ.get("ACTIVITY_LOG_THEME", "activity")
+# Backward-compatible alias for legacy callers; the logger now uses LOG_DIR/theme layout.
+ACTIVITY_LOG_DIR = Path(os.environ.get("ACTIVITY_LOG_DIR", str(LOG_DIR / ACTIVITY_LOG_THEME))).expanduser()
 ACTIVITY_LOG_MAX_BYTES = int(os.environ.get("ACTIVITY_LOG_MAX_BYTES", 20 * 1024 * 1024))
 ACTIVITY_LOG_BACKUP_COUNT = int(os.environ.get("ACTIVITY_LOG_BACKUP_COUNT", 30))
 TOPIC_LOG_MAX_BYTES = int(os.environ.get("TOPIC_LOG_MAX_BYTES", 10 * 1024 * 1024))
