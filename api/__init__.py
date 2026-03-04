@@ -4,7 +4,6 @@ import uuid
 from flask import Flask
 from flask import g, request
 
-from api.routes import chatbot_bp
 from api.services.cdn.api_cdn import cdn_bp
 from api.utils.logger import log_activity, setup_logging
 from api.utils.scheduler import start_scheduler
@@ -16,7 +15,6 @@ def create_application() -> Flask:
     start_scheduler()
 
     app = Flask(__name__)
-    app.register_blueprint(chatbot_bp)
     app.register_blueprint(cdn_bp)
 
     @app.before_request
