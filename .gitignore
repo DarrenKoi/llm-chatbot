@@ -29,6 +29,7 @@ Thumbs.db
 # Logs
 *.log
 *.log.*
+api/utils/logger/logs/
 
 # Chart images (runtime generated)
 data/chart-images/
