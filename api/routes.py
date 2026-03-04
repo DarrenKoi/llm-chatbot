@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from flask import Blueprint, request, jsonify, send_from_directory
 
 from api import config
-from api.services.llm_service import chat
+from api.services.llm.llm_service import chat
 from api.services.conversation_service import get_history, append_message, append_messages
 from api.services.cube_service import send_rich_notification
 from api.services.log_service import log_request
