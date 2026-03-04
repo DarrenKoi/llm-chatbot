@@ -1,0 +1,71 @@
+import json
+import logging
+
+from api import config
+from api.utils.logger import (
+    get_topic_logger,
+    log_activity,
+    rollover_activity_logs,
+    setup_logging,
+)
+
+
+def _remove_tagged_handlers(logger: logging.Logger) -> None:
+    handlers = list(logger.handlers)
+    for handler in handlers:
+        if getattr(handler, "_chatbot_handler_tag", "").startswith("chatbot."):
+            logger.removeHandler(handler)
+            handler.close()
+
+
+def _reset_logger_state() -> None:
+    _remove_tagged_handlers(logging.getLogger())
+    _remove_tagged_handlers(logging.getLogger("activity"))
+
+    manager = logging.root.manager
+    for name, logger_obj in manager.loggerDict.items():
+        if isinstance(logger_obj, logging.Logger) and name.startswith("topic."):
+            _remove_tagged_handlers(logger_obj)
+
+
+def _flush_handlers(logger: logging.Logger) -> None:
+    for handler in logger.handlers:
+        handler.flush()
+
+
+def test_log_activity_writes_json_line(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "ACTIVITY_LOG_DIR", tmp_path / "activity-logs")
+    _reset_logger_state()
+
+    setup_logging()
+    log_activity("request_accepted", user_id="u1", status="ok")
+    _flush_handlers(logging.getLogger("activity"))
+
+    log_file = config.ACTIVITY_LOG_DIR / "activity.jsonl"
+    assert log_file.exists()
+
+    first_line = log_file.read_text(encoding="utf-8").splitlines()[0]
+    payload = json.loads(first_line)
+    assert payload["event"] == "request_accepted"
+    assert payload["user_id"] == "u1"
+    assert payload["status"] == "ok"
+    assert payload["level"] == "INFO"
+
+
+def test_topic_json_logger_and_rollover(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "ACTIVITY_LOG_DIR", tmp_path / "activity-logs")
+    monkeypatch.setattr(config, "TOPIC_LOG_MAX_BYTES", 1024)
+    monkeypatch.setattr(config, "TOPIC_LOG_BACKUP_COUNT", 3)
+    _reset_logger_state()
+
+    topic_logger = get_topic_logger("jobs", json_output=True)
+    topic_logger.info("jobs_event", extra={"activity_data": {"event": "jobs_event", "job_id": "daily-cleanup"}})
+    _flush_handlers(topic_logger)
+
+    topic_log_file = config.ACTIVITY_LOG_DIR / "jobs.jsonl"
+    assert topic_log_file.exists()
+    payload = json.loads(topic_log_file.read_text(encoding="utf-8").splitlines()[0])
+    assert payload["event"] == "jobs_event"
+    assert payload["job_id"] == "daily-cleanup"
+
+    assert rollover_activity_logs() >= 1

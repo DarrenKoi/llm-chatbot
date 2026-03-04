@@ -42,6 +42,13 @@ SCHEDULER_JOB_MISFIRE_GRACE_SECONDS = int(os.environ.get("SCHEDULER_JOB_MISFIRE_
 
 # Logging
 LOG_DIR = os.environ.get("LOG_DIR", str(BASE_DIR / "logs"))
+ACTIVITY_LOG_DIR = Path(
+    os.environ.get("ACTIVITY_LOG_DIR", str(BASE_DIR / "api" / "utils" / "logger" / "logs"))
+).expanduser()
+ACTIVITY_LOG_MAX_BYTES = int(os.environ.get("ACTIVITY_LOG_MAX_BYTES", 20 * 1024 * 1024))
+ACTIVITY_LOG_BACKUP_COUNT = int(os.environ.get("ACTIVITY_LOG_BACKUP_COUNT", 30))
+TOPIC_LOG_MAX_BYTES = int(os.environ.get("TOPIC_LOG_MAX_BYTES", 10 * 1024 * 1024))
+TOPIC_LOG_BACKUP_COUNT = int(os.environ.get("TOPIC_LOG_BACKUP_COUNT", 14))
 
 # Conversation history
 CONVERSATION_MAX_MESSAGES = int(os.environ.get("CONVERSATION_MAX_MESSAGES", 20))

@@ -11,6 +11,7 @@ from api.services.conversation_service import get_history, append_message, appen
 from api.services.cdn import save_uploaded_image, get_image_variant_file
 from api.services.cube_service import send_rich_notification
 from api.services.log_service import log_request
+from api.utils.logger import log_activity
 
 logger = logging.getLogger(__name__)
 
@@ -26,17 +27,26 @@ def health():
 @chatbot_bp.route("/api/v1/cdn/upload", methods=["POST"])
 def upload_cdn_image():
     if "file" not in request.files:
+        log_activity("cdn_upload_rejected", reason="missing_file")
         return jsonify({"error": "No file provided"}), 400
 
     file = request.files["file"]
     try:
         stored = save_uploaded_image(file)
     except ValueError as e:
+        log_activity("cdn_upload_rejected", reason=str(e))
         return jsonify({"error": str(e)}), 400
     except Exception:
         logger.exception("CDN upload failed")
+        log_activity("cdn_upload_failed", level="ERROR")
         return jsonify({"error": "Failed to upload image"}), 500
 
+    log_activity(
+        "cdn_upload_success",
+        image_id=stored["image_id"],
+        content_type=stored["content_type"],
+        size_bytes=stored["size_bytes"],
+    )
     return jsonify(
         {
             "image_id": stored["image_id"],
@@ -87,7 +97,15 @@ def receive_cube():
     user_message = data.get("message", "")
 
     if not user_message:
+        log_activity("cube_message_rejected", user_id=user_id, reason="missing_message")
         return jsonify({"error": "No message provided"}), 400
+
+    log_activity(
+        "cube_message_received",
+        user_id=user_id,
+        channel_id=channel_id,
+        message_length=len(user_message),
+    )
 
     # Load history and append new user message
     history = get_history(user_id)
@@ -103,6 +121,12 @@ def receive_cube():
 def _process_llm_request(user_id: str, channel_id: str, history: list[dict], user_msg: dict):
     """Background worker: call LLM and send reply via Cube."""
     start = time.monotonic()
+    log_activity(
+        "llm_job_started",
+        user_id=user_id,
+        channel_id=channel_id,
+        history_size=len(history),
+    )
     try:
         messages = [{"role": "system", "content": config.LLM_SYSTEM_PROMPT}] + history + [user_msg]
 
@@ -115,6 +139,17 @@ def _process_llm_request(user_id: str, channel_id: str, history: list[dict], use
         if channel_id:
             send_rich_notification(channel_id, reply_text, image_url=image_url)
 
+        total_duration_ms = int((time.monotonic() - start) * 1000)
+        log_activity(
+            "llm_job_succeeded",
+            user_id=user_id,
+            channel_id=channel_id,
+            duration_ms=total_duration_ms,
+            llm_call_count=len(metadata["llm_calls"]),
+            tool_execution_count=len(metadata["tool_executions"]),
+            image_generated=bool(image_url),
+        )
+
         log_request({
             "user_id": user_id,
             "channel_id": channel_id,
@@ -123,12 +158,21 @@ def _process_llm_request(user_id: str, channel_id: str, history: list[dict], use
             "model": config.LLM_MODEL,
             "status": "success",
             "error": None,
-            "total_duration_ms": int((time.monotonic() - start) * 1000),
+            "total_duration_ms": total_duration_ms,
             "llm_calls": metadata["llm_calls"],
             "tool_executions": metadata["tool_executions"],
         })
     except Exception as e:
         logger.exception("Error processing LLM request for user %s", user_id)
+        total_duration_ms = int((time.monotonic() - start) * 1000)
+        log_activity(
+            "llm_job_failed",
+            level="ERROR",
+            user_id=user_id,
+            channel_id=channel_id,
+            duration_ms=total_duration_ms,
+            error=str(e),
+        )
         if channel_id:
             send_rich_notification(channel_id, "Sorry, something went wrong. Please try again.")
 
@@ -140,7 +184,7 @@ def _process_llm_request(user_id: str, channel_id: str, history: list[dict], use
             "model": config.LLM_MODEL,
             "status": "error",
             "error": str(e),
-            "total_duration_ms": int((time.monotonic() - start) * 1000),
+            "total_duration_ms": total_duration_ms,
             "llm_calls": [],
             "tool_executions": [],
         })
