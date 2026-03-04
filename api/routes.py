@@ -3,12 +3,11 @@ import logging
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-from flask import Blueprint, request, jsonify, send_from_directory, send_file
+from flask import Blueprint, request, jsonify, send_from_directory
 
 from api import config
 from api.services.llm_service import chat
 from api.services.conversation_service import get_history, append_message, append_messages
-from api.services.cdn import save_uploaded_image, get_image_variant_file
 from api.services.cube_service import send_rich_notification
 from api.services.log_service import log_request
 from api.utils.logger import log_activity
@@ -22,69 +21,6 @@ executor = ThreadPoolExecutor(max_workers=config.MAX_WORKERS)
 @chatbot_bp.route("/health")
 def health():
     return jsonify({"status": "ok"})
-
-
-@chatbot_bp.route("/api/v1/cdn/upload", methods=["POST"])
-def upload_cdn_image():
-    if "file" not in request.files:
-        log_activity("cdn_upload_rejected", reason="missing_file")
-        return jsonify({"error": "No file provided"}), 400
-
-    file = request.files["file"]
-    try:
-        stored = save_uploaded_image(file)
-    except ValueError as e:
-        log_activity("cdn_upload_rejected", reason=str(e))
-        return jsonify({"error": str(e)}), 400
-    except Exception:
-        logger.exception("CDN upload failed")
-        log_activity("cdn_upload_failed", level="ERROR")
-        return jsonify({"error": "Failed to upload image"}), 500
-
-    log_activity(
-        "cdn_upload_success",
-        image_id=stored["image_id"],
-        content_type=stored["content_type"],
-        size_bytes=stored["size_bytes"],
-    )
-    return jsonify(
-        {
-            "image_id": stored["image_id"],
-            "image_url": stored["image_url"],
-            "content_type": stored["content_type"],
-            "size_bytes": stored["size_bytes"],
-        }
-    ), 201
-
-
-@chatbot_bp.route("/cdn/images/<image_id>")
-def get_cdn_image(image_id: str):
-    width_arg = request.args.get("w")
-    height_arg = request.args.get("h")
-    thumbnail_arg = request.args.get("thumbnail", "").lower()
-
-    try:
-        width = int(width_arg) if width_arg else None
-        height = int(height_arg) if height_arg else None
-    except ValueError:
-        return jsonify({"error": "w and h must be integers"}), 400
-
-    thumbnail = thumbnail_arg in {"1", "true", "yes", "y"}
-
-    try:
-        image = get_image_variant_file(image_id, width=width, height=height, thumbnail=thumbnail)
-    except ValueError as e:
-        return jsonify({"error": str(e)}), 400
-    except RuntimeError as e:
-        return jsonify({"error": str(e)}), 503
-
-    if image is None:
-        return jsonify({"error": "Image not found"}), 404
-
-    file_path, content_type = image
-    response = send_file(file_path, mimetype=content_type)
-    response.headers["Cache-Control"] = "public, max-age=86400"
-    return response
 
 
 @chatbot_bp.route("/api/v1/receive/cube", methods=["POST"])

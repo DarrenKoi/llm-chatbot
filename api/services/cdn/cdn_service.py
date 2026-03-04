@@ -20,19 +20,24 @@ _CONTENT_TYPE_BY_EXT = {
     "jpeg": "image/jpeg",
     "gif": "image/gif",
     "webp": "image/webp",
+    "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
 
+_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
-def _metadata_key(image_id: str) -> str:
-    return f"cdn:image:{image_id}"
+
+def _metadata_key(file_id: str) -> str:
+    return f"cdn:file:{file_id}"
 
 
 def _metadata_index_key() -> str:
-    return "cdn:image:index"
+    return "cdn:file:index"
 
 
-def _build_image_url(image_id: str) -> str:
-    return f"{config.CDN_BASE_URL.rstrip('/')}/{image_id}"
+def _build_file_url(file_id: str) -> str:
+    return f"{config.CDN_BASE_URL.rstrip('/')}/{file_id}"
 
 
 def _original_dir() -> Path:
@@ -50,8 +55,8 @@ def _extract_extension(filename: str) -> str:
     return suffix.lstrip(".")
 
 
-def _validate_image_id(image_id: str) -> bool:
-    return bool(image_id) and len(image_id) == 32 and all(c in "0123456789abcdef" for c in image_id)
+def _validate_file_id(file_id: str) -> bool:
+    return bool(file_id) and len(file_id) == 32 and all(c in "0123456789abcdef" for c in file_id)
 
 
 def _parse_positive_int(value: int | None, field_name: str) -> int | None:
@@ -125,25 +130,23 @@ def _get_metadata_backend():
     return _metadata_backend
 
 
-def _save_metadata(image_id: str, metadata: dict) -> None:
-    _get_metadata_backend().set(image_id, metadata)
+def _save_metadata(file_id: str, metadata: dict) -> None:
+    _get_metadata_backend().set(file_id, metadata)
 
 
-def _load_metadata(image_id: str) -> dict | None:
-    return _get_metadata_backend().get(image_id)
+def _load_metadata(file_id: str) -> dict | None:
+    return _get_metadata_backend().get(file_id)
 
 
-def save_uploaded_image(file: FileStorage) -> dict:
+def save_uploaded_file(file: FileStorage) -> dict:
     if file is None or not file.filename:
         raise ValueError("No file provided")
 
     extension = _extract_extension(file.filename)
     if extension not in config.CDN_ALLOWED_EXTENSIONS:
-        raise ValueError(f"Unsupported image extension: {extension}")
+        raise ValueError(f"Unsupported file extension: {extension}")
 
     content_type = (file.mimetype or "").lower()
-    if content_type and not content_type.startswith("image/"):
-        raise ValueError("Only image uploads are allowed")
 
     data = file.read()
     if not data:
@@ -151,7 +154,7 @@ def save_uploaded_image(file: FileStorage) -> dict:
     if len(data) > config.CDN_MAX_UPLOAD_BYTES:
         raise ValueError(f"File is too large (max {config.CDN_MAX_UPLOAD_BYTES} bytes)")
 
-    return save_image_bytes(
+    return save_file_bytes(
         data=data,
         extension=extension,
         content_type=content_type or _CONTENT_TYPE_BY_EXT.get(extension, "application/octet-stream"),
@@ -159,11 +162,11 @@ def save_uploaded_image(file: FileStorage) -> dict:
     )
 
 
-def save_image_bytes(data: bytes, extension: str, content_type: str, original_filename: str = "") -> dict:
+def save_file_bytes(data: bytes, extension: str, content_type: str, original_filename: str = "") -> dict:
     if extension not in config.CDN_ALLOWED_EXTENSIONS:
-        raise ValueError(f"Unsupported image extension: {extension}")
+        raise ValueError(f"Unsupported file extension: {extension}")
     if not data:
-        raise ValueError("Image data is empty")
+        raise ValueError("File data is empty")
     if len(data) > config.CDN_MAX_UPLOAD_BYTES:
         raise ValueError(f"File is too large (max {config.CDN_MAX_UPLOAD_BYTES} bytes)")
     _assert_storage_limit(len(data))
@@ -171,13 +174,13 @@ def save_image_bytes(data: bytes, extension: str, content_type: str, original_fi
     storage_dir = _original_dir()
     storage_dir.mkdir(parents=True, exist_ok=True)
 
-    image_id = uuid.uuid4().hex
-    filename = f"{image_id}.{extension}"
+    file_id = uuid.uuid4().hex
+    filename = f"{file_id}.{extension}"
     file_path = storage_dir / filename
     file_path.write_bytes(data)
 
     metadata = {
-        "image_id": image_id,
+        "file_id": file_id,
         "filename": filename,
         "file_path": str(file_path),
         "content_type": content_type or _CONTENT_TYPE_BY_EXT.get(extension, "application/octet-stream"),
@@ -185,25 +188,25 @@ def save_image_bytes(data: bytes, extension: str, content_type: str, original_fi
         "created_at": datetime.now(timezone.utc).isoformat(),
         "original_filename": original_filename,
     }
-    _save_metadata(image_id, metadata)
-    metadata["image_url"] = _build_image_url(image_id)
+    _save_metadata(file_id, metadata)
+    metadata["file_url"] = _build_file_url(file_id)
     return metadata
 
 
-def get_image_file(image_id: str) -> tuple[Path, str] | None:
-    return get_image_variant_file(image_id=image_id, width=None, height=None, thumbnail=False)
+def get_file(file_id: str) -> tuple[Path, str] | None:
+    return get_file_variant(file_id=file_id, width=None, height=None, thumbnail=False)
 
 
-def get_image_variant_file(
-    image_id: str,
+def get_file_variant(
+    file_id: str,
     width: int | None = None,
     height: int | None = None,
     thumbnail: bool = False,
 ) -> tuple[Path, str] | None:
-    if not _validate_image_id(image_id):
+    if not _validate_file_id(file_id):
         return None
 
-    metadata = _load_metadata(image_id)
+    metadata = _load_metadata(file_id)
     if not metadata:
         return None
 
@@ -211,19 +214,25 @@ def get_image_variant_file(
     if not file_path.exists():
         return None
 
+    extension = _extract_extension(metadata["filename"])
+    content_type = metadata.get("content_type", "application/octet-stream")
+
+    # 비이미지 파일은 variant(resize/thumbnail) 미지원 — 원본 반환
+    if extension not in _IMAGE_EXTENSIONS:
+        return file_path, content_type
+
     width, height, mode = _normalize_resize_options(width=width, height=height, thumbnail=thumbnail)
     if mode == "original":
-        return file_path, metadata.get("content_type", "application/octet-stream")
+        return file_path, content_type
 
-    extension = _extract_extension(metadata["filename"])
-    variant_dir = _variant_root_dir() / image_id
+    variant_dir = _variant_root_dir() / file_id
     variant_dir.mkdir(parents=True, exist_ok=True)
 
     variant_key = f"{mode}-{width or 0}x{height or 0}"
     variant_file = variant_dir / f"{variant_key}.{extension}"
 
     if variant_file.exists():
-        return variant_file, metadata.get("content_type", "application/octet-stream")
+        return variant_file, content_type
 
     variant_bytes = _create_variant_bytes(
         source_file=file_path,
@@ -234,7 +243,7 @@ def get_image_variant_file(
     _assert_storage_limit(len(variant_bytes))
     variant_file.write_bytes(variant_bytes)
 
-    return variant_file, metadata.get("content_type", "application/octet-stream")
+    return variant_file, content_type
 
 
 def _pil_resample_filter():
@@ -281,7 +290,7 @@ def _create_variant_bytes(source_file: Path, extension: str, target_width: int |
         return buffer.getvalue()
 
 
-def get_expired_image_ids(reference_time: datetime | None = None) -> list[str]:
+def get_expired_file_ids(reference_time: datetime | None = None) -> list[str]:
     retention_days = config.CDN_RETENTION_DAYS
     if retention_days <= 0:
         return []
@@ -290,8 +299,8 @@ def get_expired_image_ids(reference_time: datetime | None = None) -> list[str]:
     cutoff = now - timedelta(days=retention_days)
     expired: list[str] = []
 
-    for image_id in _get_metadata_backend().list_ids():
-        metadata = _load_metadata(image_id)
+    for file_id in _get_metadata_backend().list_ids():
+        metadata = _load_metadata(file_id)
         if not metadata:
             continue
         created_at = metadata.get("created_at")
@@ -304,13 +313,13 @@ def get_expired_image_ids(reference_time: datetime | None = None) -> list[str]:
         if created_dt.tzinfo is None:
             created_dt = created_dt.replace(tzinfo=timezone.utc)
         if created_dt < cutoff:
-            expired.append(image_id)
+            expired.append(file_id)
 
     return expired
 
 
-def delete_image(image_id: str) -> bool:
-    metadata = _load_metadata(image_id)
+def delete_file(file_id: str) -> bool:
+    metadata = _load_metadata(file_id)
     if not metadata:
         return False
 
@@ -318,11 +327,11 @@ def delete_image(image_id: str) -> bool:
     if file_path.exists():
         file_path.unlink()
 
-    variant_dir = _variant_root_dir() / image_id
+    variant_dir = _variant_root_dir() / file_id
     if variant_dir.exists():
         shutil.rmtree(variant_dir, ignore_errors=True)
 
-    _get_metadata_backend().delete(image_id)
+    _get_metadata_backend().delete(file_id)
     return True
 
 
@@ -330,50 +339,50 @@ class _RedisMetadataBackend:
     def __init__(self, client):
         self._r = client
 
-    def set(self, image_id: str, metadata: dict):
+    def set(self, file_id: str, metadata: dict):
         payload = json.dumps(metadata, ensure_ascii=False)
-        key = _metadata_key(image_id)
+        key = _metadata_key(file_id)
         if config.CDN_IMAGE_TTL_SECONDS > 0:
             self._r.set(key, payload, ex=config.CDN_IMAGE_TTL_SECONDS)
         else:
             self._r.set(key, payload)
-        self._r.sadd(_metadata_index_key(), image_id)
+        self._r.sadd(_metadata_index_key(), file_id)
 
-    def get(self, image_id: str) -> dict | None:
-        data = self._r.get(_metadata_key(image_id))
+    def get(self, file_id: str) -> dict | None:
+        data = self._r.get(_metadata_key(file_id))
         if not data:
             return None
         if isinstance(data, bytes):
             data = data.decode("utf-8")
         return json.loads(data)
 
-    def delete(self, image_id: str):
-        self._r.delete(_metadata_key(image_id))
-        self._r.srem(_metadata_index_key(), image_id)
+    def delete(self, file_id: str):
+        self._r.delete(_metadata_key(file_id))
+        self._r.srem(_metadata_index_key(), file_id)
 
     def list_ids(self) -> list[str]:
         raw_ids = self._r.smembers(_metadata_index_key())
-        image_ids: list[str] = []
+        file_ids: list[str] = []
         for value in raw_ids:
             if isinstance(value, bytes):
-                image_ids.append(value.decode("utf-8"))
+                file_ids.append(value.decode("utf-8"))
             else:
-                image_ids.append(str(value))
-        return image_ids
+                file_ids.append(str(value))
+        return file_ids
 
 
 class _InMemoryMetadataBackend:
     def __init__(self):
         self._store: dict[str, dict] = {}
 
-    def set(self, image_id: str, metadata: dict):
-        self._store[image_id] = metadata
+    def set(self, file_id: str, metadata: dict):
+        self._store[file_id] = metadata
 
-    def get(self, image_id: str) -> dict | None:
-        return self._store.get(image_id)
+    def get(self, file_id: str) -> dict | None:
+        return self._store.get(file_id)
 
-    def delete(self, image_id: str):
-        self._store.pop(image_id, None)
+    def delete(self, file_id: str):
+        self._store.pop(file_id, None)
 
     def list_ids(self) -> list[str]:
         return list(self._store.keys())

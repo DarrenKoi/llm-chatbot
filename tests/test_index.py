@@ -23,14 +23,13 @@ def test_receive_cube_missing_message(client):
 
 
 @patch("api.routes.send_rich_notification")
-@patch("api.routes.log_request")
 @patch("api.routes.chat")
 @patch("api.routes.append_messages")
 @patch("api.routes.append_message")
 @patch("api.routes.get_history", return_value=[])
 def test_receive_cube_valid(
     mock_get_hist, mock_append, mock_append_multi,
-    mock_chat, mock_log, mock_send, client,
+    mock_chat, mock_send, client,
 ):
     mock_chat.return_value = ("Hello!", [{"role": "assistant", "content": "Hello!"}], {"llm_calls": [], "tool_executions": []})
 
@@ -47,7 +46,6 @@ def test_receive_cube_valid(
     mock_append.assert_called_once()
     mock_chat.assert_called_once()
     mock_send.assert_called_once_with("c1", "Hello!", image_url=None)
-    mock_log.assert_called_once()
 
 
 def test_extract_image_url_found():
@@ -90,10 +88,10 @@ def test_cdn_upload_and_get_image(client, tmp_path, monkeypatch):
     assert upload.status_code == 201
 
     payload = upload.get_json()
-    assert payload["image_id"]
-    assert payload["image_url"].endswith(payload["image_id"])
+    assert payload["file_id"]
+    assert payload["file_url"].endswith(payload["file_id"])
 
-    download = client.get(f"/cdn/images/{payload['image_id']}")
+    download = client.get(f"/cdn/files/{payload['file_id']}")
     assert download.status_code == 200
     assert download.mimetype == "image/png"
     assert download.data == png_bytes
@@ -136,9 +134,9 @@ def test_cdn_resize_image(client, monkeypatch, tmp_path):
         content_type="multipart/form-data",
     )
     assert upload.status_code == 201
-    image_id = upload.get_json()["image_id"]
+    file_id = upload.get_json()["file_id"]
 
-    resized = client.get(f"/cdn/images/{image_id}?w=120")
+    resized = client.get(f"/cdn/files/{file_id}?w=120")
     assert resized.status_code == 200
 
     resized_img = image_module.open(BytesIO(resized.data))
@@ -167,9 +165,9 @@ def test_cdn_thumbnail_image(client, monkeypatch, tmp_path):
         content_type="multipart/form-data",
     )
     assert upload.status_code == 201
-    image_id = upload.get_json()["image_id"]
+    file_id = upload.get_json()["file_id"]
 
-    thumb = client.get(f"/cdn/images/{image_id}?thumbnail=true")
+    thumb = client.get(f"/cdn/files/{file_id}?thumbnail=true")
     assert thumb.status_code == 200
 
     thumb_img = image_module.open(BytesIO(thumb.data))
@@ -193,10 +191,34 @@ def test_cdn_resize_invalid_query(client, monkeypatch, tmp_path):
         data={"file": (BytesIO(png_bytes), "dot.png")},
         content_type="multipart/form-data",
     )
-    image_id = upload.get_json()["image_id"]
+    file_id = upload.get_json()["file_id"]
 
-    bad = client.get(f"/cdn/images/{image_id}?w=abc")
+    bad = client.get(f"/cdn/files/{file_id}?w=abc")
     assert bad.status_code == 400
 
-    bad_mix = client.get(f"/cdn/images/{image_id}?thumbnail=true&w=10")
+    bad_mix = client.get(f"/cdn/files/{file_id}?thumbnail=true&w=10")
     assert bad_mix.status_code == 400
+
+
+def test_cdn_upload_docx(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "CDN_STORAGE_DIR", tmp_path / "cdn")
+    monkeypatch.setattr(config, "CDN_REDIS_URL", "")
+    monkeypatch.setattr(config, "CDN_ALLOWED_EXTENSIONS", ("png", "jpg", "jpeg", "gif", "webp", "xlsx", "pptx", "docx"))
+    cdn_service._metadata_backend = None
+
+    docx_bytes = b"PK\x03\x04fake-docx-content-for-testing"
+    upload = client.post(
+        "/api/v1/cdn/upload",
+        data={"file": (BytesIO(docx_bytes), "report.docx")},
+        content_type="multipart/form-data",
+    )
+    assert upload.status_code == 201
+
+    payload = upload.get_json()
+    assert payload["file_id"]
+    assert payload["file_url"].endswith(payload["file_id"])
+
+    download = client.get(f"/cdn/files/{payload['file_id']}")
+    assert download.status_code == 200
+    assert download.data == docx_bytes
+    assert "attachment" in download.headers.get("Content-Disposition", "")

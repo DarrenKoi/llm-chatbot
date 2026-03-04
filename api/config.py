@@ -25,10 +25,6 @@ CUBE_API_URL = os.environ.get("CUBE_API_URL", "")
 FLASK_PORT = int(os.environ.get("FLASK_PORT", 5000))
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS", 4))
 
-# MongoDB
-MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
-MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "llm_chatbot")
-
 # Redis (empty = in-memory fallback)
 REDIS_URL = os.environ.get("REDIS_URL", "")
 REDIS_FALLBACK_URL = os.environ.get("REDIS_FALLBACK_URL", "")
@@ -69,13 +65,13 @@ WORKSPACE_ROOT = Path(os.environ.get("WORKSPACE_ROOT", str(_default_workspace_ro
 PVC_ROOT = Path(os.environ.get("PVC_ROOT", str(WORKSPACE_ROOT / "pvc" / "download"))).expanduser()
 
 # CDN
-CDN_STORAGE_DIR = Path(os.environ.get("CDN_STORAGE_DIR", str(PVC_ROOT / "cdn" / "images"))).expanduser()
-CDN_BASE_URL = os.environ.get("CDN_BASE_URL", "http://localhost:5000/cdn/images")
+CDN_STORAGE_DIR = Path(os.environ.get("CDN_STORAGE_DIR", str(PVC_ROOT / "cdn" / "files"))).expanduser()
+CDN_BASE_URL = os.environ.get("CDN_BASE_URL", "http://localhost:5000/cdn/files")
 CDN_MAX_UPLOAD_BYTES = int(os.environ.get("CDN_MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
 CDN_STORAGE_LIMIT_BYTES = int(os.environ.get("CDN_STORAGE_LIMIT_BYTES", 8 * 1024 * 1024 * 1024))
 CDN_ALLOWED_EXTENSIONS = tuple(
     ext.strip().lower()
-    for ext in os.environ.get("CDN_ALLOWED_EXTENSIONS", "png,jpg,jpeg,gif,webp").split(",")
+    for ext in os.environ.get("CDN_ALLOWED_EXTENSIONS", "png,jpg,jpeg,gif,webp,xlsx,pptx,docx").split(",")
     if ext.strip()
 )
 CDN_IMAGE_TTL_SECONDS = int(os.environ.get("CDN_IMAGE_TTL_SECONDS", 0))
