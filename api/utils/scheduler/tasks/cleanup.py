@@ -3,7 +3,7 @@ import time
 from pathlib import Path
 
 from api import config
-from api.utils.scheduler._lock import run_locked_job, _normalize_positive
+from api.utils.scheduler._registry import scheduled_job
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +21,11 @@ def _cleanup_uwsgi_logs() -> None:
             logger.info("Deleted old uWSGI log: %s", log_file.name)
 
 
-def register(scheduler) -> None:
-    scheduler.add_job(
-        lambda: run_locked_job("cleanup_uwsgi_logs", _cleanup_uwsgi_logs),
-        trigger="cron",
-        hour=3,
-        minute=0,
-        id="cleanup_uwsgi_logs",
-        replace_existing=True,
-        max_instances=1,
-        coalesce=True,
-        misfire_grace_time=_normalize_positive(config.SCHEDULER_JOB_MISFIRE_GRACE_SECONDS, 1800),
-    )
+@scheduled_job(
+    id="cleanup_uwsgi_logs",
+    trigger="cron",
+    hour=3,
+    minute=0,
+)
+def cleanup_uwsgi_logs_job() -> None:
+    _cleanup_uwsgi_logs()

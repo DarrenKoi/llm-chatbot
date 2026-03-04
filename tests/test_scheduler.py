@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+from types import SimpleNamespace
 import uuid
 
 from api import config
@@ -113,3 +114,39 @@ def test_start_scheduler_uses_strict_job_defaults(monkeypatch):
     assert kwargs["coalesce"] is True
     assert kwargs["misfire_grace_time"] == 900
     mock_scheduler.start.assert_called_once()
+
+
+def test_discover_and_register_supports_scheduled_job_decorator(monkeypatch):
+    mock_scheduler = MagicMock()
+
+    @registry_mod.scheduled_job(
+        id="decorator_job",
+        trigger="interval",
+        minutes=5,
+        use_distributed_lock=False,
+    )
+    def _job() -> None:
+        return
+
+    fake_module = SimpleNamespace(
+        __name__="api.utils.scheduler.tasks.fake",
+        decorator_job=_job,
+    )
+    fake_module_info = SimpleNamespace(name="api.utils.scheduler.tasks.fake")
+
+    monkeypatch.setattr(config, "SCHEDULER_JOB_MISFIRE_GRACE_SECONDS", 900)
+    monkeypatch.setattr(registry_mod.pkgutil, "iter_modules", lambda *_args, **_kwargs: [fake_module_info])
+    monkeypatch.setattr(registry_mod.importlib, "import_module", lambda _name: fake_module)
+
+    registry_mod.discover_and_register(mock_scheduler)
+
+    assert mock_scheduler.add_job.call_count == 1
+    args = mock_scheduler.add_job.call_args.args
+    kwargs = mock_scheduler.add_job.call_args.kwargs
+    assert args[0] is _job
+    assert kwargs["id"] == "decorator_job"
+    assert kwargs["trigger"] == "interval"
+    assert kwargs["minutes"] == 5
+    assert kwargs["max_instances"] == 1
+    assert kwargs["coalesce"] is True
+    assert kwargs["misfire_grace_time"] == 900
