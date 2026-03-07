@@ -8,10 +8,10 @@ from api.utils.logger import log_activity
 
 logger = logging.getLogger(__name__)
 
-cdn_bp = Blueprint("cdn", __name__)
+bp = Blueprint("cdn", __name__)
 
 
-@cdn_bp.route("/api/v1/cdn/upload", methods=["POST"])
+@bp.route("/api/v1/cdn/upload", methods=["POST"])
 def upload_cdn_file():
     if "file" not in request.files:
         log_activity("cdn_upload_rejected", reason="missing_file")
@@ -44,7 +44,7 @@ def upload_cdn_file():
     ), 201
 
 
-@cdn_bp.route("/cdn/files/<file_id>")
+@bp.route("/cdn/files/<file_id>")
 def get_cdn_file(file_id: str):
     width_arg = request.args.get("w")
     height_arg = request.args.get("h")

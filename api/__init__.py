@@ -4,7 +4,7 @@ import uuid
 from flask import Flask
 from flask import g, request
 
-from api.services.cdn.api_cdn import cdn_bp
+from api.blueprint_loader import discover_blueprints
 from api.utils.logger import log_activity, setup_logging
 from api.utils.scheduler import start_scheduler
 
@@ -15,7 +15,8 @@ def create_application() -> Flask:
     start_scheduler()
 
     app = Flask(__name__)
-    app.register_blueprint(cdn_bp)
+    for blueprint in discover_blueprints():
+        app.register_blueprint(blueprint)
 
     @app.before_request
     def _before_request() -> None:
