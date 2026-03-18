@@ -30,7 +30,9 @@ def create_application() -> Flask:
         response.headers["X-Request-ID"] = g.request_id
 
         payload = request.get_json(silent=True) if request.is_json else None
-        user_id = payload.get("user_id") if isinstance(payload, dict) else None
+        user_id = None
+        if isinstance(payload, dict):
+            user_id = payload.get("user_id") or payload.get("user")
         log_activity(
             "http_request",
             method=request.method,

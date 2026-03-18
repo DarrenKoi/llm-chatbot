@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-- `index.py`: Flask Blueprint entrypoint (`chatbot_bp`) with HTTP routes (`/health`, `/api/v1/receive/cube`) and local dev runner.
+- `index.py`: local dev runner that boots the Flask app from `api.create_application()`.
 - `api/config.py`: all environment-driven configuration (LLM endpoint, Cube, Redis, MongoDB, Flask, chart paths).
 - `api/cdn/`, `api/cube/`, `api/llm/`: API-domain packages and related routers/services.
 - `api/conversation_service.py`: conversation history backend and retention logic.
