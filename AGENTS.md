@@ -2,16 +2,15 @@
 
 ## Project Structure & Module Organization
 - `index.py`: local dev runner that boots the Flask app from `api.create_application()`.
-- `api/config.py`: all environment-driven configuration (LLM endpoint, Cube, Redis, MongoDB, Flask, chart paths).
-- `api/cdn/`, `api/cube/`, `api/llm/`: API-domain packages and related routers/services.
+- `api/config.py`: all environment-driven configuration (Cube, Redis, Flask app metadata, logging, CDN paths).
+- `api/cdn/`, `api/cube/`: API-domain packages and related routers/services.
 - `api/conversation_service.py`: conversation history backend and retention logic.
-- `api/llm/tools/`: LLM tool-use helpers (for example `create_chart.py`, `query_data.py`).
 - `tests/`: pytest suite (`test_*.py`) plus shared fixtures in `tests/conftest.py`.
 - `wsgi.ini`: uWSGI runtime configuration for deployment.
 
 ## Build, Test, and Development Commands
 - `pip install -r requirements.txt`: install app and test dependencies.
-- `python index.py`: run locally (default `0.0.0.0:5000`, configurable via `FLASK_PORT`).
+- `python index.py`: run locally on fixed `0.0.0.0:5000`.
 - `pytest tests/ -v`: run all tests with verbose output.
 - `uwsgi --ini wsgi.ini`: run with uWSGI settings used by this repo.
 
@@ -25,8 +24,8 @@
 ## Testing Guidelines
 - Framework: `pytest` with `pytest-mock`.
 - Place tests under `tests/` and name files `test_*.py`.
-- Add unit tests for new service/tool logic and route-level behavior.
-- Mock external dependencies (LLM endpoint, Cube API, Redis, MongoDB) to keep tests deterministic.
+- Add unit tests for new service logic and route-level behavior.
+- Mock external dependencies (Cube API, Redis, filesystem/image libraries) to keep tests deterministic.
 
 ## Commit & Pull Request Guidelines
 - Recent history shows Korean commit usage; use concise Korean commit messages in imperative style.
@@ -36,7 +35,7 @@
 
 ## Security & Configuration Tips
 - Do not hardcode secrets or service URLs; use environment variables (`.env` locally, never commit it).
-- Keep LLM calls on OpenAI-compatible local/internal endpoints configured via `LLM_BASE_URL`.
+- Keep integration points and storage paths environment-driven.
 
 ## Auto Git Sync
 - After completing any code generation or edit task, run:

@@ -1,10 +1,9 @@
 # LLM Chatbot
 
-Flask-based chatbot on the internal "Cube" platform, powered by local LLMs.
+Flask-based Cube integration server with conversation persistence and CDN support.
 
 ## Rules
 
-- **No external LLM services** — never use OpenAI, Anthropic, or any cloud AI APIs. All LLM calls go through local endpoints using OpenAI-compatible format (`/v1/chat/completions`).
 - **Environment-based config** — all secrets and service URLs come from env vars (see `api/config.py`). Never hardcode credentials or URLs.
 - **Korean language support** — user messages arrive in Korean. Keep UI-facing strings and error messages compatible.
 - **Use `pathlib`** — always use `pathlib.Path` for file paths instead of `os.path`. All OS compatibility matters.
@@ -17,18 +16,17 @@ Flask-based chatbot on the internal "Cube" platform, powered by local LLMs.
 - `api/__init__.py` — Flask app factory (`create_application`)
 - `api/blueprint_loader.py` — automatic router discovery
 - `api/config.py` — all env-based configuration
-- `api/cdn/`, `api/cube/`, `api/llm/` — API domain packages
+- `api/cdn/`, `api/cube/` — API domain packages
 - `api/conversation_service.py` — conversation history storage
-- `api/llm/tools/` — tool-use functions callable by the LLM (chart creation, data queries)
 
 ## Dev Environment
 
-- Code at home (no Cube/LLM access), test at office
+- Code at home (no Cube access), test at office
 - Use `.env` file for local overrides; never commit it
 - `pip install -r requirements.txt` to set up
 
 ## Testing
 
 - `pytest tests/ -v` — run all tests (works at home, no external services needed)
-- Tests use mocks for LLM, Redis, MongoDB, and Cube APIs
+- Tests use mocks for Redis, image/file processing, and Cube-related inputs
 - Test files: `tests/test_*.py`, shared fixtures in `tests/conftest.py`

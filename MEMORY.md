@@ -3,10 +3,15 @@
 ## 런타임 기준
 - 프로젝트 기본 파이썬 버전은 3.11이다.
 - 관련 파일: `.python-version`(`3.11`), `runtime.txt`(`python-3.11.11`).
+- 로컬 개발 서버 포트는 고정 `5000`이다.
 
 ## 환경 설정 로딩 규칙
 - `api/config.py`는 `.env`를 우선 로드하고, 없으면 `.env.example`을 로드한다.
 - 경로 처리는 `pathlib.Path`를 사용한다.
+
+## Cube 수신 처리 규칙
+- `api/cube/router.py`는 Cube 웹훅 메시지를 수신해 대화 이력에 사용자 메시지만 저장한다.
+- Tool calling 및 응답 생성은 별도 저장소에서 처리한다.
 
 ## Redis 사용 규칙
 - 대화 이력 저장(`api/conversation_service.py`)은 `REDIS_URL`(primary) -> `REDIS_FALLBACK_URL`(secondary) 순으로 연결을 시도한다.

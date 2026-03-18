@@ -1,5 +1,7 @@
 # LLM Chatbot
 
+Cube webhook/CDN server. Tool calling and model orchestration are handled in a separate repository.
+
 ## Python Version
 
 This project is based on Python 3.11.
@@ -15,3 +17,5 @@ source .venv/bin/activate
 pip install -r requirements.txt
 python index.py
 ```
+
+The local dev server listens on fixed port `5000`.

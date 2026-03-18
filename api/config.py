@@ -11,19 +11,11 @@ if ENV_PATH.exists():
 else:
     load_dotenv(BASE_DIR / ".env.example")
 
-# LLM
-LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "http://localhost:8000/v1")
-LLM_API_KEY = os.environ.get("LLM_API_KEY", "no-key")
-LLM_MODEL = os.environ.get("LLM_MODEL", "kimi-k2.5")
-LLM_SYSTEM_PROMPT = os.environ.get("LLM_SYSTEM_PROMPT", "You are a helpful assistant.")
-
 # Cube
 CUBE_API_TOKEN = os.environ.get("CUBE_API_TOKEN", "")
 CUBE_API_URL = os.environ.get("CUBE_API_URL", "")
 
 # Flask
-FLASK_PORT = int(os.environ.get("FLASK_PORT", 5000))
-MAX_WORKERS = int(os.environ.get("MAX_WORKERS", 4))
 APP_NAME = os.environ.get("APP_NAME", "llm_chatbot")
 APP_ENV = os.environ.get("APP_ENV", os.environ.get("FLASK_ENV", "development"))
 
@@ -52,10 +44,6 @@ TOPIC_LOG_BACKUP_COUNT = int(os.environ.get("TOPIC_LOG_BACKUP_COUNT", 14))
 # Conversation history
 CONVERSATION_MAX_MESSAGES = int(os.environ.get("CONVERSATION_MAX_MESSAGES", 20))
 CONVERSATION_TTL_SECONDS = int(os.environ.get("CONVERSATION_TTL_SECONDS", 3600))
-
-# Chart images
-CHART_IMAGE_DIR = os.environ.get("CHART_IMAGE_DIR", str(BASE_DIR / "data" / "chart-images"))
-CHART_IMAGE_BASE_URL = os.environ.get("CHART_IMAGE_BASE_URL", "http://localhost:5000/static/charts")
 
 # Workspace / PVC (cross-platform)
 _linux_workspace_root = Path("/project/workSpace")

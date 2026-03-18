@@ -1,8 +1,6 @@
 flask
-openai
 python-dotenv
 redis
-matplotlib
 pymongo
 apscheduler
 pillow
