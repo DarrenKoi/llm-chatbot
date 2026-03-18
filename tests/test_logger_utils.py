@@ -21,6 +21,8 @@ def _remove_tagged_handlers(logger: logging.Logger) -> None:
 
 
 def _reset_logger_state() -> None:
+    from api.utils.logger import service as _svc
+    _svc._setup_done = False
     _remove_tagged_handlers(logging.getLogger())
     _remove_tagged_handlers(logging.getLogger("activity"))
 

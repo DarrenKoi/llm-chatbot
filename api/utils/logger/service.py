@@ -15,6 +15,7 @@ from api.utils.logger.formatters import JsonLineFormatter, TEXT_LOG_FORMAT
 from api.utils.logger.paths import get_theme_log_dir, normalize_name
 
 _setup_lock = Lock()
+_setup_done = False
 
 _ROOT_HANDLER_TAG = "chatbot.root.stream"
 _ACTIVITY_HANDLER_TAG = "chatbot.activity.json"
@@ -79,6 +80,9 @@ def _build_file_handler(
 
 def setup_logging() -> None:
     """Configure stdout operational logs + themed JSON activity log files."""
+    global _setup_done  # noqa: PLW0603
+    if _setup_done:
+        return
     with _setup_lock:
         root = logging.getLogger()
         root.setLevel(logging.INFO)
@@ -103,6 +107,8 @@ def setup_logging() -> None:
             )
             _set_handler_tag(file_handler, _ACTIVITY_HANDLER_TAG)
             activity_logger.addHandler(file_handler)
+
+        _setup_done = True
 
 
 def build_activity_payload(event: str, **data: Any) -> dict[str, Any]:
