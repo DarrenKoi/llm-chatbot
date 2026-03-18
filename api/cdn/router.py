@@ -2,8 +2,8 @@ import logging
 
 from flask import Blueprint, request, jsonify, send_file
 
-from api.services.cdn import save_uploaded_file, get_file_variant
-from api.services.cdn.cdn_service import _IMAGE_EXTENSIONS, _extract_extension
+from api.cdn import save_uploaded_file, get_file_variant
+from api.cdn.cdn_service import _IMAGE_EXTENSIONS, _extract_extension
 from api.utils.logger import log_activity
 
 logger = logging.getLogger(__name__)

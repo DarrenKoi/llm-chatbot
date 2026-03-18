@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from api.services.llm.tools import execute_tool
+from api.llm.tools import execute_tool
 
 
 def test_execute_tool_dispatches_known_tool():
@@ -23,7 +23,7 @@ def test_execute_tool_unknown():
 
 def test_execute_tool_exception_handling():
     from unittest.mock import patch
-    with patch("api.services.llm.tools.TOOL_EXECUTORS", {"bad_tool": lambda: (_ for _ in ()).throw(ValueError("boom"))}):
+    with patch("api.llm.tools.TOOL_EXECUTORS", {"bad_tool": lambda: (_ for _ in ()).throw(ValueError("boom"))}):
         result, info = execute_tool("bad_tool", {})
         assert info["success"] is False
         assert "boom" in json.loads(result)["error"]
@@ -34,7 +34,7 @@ def test_create_chart(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "CHART_IMAGE_DIR", str(tmp_path))
     monkeypatch.setattr(config, "CHART_IMAGE_BASE_URL", "http://test/charts")
 
-    from api.services.llm.tools.create_chart import execute as create_chart_execute
+    from api.llm.tools.create_chart import execute as create_chart_execute
     result = create_chart_execute(
         chart_type="bar",
         title="Test Chart",
@@ -51,7 +51,7 @@ def test_create_chart_pie(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "CHART_IMAGE_DIR", str(tmp_path))
     monkeypatch.setattr(config, "CHART_IMAGE_BASE_URL", "http://test/charts")
 
-    from api.services.llm.tools.create_chart import execute as create_chart_execute
+    from api.llm.tools.create_chart import execute as create_chart_execute
     result = create_chart_execute(
         chart_type="pie",
         title="Pie Chart",

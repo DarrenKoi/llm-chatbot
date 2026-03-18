@@ -2,9 +2,10 @@
 
 ## Project Structure & Module Organization
 - `index.py`: Flask Blueprint entrypoint (`chatbot_bp`) with HTTP routes (`/health`, `/api/v1/receive/cube`) and local dev runner.
-- `config.py`: all environment-driven configuration (LLM endpoint, Cube, Redis, MongoDB, Flask, chart paths).
-- `services/`: core business logic (`llm_service.py`, `conversation_service.py`, `cube_service.py`, `log_service.py`).
-- `tools/`: LLM tool-use helpers (for example `create_chart.py`, `query_data.py`).
+- `api/config.py`: all environment-driven configuration (LLM endpoint, Cube, Redis, MongoDB, Flask, chart paths).
+- `api/cdn/`, `api/cube/`, `api/llm/`: API-domain packages and related routers/services.
+- `api/conversation_service.py`: conversation history backend and retention logic.
+- `api/llm/tools/`: LLM tool-use helpers (for example `create_chart.py`, `query_data.py`).
 - `tests/`: pytest suite (`test_*.py`) plus shared fixtures in `tests/conftest.py`.
 - `wsgi.ini`: uWSGI runtime configuration for deployment.
 
@@ -30,7 +31,7 @@
 ## Commit & Pull Request Guidelines
 - Recent history shows Korean commit usage; use concise Korean commit messages in imperative style.
 - Avoid generic messages like `Auto-commit`; describe intent and scope.
-- Recommended format: `<area>: <change summary>` (example: `services: 대화 이력 TTL 처리 개선`).
+- Recommended format: `<area>: <change summary>` (example: `api: 대화 이력 TTL 처리 개선`).
 - PRs should include: what changed, why, test evidence (`pytest tests/ -v`), and related issue/context.
 
 ## Security & Configuration Tips

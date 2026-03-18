@@ -15,10 +15,11 @@ Flask-based chatbot on the internal "Cube" platform, powered by local LLMs.
 - `index.py` — simple entry point, imports `create_application` from `api`
 - `wsgi.ini` — uWSGI configuration
 - `api/__init__.py` — Flask app factory (`create_application`)
+- `api/blueprint_loader.py` — automatic router discovery
 - `api/config.py` — all env-based configuration
-- `api/routes.py` — Flask routes and request handling (Blueprint: `chatbot_bp`)
-- `api/services/` — business logic (LLM, Cube, conversation history, logging)
-- `api/tools/` — tool-use functions callable by the LLM (chart creation, data queries)
+- `api/cdn/`, `api/cube/`, `api/llm/` — API domain packages
+- `api/conversation_service.py` — conversation history storage
+- `api/llm/tools/` — tool-use functions callable by the LLM (chart creation, data queries)
 
 ## Dev Environment
 

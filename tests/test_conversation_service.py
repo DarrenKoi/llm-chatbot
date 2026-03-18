@@ -10,7 +10,7 @@ class TestInMemoryBackend:
     def _fresh_module(self):
         """Re-import conversation_service with reset global state."""
         import importlib
-        import api.services.conversation_service as mod
+        import api.conversation_service as mod
         mod._backend = None
         importlib.reload(mod)
         return mod
@@ -80,7 +80,7 @@ class TestRedisBackend:
 
         with patch("redis.from_url", return_value=mock_redis):
             import importlib
-            import api.services.conversation_service as mod
+            import api.conversation_service as mod
             mod._backend = None
             importlib.reload(mod)
 
@@ -107,7 +107,7 @@ class TestRedisBackend:
 
         with patch("redis.from_url", side_effect=[primary, secondary]) as mock_from_url:
             import importlib
-            import api.services.conversation_service as mod
+            import api.conversation_service as mod
             mod._backend = None
             importlib.reload(mod)
 

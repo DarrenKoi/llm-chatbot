@@ -9,7 +9,7 @@
 - 경로 처리는 `pathlib.Path`를 사용한다.
 
 ## Redis 사용 규칙
-- 대화 이력 저장(`api/services/conversation_service.py`)은 `REDIS_URL`(primary) -> `REDIS_FALLBACK_URL`(secondary) 순으로 연결을 시도한다.
+- 대화 이력 저장(`api/conversation_service.py`)은 `REDIS_URL`(primary) -> `REDIS_FALLBACK_URL`(secondary) 순으로 연결을 시도한다.
 - 둘 다 실패하면 in-memory 백엔드로 폴백한다.
 - 현재 기본 우선 Redis는 `10.156.133.126:10121`이다.
 

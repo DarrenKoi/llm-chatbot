@@ -1,7 +1,7 @@
 from io import BytesIO
 
 import pytest
-import api.services.cdn.cdn_service as cdn_service
+import api.cdn.cdn_service as cdn_service
 from api import config
 
 

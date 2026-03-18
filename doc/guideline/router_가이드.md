@@ -23,9 +23,9 @@
 
 예시:
 
-- `api/services/cdn/router.py`
-- `api/services/chat/router_v1.py`
-- `api/services/chat/router_v2.py`
+- `api/cdn/router.py`
+- `api/chat/router_v1.py`
+- `api/chat/router_v2.py`
 
 자동 등록되지 않는 예시:
 
@@ -44,16 +44,15 @@
 
 ```text
 api/
-  services/
-    cdn/
-      __init__.py
-      cdn_service.py
-      router.py
-    chat/
-      __init__.py
-      chat_service.py
-      router_v1.py
-      router_v2.py
+  cdn/
+    __init__.py
+    cdn_service.py
+    router.py
+  chat/
+    __init__.py
+    chat_service.py
+    router_v1.py
+    router_v2.py
 ```
 
 이 구조를 쓰면 라우팅 코드와 서비스 로직이 자연스럽게 같은 영역에 모입니다.
@@ -108,7 +107,7 @@ blueprints = [admin_bp, public_bp]
 
 예시:
 
-- `api/services/cdn/router.py`
+- `api/cdn/router.py`
 
 같은 도메인에서 API 버전이 늘어나면 아래처럼 확장할 수 있습니다.
 
@@ -118,8 +117,8 @@ blueprints = [admin_bp, public_bp]
 예시:
 
 ```text
-api/services/chat/router_v1.py
-api/services/chat/router_v2.py
+api/chat/router_v1.py
+api/chat/router_v2.py
 ```
 
 이때 URL path는 파일명이 아니라 Blueprint 내부의 `@bp.route(...)`에서 직접 결정합니다.
@@ -174,7 +173,7 @@ def ping():
 파일 위치 예시:
 
 ```text
-api/services/chat/router_v2.py
+api/chat/router_v2.py
 ```
 
 이 파일을 저장하면 앱 시작 시 자동으로 탐색 및 등록됩니다.
@@ -191,6 +190,6 @@ api/services/chat/router_v2.py
 
 현재 CDN 라우트는 아래 파일을 사용합니다.
 
-- `api/services/cdn/router.py`
+- `api/cdn/router.py`
 
 이 파일은 자동 탐색되어 앱에 등록됩니다.
