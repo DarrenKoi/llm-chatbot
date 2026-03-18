@@ -3,6 +3,7 @@ import uuid
 
 from flask import Flask
 from flask import g, request
+from flask import render_template
 
 from api.blueprint_loader import discover_blueprints
 from api.cube.payload import extract_user_id
@@ -16,6 +17,11 @@ def create_application() -> Flask:
     start_scheduler()
 
     app = Flask(__name__)
+
+    @app.route("/", methods=["GET"])
+    def main() -> str:
+        return render_template("sample.html")
+
     for blueprint in discover_blueprints():
         app.register_blueprint(blueprint)
 
