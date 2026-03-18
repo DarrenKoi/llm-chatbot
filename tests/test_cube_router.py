@@ -1,13 +1,18 @@
 import json
 from unittest.mock import patch
 
-from api.cube.router import _extract_image_url
+from api.cube.router import _extract_cube_request_fields, _extract_image_url, log_request
 
 
 def test_receive_cube_missing_message(client):
     resp = client.post(
         "/api/v1/cube/receiver",
-        json={"user": "u1", "message_id": "m1", "channel": "c1"},
+        json={
+            "richnotificationmessage": {
+                "header": {"from": {"uniquename": "u1", "messageid": "m1", "channelid": "c1", "username": "유저"}},
+                "process": {},
+            }
+        },
     )
     assert resp.status_code == 400
 
@@ -15,6 +20,30 @@ def test_receive_cube_missing_message(client):
 def test_receive_cube_invalid_payload(client):
     resp = client.post("/api/v1/cube/receiver", data="not-json", content_type="text/plain")
     assert resp.status_code == 400
+
+
+def test_extract_cube_request_fields_from_rich_notification_message():
+    payload = {
+        "richnotificationmessage": {
+            "header": {
+                "from": {
+                    "uniquename": "u1",
+                    "messageid": "m1",
+                    "channelid": "c1",
+                    "username": "홍길동",
+                }
+            },
+            "process": {"processdata": "안녕하세요"},
+        }
+    }
+
+    assert _extract_cube_request_fields(payload) == {
+        "user_id": "u1",
+        "message_id": "m1",
+        "channel_id": "c1",
+        "user_name": "홍길동",
+        "message": "안녕하세요",
+    }
 
 
 @patch("api.cube.router.send_rich_notification")
@@ -40,7 +69,19 @@ def test_receive_cube_valid(
         mock_executor.submit.side_effect = lambda fn, *args: fn(*args)
         resp = client.post(
             "/api/v1/cube/receiver",
-            json={"user": "u1", "message_id": "m1", "channel": "c1", "message": "Hi"},
+            json={
+                "richnotificationmessage": {
+                    "header": {
+                        "from": {
+                            "uniquename": "u1",
+                            "messageid": "m1",
+                            "channelid": "c1",
+                            "username": "홍길동",
+                        }
+                    },
+                    "process": {"processdata": "Hi"},
+                }
+            },
         )
 
     assert resp.status_code == 202
@@ -50,6 +91,15 @@ def test_receive_cube_valid(
     mock_append_multi.assert_called_once()
     mock_chat.assert_called_once()
     mock_send.assert_called_once_with("c1", "Hello!", image_url=None)
+
+
+def test_log_request_keeps_korean_in_log_output(caplog):
+    with caplog.at_level("INFO"):
+        log_request({"user_name": "홍길동", "message": "안녕하세요"})
+
+    assert "홍길동" in caplog.text
+    assert "안녕하세요" in caplog.text
+    assert "\\ud64d" not in caplog.text
 
 
 def test_extract_image_url_found():

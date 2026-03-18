@@ -9,6 +9,32 @@ from api.utils.logger import log_activity, setup_logging
 from api.utils.scheduler import start_scheduler
 
 
+def _request_user_id(payload: object) -> str | None:
+    if not isinstance(payload, dict):
+        return None
+
+    user_id = payload.get("user_id") or payload.get("user")
+    if user_id:
+        return str(user_id)
+
+    rich_message = payload.get("richnotificationmessage")
+    if not isinstance(rich_message, dict):
+        return None
+
+    header = rich_message.get("header")
+    if not isinstance(header, dict):
+        return None
+
+    sender = header.get("from")
+    if not isinstance(sender, dict):
+        return None
+
+    nested_user_id = sender.get("uniquename")
+    if not nested_user_id:
+        return None
+    return str(nested_user_id)
+
+
 def create_application() -> Flask:
     """Create and configure the Flask application."""
     setup_logging()
@@ -30,9 +56,7 @@ def create_application() -> Flask:
         response.headers["X-Request-ID"] = g.request_id
 
         payload = request.get_json(silent=True) if request.is_json else None
-        user_id = None
-        if isinstance(payload, dict):
-            user_id = payload.get("user_id") or payload.get("user")
+        user_id = _request_user_id(payload)
         log_activity(
             "http_request",
             method=request.method,

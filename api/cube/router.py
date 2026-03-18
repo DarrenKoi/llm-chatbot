@@ -23,7 +23,7 @@ def send_rich_notification(channel_id: str, text: str, image_url: str | None = N
 
 def log_request(doc: dict) -> None:
     """Request logging stub for environments without persistent log store."""
-    logger.info("request_log=%s", doc)
+    logger.info("request_log=%s", json.dumps(doc, ensure_ascii=False, default=str))
 
 
 @bp.route("/api/v1/cube/receiver", methods=["POST"])
@@ -33,15 +33,22 @@ def receive_cube():
         log_activity("cube_message_rejected", reason="invalid_payload")
         return jsonify({"error": "Invalid JSON payload"}), 400
 
-    user_id = str(payload.get("user") or "unknown")
-    message_id = str(payload.get("message_id") or "")
-    channel_id = str(payload.get("channel") or "")
-    user_message = payload.get("message")
+    cube_fields = _extract_cube_request_fields(payload)
+    if cube_fields is None:
+        log_activity("cube_message_rejected", reason="invalid_cube_payload")
+        return jsonify({"error": "Invalid Cube payload"}), 400
+
+    user_id = cube_fields["user_id"]
+    user_name = cube_fields["user_name"]
+    message_id = cube_fields["message_id"]
+    channel_id = cube_fields["channel_id"]
+    user_message = cube_fields["message"]
 
     if not isinstance(user_message, str) or not user_message.strip():
         log_activity(
             "cube_message_rejected",
             user_id=user_id,
+            user_name=user_name,
             channel_id=channel_id,
             message_id=message_id,
             reason="missing_message",
@@ -52,6 +59,7 @@ def receive_cube():
     log_activity(
         "cube_message_received",
         user_id=user_id,
+        user_name=user_name,
         channel_id=channel_id,
         message_id=message_id,
         message_length=len(normalized_message),
@@ -61,13 +69,14 @@ def receive_cube():
     user_msg = {"role": "user", "content": normalized_message}
     append_message(user_id, user_msg)
 
-    executor.submit(_process_llm_request, user_id, channel_id, message_id, history, user_msg)
+    executor.submit(_process_llm_request, user_id, user_name, channel_id, message_id, history, user_msg)
 
     return jsonify({"status": "accepted", "message_id": message_id}), 202
 
 
 def _process_llm_request(
     user_id: str,
+    user_name: str,
     channel_id: str,
     message_id: str,
     history: list[dict],
@@ -78,6 +87,7 @@ def _process_llm_request(
     log_activity(
         "llm_job_started",
         user_id=user_id,
+        user_name=user_name,
         channel_id=channel_id,
         message_id=message_id,
         history_size=len(history),
@@ -96,6 +106,7 @@ def _process_llm_request(
         log_activity(
             "llm_job_succeeded",
             user_id=user_id,
+            user_name=user_name,
             channel_id=channel_id,
             message_id=message_id,
             duration_ms=total_duration_ms,
@@ -107,6 +118,7 @@ def _process_llm_request(
         log_request(
             {
                 "user_id": user_id,
+                "user_name": user_name,
                 "channel_id": channel_id,
                 "message_id": message_id,
                 "user_message": user_msg["content"],
@@ -126,6 +138,7 @@ def _process_llm_request(
             "llm_job_failed",
             level="ERROR",
             user_id=user_id,
+            user_name=user_name,
             channel_id=channel_id,
             message_id=message_id,
             duration_ms=total_duration_ms,
@@ -138,6 +151,7 @@ def _process_llm_request(
         log_request(
             {
                 "user_id": user_id,
+                "user_name": user_name,
                 "channel_id": channel_id,
                 "message_id": message_id,
                 "user_message": user_msg["content"],
@@ -163,3 +177,28 @@ def _extract_image_url(messages: list[dict]) -> str | None:
         if isinstance(content, dict) and "image_url" in content:
             return content["image_url"]
     return None
+
+
+def _extract_cube_request_fields(payload: dict) -> dict[str, str | None] | None:
+    rich_message = payload.get("richnotificationmessage")
+    if isinstance(rich_message, dict):
+        header = rich_message.get("header")
+        process = rich_message.get("process")
+        sender = header.get("from") if isinstance(header, dict) else None
+        if not isinstance(sender, dict) or not isinstance(process, dict):
+            return None
+        return {
+            "user_id": str(sender.get("uniquename") or "unknown"),
+            "message_id": str(sender.get("messageid") or ""),
+            "channel_id": str(sender.get("channelid") or ""),
+            "user_name": str(sender.get("username") or ""),
+            "message": process.get("processdata"),
+        }
+
+    return {
+        "user_id": str(payload.get("user") or payload.get("user_id") or "unknown"),
+        "message_id": str(payload.get("message_id") or ""),
+        "channel_id": str(payload.get("channel") or ""),
+        "user_name": str(payload.get("user_name") or ""),
+        "message": payload.get("message"),
+    }

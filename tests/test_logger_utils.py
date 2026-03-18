@@ -44,7 +44,13 @@ def test_log_activity_writes_json_line(tmp_path, monkeypatch):
     _reset_logger_state()
 
     setup_logging()
-    log_activity("request_accepted", user_id="u1", status="ok", **{"meta.trace.id": "abc", "$type": "important"})
+    log_activity(
+        "request_accepted",
+        user_id="u1",
+        user_name="홍길동",
+        status="ok",
+        **{"meta.trace.id": "abc", "$type": "important"},
+    )
     _flush_handlers(logging.getLogger("activity"))
 
     log_file = config.LOG_DIR / "activity" / "activity.jsonl"
@@ -54,6 +60,7 @@ def test_log_activity_writes_json_line(tmp_path, monkeypatch):
     payload = json.loads(first_line)
     assert payload["event"] == "request_accepted"
     assert payload["user_id"] == "u1"
+    assert payload["user_name"] == "홍길동"
     assert payload["status"] == "ok"
     assert payload["level"] == "INFO"
     assert payload["service"] == "chatbot-test"
@@ -61,6 +68,7 @@ def test_log_activity_writes_json_line(tmp_path, monkeypatch):
     assert "@timestamp" in payload
     assert payload["meta_trace_id"] == "abc"
     assert payload["_type"] == "important"
+    assert "홍길동" in first_line
     timed_handlers = [
         handler
         for handler in logging.getLogger("activity").handlers
