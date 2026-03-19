@@ -5,7 +5,7 @@ from api.cube.payload import build_richnotification_payload
 def test_build_richnotification_payload_uses_cube_config(monkeypatch):
     monkeypatch.setattr(config, "CUBE_BOT_ID", "bot-1")
     monkeypatch.setattr(config, "CUBE_BOT_TOKEN", "token-1")
-    monkeypatch.setattr(config, "CUBE_BOT_USERNAMES", ("ITC_OSS", "ITC_OSS"))
+    monkeypatch.setattr(config, "CUBE_BOT_USERNAMES", ("ITC OSS", "ITC OSS"))
 
     payload = build_richnotification_payload(
         user_id="u1",
@@ -18,7 +18,7 @@ def test_build_richnotification_payload_uses_cube_config(monkeypatch):
             "header": {
                 "from": "bot-1",
                 "token": "token-1",
-                "fromusername": ["ITC_OSS", "ITC_OSS"],
+                "fromusername": ["ITC OSS", "ITC OSS"],
                 "to": {
                     "uniquename": ["u1"],
                     "channelid": ["c1"],

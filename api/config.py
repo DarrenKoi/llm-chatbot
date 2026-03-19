@@ -18,7 +18,7 @@ CUBE_API_URL = os.environ.get("CUBE_API_URL", "http://cube.skhynix.com:8888")
 CUBE_RICHNOTIFICATION_URL = os.environ.get("CUBE_RICHNOTIFICATION_URL", "")
 CUBE_BOT_ID = os.environ.get("CUBE_BOT_ID", CUBE_API_ID)
 CUBE_BOT_TOKEN = os.environ.get("CUBE_BOT_TOKEN", CUBE_API_TOKEN)
-CUBE_BOT_NAME = os.environ.get("CUBE_BOT_NAME", "ITC_OSS")
+CUBE_BOT_NAME = os.environ.get("CUBE_BOT_NAME", "ITC OSS")
 CUBE_BOT_USERNAMES = tuple(
     name.strip()
     for name in os.environ.get("CUBE_BOT_USERNAMES", CUBE_BOT_NAME).split(",")
