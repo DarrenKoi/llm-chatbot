@@ -118,3 +118,32 @@ def test_handle_cube_message_raises_when_llm_fails(
     mock_get_history.assert_called_once_with("u1")
     mock_append_message.assert_called_once_with("u1", {"role": "user", "content": "안녕하세요"})
     mock_send_multimessage.assert_not_called()
+
+
+@patch("api.cube.service.send_multimessage")
+@patch("api.cube.service.generate_reply")
+@patch("api.cube.service.append_message")
+@patch("api.cube.service.get_history")
+def test_wakeup_message_skips_history_and_llm(
+    mock_get_history,
+    mock_append_message,
+    mock_generate_reply,
+    mock_send_multimessage,
+):
+    result = handle_cube_message(
+        {
+            "user_id": "u1",
+            "user_name": "홍길동",
+            "channel_id": "c1",
+            "message_id": "-1",
+            "message": "!@#Hello 안녕하세요",
+        }
+    )
+
+    assert result.user_id == "u1"
+    assert result.message_id == "-1"
+    assert result.llm_reply == ""
+    mock_get_history.assert_not_called()
+    mock_append_message.assert_not_called()
+    mock_generate_reply.assert_not_called()
+    mock_send_multimessage.assert_not_called()

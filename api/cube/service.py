@@ -31,8 +31,34 @@ def log_request(doc: dict[str, Any]) -> None:
     logger.info("request_log=%s", json.dumps(doc, ensure_ascii=False, default=str))
 
 
+_WAKEUP_MESSAGE_ID = "-1"
+_WAKEUP_PREFIX = "!@#"
+
+
+def _is_wakeup_message(incoming: CubeIncomingMessage) -> bool:
+    """Detect Cube wake-up signals that should not enter conversation history."""
+    return incoming.message_id == _WAKEUP_MESSAGE_ID and incoming.message.startswith(_WAKEUP_PREFIX)
+
+
 def handle_cube_message(payload: object) -> CubeHandledMessage:
     incoming = _parse_incoming_message(payload)
+
+    if _is_wakeup_message(incoming):
+        log_activity(
+            "cube_wakeup_skipped",
+            user_id=incoming.user_id,
+            user_name=incoming.user_name,
+            channel_id=incoming.channel_id,
+            message_id=incoming.message_id,
+        )
+        return CubeHandledMessage(
+            user_id=incoming.user_id,
+            user_name=incoming.user_name,
+            channel_id=incoming.channel_id,
+            message_id=incoming.message_id,
+            user_message=incoming.message,
+            llm_reply="",
+        )
 
     log_activity(
         "cube_message_received",

@@ -65,14 +65,12 @@ def build_log_document(record: logging.LogRecord, payload: dict[str, Any]) -> di
                     or datetime.now(timezone.utc).isoformat())
 
     document: dict[str, Any] = {
-        "@timestamp": timestamp,
         "timestamp": timestamp,
         "event": event,
         "message": message,
         "level": record.levelname,
         "logger": record.name,
         "service": config.APP_NAME,
-        "environment": config.APP_ENV,
     }
 
     for key, value in normalized_payload.items():

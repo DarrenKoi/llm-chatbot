@@ -66,8 +66,8 @@ def test_log_activity_writes_json_line(tmp_path, monkeypatch):
     assert payload["status"] == "ok"
     assert payload["level"] == "INFO"
     assert payload["service"] == "chatbot-test"
-    assert payload["environment"] == "test"
-    assert "@timestamp" in payload
+    assert "environment" not in payload
+    assert "@timestamp" not in payload
     assert payload["meta_trace_id"] == "abc"
     assert payload["_type"] == "important"
     assert "홍길동" in first_line
