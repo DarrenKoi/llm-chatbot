@@ -4,5 +4,6 @@ redis
 pymongo
 apscheduler
 pillow
+httpx
 pytest
 pytest-mock

@@ -1,8 +1,7 @@
-from __future__ import annotations
-
 import json
 from typing import Any
-from urllib import error, request
+
+import httpx
 
 from api import config
 
@@ -60,20 +59,18 @@ def _build_headers() -> dict[str, str]:
 
 
 def _post_json(*, url: str, payload: dict[str, Any], headers: dict[str, str], timeout: int) -> dict[str, Any]:
-    request_body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    http_request = request.Request(url, data=request_body, headers=headers, method="POST")
+    try:
+        response = httpx.post(url, json=payload, headers=headers, timeout=timeout)
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise LLMServiceError(
+            f"LLM request failed with HTTP {exc.response.status_code}: {exc.response.text}"
+        ) from exc
+    except httpx.RequestError as exc:
+        raise LLMServiceError(f"LLM request failed: {exc}") from exc
 
     try:
-        with request.urlopen(http_request, timeout=timeout) as response:
-            raw_body = response.read()
-    except error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        raise LLMServiceError(f"LLM request failed with HTTP {exc.code}: {detail}") from exc
-    except error.URLError as exc:
-        raise LLMServiceError(f"LLM request failed: {exc.reason}") from exc
-
-    try:
-        data = json.loads(raw_body.decode("utf-8"))
+        data = response.json()
     except json.JSONDecodeError as exc:
         raise LLMServiceError("LLM response is not valid JSON.") from exc
 

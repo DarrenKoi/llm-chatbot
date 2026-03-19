@@ -1,8 +1,7 @@
-from __future__ import annotations
-
 import json
 from typing import Any
-from urllib import error, request
+
+import httpx
 
 from api import config
 from api.cube.payload import build_multimessage_payload, build_richnotification_payload
@@ -13,30 +12,28 @@ class CubeClientError(RuntimeError):
 
 
 def _send_cube_request(*, url: str, payload: dict[str, Any], label: str) -> dict[str, Any] | None:
-    request_body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-    http_request = request.Request(
-        url,
-        data=request_body,
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-
     try:
-        with request.urlopen(http_request, timeout=config.CUBE_TIMEOUT_SECONDS) as response:
-            raw_body = response.read()
-    except error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        raise CubeClientError(f"Cube {label} failed with HTTP {exc.code}: {detail}") from exc
-    except error.URLError as exc:
-        raise CubeClientError(f"Cube {label} failed: {exc.reason}") from exc
+        response = httpx.post(
+            url,
+            json=payload,
+            headers={"Content-Type": "application/json"},
+            timeout=config.CUBE_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        raise CubeClientError(f"Cube {label} failed with HTTP {exc.response.status_code}: {exc.response.text}") from exc
+    except httpx.RequestError as exc:
+        raise CubeClientError(f"Cube {label} failed: {exc}") from exc
+
+    raw_body = response.content
 
     if not raw_body:
         return None
 
     try:
-        data = json.loads(raw_body.decode("utf-8"))
+        data = response.json()
     except json.JSONDecodeError:
-        return {"raw": raw_body.decode("utf-8", errors="replace")}
+        return {"raw": response.text}
 
     if not isinstance(data, dict):
         return {"payload": data}
