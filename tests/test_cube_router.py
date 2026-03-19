@@ -1,6 +1,6 @@
 from unittest.mock import patch
 
-from api.cube.models import CubeHandledMessage
+from api.cube.models import CubeAcceptedMessage
 from api.cube.router import _extract_cube_request_fields, log_request
 
 
@@ -9,7 +9,7 @@ def test_receive_cube_missing_message(client):
         "/api/v1/cube/receiver",
         json={
             "richnotificationmessage": {
-                "header": {"from": {"uniquename": "u1", "messageid": "m1", "channelid": "c1", "username": "유저"}},
+                "header": {"from": {"uniquename": "u1", "messageid": "m1", "channelid": "c1", "username": "user"}},
                 "process": {},
             }
         },
@@ -30,10 +30,10 @@ def test_extract_cube_request_fields_from_rich_notification_message():
                     "uniquename": "u1",
                     "messageid": "m1",
                     "channelid": "c1",
-                    "username": "홍길동",
+                    "username": "tester",
                 }
             },
-            "process": {"processdata": "안녕하세요"},
+            "process": {"processdata": "hello"},
         }
     }
 
@@ -41,20 +41,19 @@ def test_extract_cube_request_fields_from_rich_notification_message():
         "user_id": "u1",
         "message_id": "m1",
         "channel_id": "c1",
-        "user_name": "홍길동",
-        "message": "안녕하세요",
+        "user_name": "tester",
+        "message": "hello",
     }
 
 
-@patch("api.cube.router.handle_cube_message")
-def test_receive_cube_valid(mock_handle_cube_message, client):
-    mock_handle_cube_message.return_value = CubeHandledMessage(
+@patch("api.cube.router.accept_cube_message")
+def test_receive_cube_valid(mock_accept_cube_message, client):
+    mock_accept_cube_message.return_value = CubeAcceptedMessage(
         user_id="u1",
-        user_name="홍길동",
+        user_name="tester",
         channel_id="c1",
         message_id="m1",
-        user_message="Hi",
-        llm_reply="안녕하세요",
+        status="accepted",
     )
 
     resp = client.post(
@@ -66,7 +65,7 @@ def test_receive_cube_valid(mock_handle_cube_message, client):
                         "uniquename": "u1",
                         "messageid": "m1",
                         "channelid": "c1",
-                        "username": "홍길동",
+                        "username": "tester",
                     }
                 },
                 "process": {"processdata": "Hi"},
@@ -74,24 +73,43 @@ def test_receive_cube_valid(mock_handle_cube_message, client):
         },
     )
 
-    assert resp.status_code == 202
+    assert resp.status_code == 200
     assert resp.get_json() == {"status": "accepted", "message_id": "m1"}
-    mock_handle_cube_message.assert_called_once()
+    mock_accept_cube_message.assert_called_once()
 
 
-@patch("api.cube.router.handle_cube_message")
-def test_receive_cube_upstream_failure(mock_handle_cube_message, client):
-    from api.cube.service import CubeUpstreamError
+@patch("api.cube.router.accept_cube_message")
+def test_receive_cube_duplicate(mock_accept_cube_message, client):
+    mock_accept_cube_message.return_value = CubeAcceptedMessage(
+        user_id="u1",
+        user_name="tester",
+        channel_id="c1",
+        message_id="m1",
+        status="duplicate",
+    )
 
-    mock_handle_cube_message.side_effect = CubeUpstreamError("LLM reply generation failed.")
+    resp = client.post(
+        "/api/v1/cube/receiver",
+        json={"message": "Hi", "user_id": "u1", "channel": "c1", "message_id": "m1"},
+    )
+
+    assert resp.status_code == 200
+    assert resp.get_json() == {"status": "duplicate", "message_id": "m1"}
+
+
+@patch("api.cube.router.accept_cube_message")
+def test_receive_cube_queue_failure(mock_accept_cube_message, client):
+    from api.cube.service import CubeQueueUnavailableError
+
+    mock_accept_cube_message.side_effect = CubeQueueUnavailableError("Cube message queue is unavailable.")
 
     resp = client.post(
         "/api/v1/cube/receiver",
         json={"message": "Hi", "user_id": "u1", "channel": "c1"},
     )
 
-    assert resp.status_code == 502
-    assert resp.get_json() == {"error": "LLM reply generation failed."}
+    assert resp.status_code == 503
+    assert resp.get_json() == {"error": "Cube message queue is unavailable."}
 
 
 def test_log_request_keeps_korean_in_log_output(caplog):

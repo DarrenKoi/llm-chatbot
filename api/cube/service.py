@@ -6,8 +6,9 @@ from typing import Any
 
 from api.conversation_service import append_message, get_history
 from api.cube.client import CubeClientError, send_multimessage
-from api.cube.models import CubeHandledMessage, CubeIncomingMessage
+from api.cube.models import CubeAcceptedMessage, CubeHandledMessage, CubeIncomingMessage, CubeQueuedMessage
 from api.cube.payload import extract_cube_request_fields
+from api.cube.queue import CubeQueueError, enqueue_incoming_message
 from api.llm import LLMServiceError, generate_reply
 from api.utils.logger import log_activity
 
@@ -26,6 +27,10 @@ class CubeUpstreamError(CubeWorkflowError):
     status_code = 502
 
 
+class CubeQueueUnavailableError(CubeWorkflowError):
+    status_code = 503
+
+
 def log_request(doc: dict[str, Any]) -> None:
     """Request logging stub for environments without persistent log store."""
     logger.info("request_log=%s", json.dumps(doc, ensure_ascii=False, default=str))
@@ -40,9 +45,77 @@ def _is_wakeup_message(incoming: CubeIncomingMessage) -> bool:
     return incoming.message_id == _WAKEUP_MESSAGE_ID and incoming.message.startswith(_WAKEUP_PREFIX)
 
 
-def handle_cube_message(payload: object) -> CubeHandledMessage:
+def accept_cube_message(payload: object) -> CubeAcceptedMessage:
     incoming = _parse_incoming_message(payload)
 
+    if _is_wakeup_message(incoming):
+        log_activity(
+            "cube_wakeup_skipped",
+            user_id=incoming.user_id,
+            user_name=incoming.user_name,
+            channel_id=incoming.channel_id,
+            message_id=incoming.message_id,
+        )
+        return CubeAcceptedMessage(
+            user_id=incoming.user_id,
+            user_name=incoming.user_name,
+            channel_id=incoming.channel_id,
+            message_id=incoming.message_id,
+            status="ignored",
+        )
+
+    try:
+        was_queued = enqueue_incoming_message(incoming)
+    except CubeQueueError as exc:
+        log_activity(
+            "cube_message_queue_failed",
+            level="ERROR",
+            user_id=incoming.user_id,
+            user_name=incoming.user_name,
+            channel_id=incoming.channel_id,
+            message_id=incoming.message_id,
+            error=str(exc),
+        )
+        raise CubeQueueUnavailableError("Cube message queue is unavailable.") from exc
+
+    status = "accepted" if was_queued else "duplicate"
+    log_request(
+        {
+            "user_id": incoming.user_id,
+            "user_name": incoming.user_name,
+            "channel_id": incoming.channel_id,
+            "message_id": incoming.message_id,
+            "user_message": incoming.message,
+            "status": "queued" if was_queued else "duplicate",
+            "processor": "queue",
+        }
+    )
+    log_activity(
+        "cube_message_queued" if was_queued else "cube_message_duplicate",
+        user_id=incoming.user_id,
+        user_name=incoming.user_name,
+        channel_id=incoming.channel_id,
+        message_id=incoming.message_id,
+        processor="queue",
+    )
+    return CubeAcceptedMessage(
+        user_id=incoming.user_id,
+        user_name=incoming.user_name,
+        channel_id=incoming.channel_id,
+        message_id=incoming.message_id,
+        status=status,
+    )
+
+
+def handle_cube_message(payload: object) -> CubeHandledMessage:
+    return process_incoming_message(_parse_incoming_message(payload))
+
+
+def process_queued_message(queued_message: CubeQueuedMessage) -> CubeHandledMessage:
+    return process_incoming_message(queued_message.incoming, attempt=queued_message.attempt)
+
+
+def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0) -> CubeHandledMessage:
     if _is_wakeup_message(incoming):
         log_activity(
             "cube_wakeup_skipped",
@@ -67,6 +140,7 @@ def handle_cube_message(payload: object) -> CubeHandledMessage:
         channel_id=incoming.channel_id,
         message_id=incoming.message_id,
         message_length=len(incoming.message),
+        queue_attempt=attempt,
     )
 
     history = get_history(incoming.user_id)
@@ -81,6 +155,7 @@ def handle_cube_message(payload: object) -> CubeHandledMessage:
             "history_length": len(history),
             "status": "received",
             "processor": "llm",
+            "queue_attempt": attempt,
         }
     )
     log_activity(
@@ -91,6 +166,7 @@ def handle_cube_message(payload: object) -> CubeHandledMessage:
         message_id=incoming.message_id,
         processor="llm",
         conversation_length=len(history) + 1,
+        queue_attempt=attempt,
     )
 
     try:
@@ -105,6 +181,7 @@ def handle_cube_message(payload: object) -> CubeHandledMessage:
             message_id=incoming.message_id,
             reason="llm_error",
             error=str(exc),
+            queue_attempt=attempt,
         )
         raise CubeUpstreamError("LLM reply generation failed.") from exc
 
@@ -116,6 +193,7 @@ def handle_cube_message(payload: object) -> CubeHandledMessage:
         channel_id=incoming.channel_id,
         message_id=incoming.message_id,
         reply_length=len(llm_reply),
+        queue_attempt=attempt,
     )
 
     try:
@@ -133,6 +211,7 @@ def handle_cube_message(payload: object) -> CubeHandledMessage:
             message_id=incoming.message_id,
             reason="cube_delivery_error",
             error=str(exc),
+            queue_attempt=attempt,
         )
         raise CubeUpstreamError("Cube multiMessage delivery failed.") from exc
 
@@ -146,6 +225,7 @@ def handle_cube_message(payload: object) -> CubeHandledMessage:
             "assistant_message": llm_reply,
             "status": "replied",
             "processor": "llm",
+            "queue_attempt": attempt,
         }
     )
     log_activity(
@@ -156,6 +236,7 @@ def handle_cube_message(payload: object) -> CubeHandledMessage:
         message_id=incoming.message_id,
         reply_length=len(llm_reply),
         processor="llm",
+        queue_attempt=attempt,
     )
 
     return CubeHandledMessage(

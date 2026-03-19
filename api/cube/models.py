@@ -20,3 +20,18 @@ class CubeHandledMessage:
     message_id: str
     user_message: str
     llm_reply: str
+
+
+@dataclass(frozen=True, slots=True)
+class CubeAcceptedMessage:
+    user_id: str
+    user_name: str
+    channel_id: str
+    message_id: str
+    status: str
+
+
+@dataclass(frozen=True, slots=True)
+class CubeQueuedMessage:
+    incoming: CubeIncomingMessage
+    attempt: int = 0
