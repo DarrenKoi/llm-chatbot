@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import json
 from dataclasses import asdict
 from typing import Any
@@ -12,7 +10,7 @@ class CubeQueueError(RuntimeError):
     """Raised when the Redis-backed Cube queue is unavailable."""
 
 
-_backend: _RedisCubeQueueBackend | None = None
+_backend: "_RedisCubeQueueBackend | None" = None
 
 
 def enqueue_incoming_message(incoming: CubeIncomingMessage) -> bool:
@@ -37,7 +35,7 @@ def recover_processing_messages() -> int:
     return _get_backend().recover_processing_messages()
 
 
-def _get_backend() -> _RedisCubeQueueBackend:
+def _get_backend() -> "_RedisCubeQueueBackend":
     global _backend
     if _backend is not None:
         return _backend

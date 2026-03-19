@@ -1,7 +1,5 @@
 """Cube 메시지 페이로드 파싱 및 응답 페이로드 빌더."""
 
-from __future__ import annotations
-
 from typing import Any
 
 from api import config
