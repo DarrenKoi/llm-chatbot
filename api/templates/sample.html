@@ -4,626 +4,124 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Signal Room</title>
-  <meta
-    name="description"
-    content="여러 채팅방에서 작동하는 LLM 워크스페이스를 위한 샘플 Flask 템플릿"
-  >
   <style>
-    :root {
-      --bg: #f5efe4;
-      --bg-accent: #ead8b8;
-      --surface: rgba(255, 250, 242, 0.84);
-      --surface-strong: rgba(27, 39, 37, 0.88);
-      --text: #18211d;
-      --muted: #5d675f;
-      --line: rgba(24, 33, 29, 0.14);
-      --primary: #0d7c66;
-      --primary-dark: #085746;
-      --secondary: #d88c3a;
-      --shadow: 0 24px 60px rgba(34, 45, 40, 0.14);
-      --radius-xl: 32px;
-      --radius-lg: 24px;
-      --radius-md: 16px;
-      --container: 1180px;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
+    * { box-sizing: border-box; margin: 0; }
 
     body {
-      margin: 0;
       min-height: 100vh;
-      color: var(--text);
       font-family: "Avenir Next", "Segoe UI", "Apple SD Gothic Neo", sans-serif;
-      background:
-        radial-gradient(circle at top left, rgba(216, 140, 58, 0.2), transparent 28rem),
-        radial-gradient(circle at 85% 18%, rgba(13, 124, 102, 0.18), transparent 24rem),
-        linear-gradient(180deg, #f9f4eb 0%, #efe5d4 48%, #f7f1e8 100%);
-    }
-
-    body::before,
-    body::after {
-      content: "";
-      position: fixed;
-      inset: auto;
-      border-radius: 999px;
-      pointer-events: none;
-      z-index: 0;
-      filter: blur(6px);
-    }
-
-    body::before {
-      top: 4rem;
-      right: -8rem;
-      width: 22rem;
-      height: 22rem;
-      background: rgba(216, 140, 58, 0.16);
-    }
-
-    body::after {
-      bottom: -7rem;
-      left: -6rem;
-      width: 20rem;
-      height: 20rem;
-      background: rgba(13, 124, 102, 0.14);
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .shell {
-      position: relative;
-      z-index: 1;
-      width: min(calc(100% - 2rem), var(--container));
-      margin: 0 auto;
-      padding: 1rem 0 4rem;
-    }
-
-    .topbar {
+      color: #18211d;
+      background: linear-gradient(135deg, #f9f4eb, #efe5d4);
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      padding: 1rem 0;
+      justify-content: center;
+      padding: 3rem 1rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 640px;
     }
 
     .brand {
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      gap: 0.9rem;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
+      gap: 0.75rem;
+      margin-bottom: 2rem;
     }
 
     .brand-mark {
       display: grid;
       place-items: center;
-      width: 2.5rem;
-      height: 2.5rem;
-      border-radius: 0.85rem;
-      background: linear-gradient(135deg, var(--primary), #16a085);
-      color: #fffdf8;
-      box-shadow: 0 14px 32px rgba(13, 124, 102, 0.25);
+      width: 2.25rem;
+      height: 2.25rem;
+      border-radius: 0.7rem;
+      background: linear-gradient(135deg, #085746, #0d7c66);
+      color: #fff;
+      font-weight: 700;
     }
 
-    .topbar nav {
+    .brand span:last-child {
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .card {
+      background: rgba(255, 250, 242, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      border-radius: 1.25rem;
+      padding: 1.5rem;
+      box-shadow: 0 12px 36px rgba(34, 45, 40, 0.1);
+      margin-bottom: 1rem;
+    }
+
+    .card h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+    }
+
+    .status-row {
       display: flex;
-      gap: 1rem;
-      color: var(--muted);
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid rgba(24, 33, 29, 0.08);
       font-size: 0.95rem;
     }
 
-    .hero {
-      display: grid;
-      grid-template-columns: minmax(0, 1.08fr) minmax(320px, 0.92fr);
-      gap: 2rem;
-      align-items: stretch;
-      padding-top: 2.5rem;
-    }
+    .status-row:last-child { border-bottom: none; }
 
-    .hero-copy,
-    .hero-panel,
-    .section-card,
-    .signal-card {
-      backdrop-filter: blur(18px);
-      background: var(--surface);
-      border: 1px solid rgba(255, 255, 255, 0.58);
-      box-shadow: var(--shadow);
-    }
-
-    .hero-copy {
-      border-radius: var(--radius-xl);
-      padding: clamp(1.8rem, 4vw, 3.6rem);
-      overflow: hidden;
-      position: relative;
-    }
-
-    .hero-copy::after {
-      content: "";
-      position: absolute;
-      top: -4rem;
-      right: -5rem;
-      width: 14rem;
-      height: 14rem;
-      border-radius: 50%;
-      background: rgba(13, 124, 102, 0.08);
-    }
-
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.55rem;
-      padding: 0.45rem 0.8rem;
+    .badge {
+      display: inline-block;
+      padding: 0.2rem 0.6rem;
       border-radius: 999px;
-      background: rgba(255, 255, 255, 0.58);
-      color: var(--primary-dark);
-      font-size: 0.88rem;
-      font-weight: 700;
-      letter-spacing: 0.03em;
+      font-size: 0.78rem;
+      font-weight: 600;
     }
 
-    h1,
-    h2,
-    h3 {
-      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-      margin: 0;
-      font-weight: 700;
-      letter-spacing: -0.03em;
+    .badge-ok { background: rgba(13, 124, 102, 0.14); color: #085746; }
+    .badge-busy { background: rgba(216, 140, 58, 0.18); color: #8b5a1a; }
+
+    footer {
+      margin-top: 1rem;
+      font-size: 0.82rem;
+      color: #5d675f;
+      text-align: center;
     }
 
-    h1 {
-      margin-top: 1.2rem;
-      max-width: 10ch;
-      font-size: clamp(3rem, 8vw, 5.6rem);
-      line-height: 0.92;
-    }
-
-    .hero-copy p {
-      max-width: 34rem;
-      margin: 1.2rem 0 0;
-      color: var(--muted);
-      font-size: 1.06rem;
-      line-height: 1.75;
-    }
-
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.9rem;
-      margin-top: 2rem;
-    }
-
-    .button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 3.25rem;
-      padding: 0.8rem 1.2rem;
-      border-radius: 999px;
-      font-weight: 700;
-      transition: transform 180ms ease, box-shadow 180ms ease, background 180ms ease;
-    }
-
-    .button:hover {
-      transform: translateY(-2px);
-    }
-
-    .button-primary {
-      color: #fffdf8;
-      background: linear-gradient(135deg, var(--primary-dark), var(--primary));
-      box-shadow: 0 16px 32px rgba(8, 87, 70, 0.22);
-    }
-
-    .button-secondary {
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.56);
-      color: var(--text);
-    }
-
-    .metrics {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1rem;
-      margin-top: 2.4rem;
-    }
-
-    .metric {
-      padding: 1rem 1.1rem;
-      border-radius: var(--radius-md);
-      background: rgba(255, 255, 255, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.55);
-    }
-
-    .metric strong {
-      display: block;
-      font-size: 1.4rem;
-      font-weight: 700;
-    }
-
-    .metric span {
-      display: block;
-      margin-top: 0.35rem;
-      color: var(--muted);
-      font-size: 0.92rem;
-    }
-
-    .hero-panel {
-      border-radius: var(--radius-xl);
-      padding: 1.2rem;
-      display: grid;
-      gap: 1rem;
-      background:
-        linear-gradient(180deg, rgba(255, 249, 240, 0.88), rgba(250, 244, 233, 0.78)),
-        var(--surface);
-    }
-
-    .signal-card {
-      border-radius: 1.6rem;
-      padding: 1rem;
-    }
-
-    .signal-card-dark {
-      background: var(--surface-strong);
-      color: #f8f2e8;
-      border-radius: 1.8rem;
-      padding: 1.25rem;
-      box-shadow: 0 22px 52px rgba(18, 25, 23, 0.24);
-    }
-
-    .panel-label,
-    .card-label {
-      color: var(--secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      font-size: 0.72rem;
-      font-weight: 700;
-    }
-
-    .panel-header {
-      display: flex;
-      justify-content: space-between;
-      gap: 1rem;
-      align-items: center;
-      margin-bottom: 0.9rem;
-    }
-
-    .panel-header strong {
-      font-size: 1.05rem;
-    }
-
-    .thread-list {
-      display: grid;
-      gap: 0.8rem;
-    }
-
-    .thread-item {
-      display: grid;
-      grid-template-columns: auto 1fr auto;
-      gap: 0.8rem;
-      align-items: center;
-      padding: 0.9rem 1rem;
-      border-radius: 1.2rem;
-      background: rgba(255, 255, 255, 0.68);
-      border: 1px solid rgba(24, 33, 29, 0.06);
-    }
-
-    .thread-badge {
-      width: 0.78rem;
-      height: 0.78rem;
-      border-radius: 999px;
-      background: linear-gradient(135deg, var(--secondary), #f2bd69);
-      box-shadow: 0 0 0 0.28rem rgba(216, 140, 58, 0.16);
-    }
-
-    .thread-item strong,
-    .detail-row strong {
-      display: block;
-      font-size: 0.98rem;
-    }
-
-    .thread-item span,
-    .detail-row span,
-    .bubble span,
-    .section-card p,
-    .signal-card p {
-      color: inherit;
-      opacity: 0.82;
-      line-height: 1.55;
-    }
-
-    .stack {
-      display: grid;
-      grid-template-columns: 1.1fr 0.9fr;
-      gap: 1rem;
-    }
-
-    .bubble-flow {
-      display: grid;
-      gap: 0.85rem;
-      align-content: start;
-    }
-
-    .bubble {
-      padding: 1rem 1.05rem;
-      border-radius: 1.3rem;
-    }
-
-    .bubble-user {
-      background: rgba(255, 255, 255, 0.16);
-      border-top-left-radius: 0.45rem;
-    }
-
-    .bubble-ai {
-      margin-left: 1.1rem;
-      background: linear-gradient(135deg, rgba(13, 124, 102, 0.18), rgba(13, 124, 102, 0.08));
-      border-top-right-radius: 0.45rem;
-    }
-
-    .detail-grid {
-      display: grid;
-      gap: 0.8rem;
-    }
-
-    .detail-row {
-      padding: 0.95rem 1rem;
-      border-radius: 1.1rem;
-      background: rgba(255, 255, 255, 0.52);
-      color: var(--text);
-    }
-
-    .features {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 1rem;
-      margin-top: 1.5rem;
-    }
-
-    .section-card {
-      border-radius: var(--radius-lg);
-      padding: 1.4rem;
-    }
-
-    .section-card p {
-      color: var(--muted);
-      margin: 0.85rem 0 0;
-    }
-
-    .footer-note {
-      margin-top: 2rem;
-      padding: 1.1rem 1.25rem;
-      border-radius: var(--radius-md);
-      color: var(--muted);
-      background: rgba(255, 255, 255, 0.52);
-      border: 1px solid rgba(24, 33, 29, 0.08);
-    }
-
-    @keyframes drift-up {
-      from {
-        opacity: 0;
-        transform: translateY(18px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .hero-copy,
-    .hero-panel,
-    .section-card {
-      animation: drift-up 720ms ease both;
-    }
-
-    .hero-panel {
-      animation-delay: 100ms;
-    }
-
-    .section-card:nth-of-type(2) {
-      animation-delay: 180ms;
-    }
-
-    .section-card:nth-of-type(3) {
-      animation-delay: 260ms;
-    }
-
-    @media (max-width: 980px) {
-      .hero,
-      .stack,
-      .features,
-      .metrics {
-        grid-template-columns: 1fr;
-      }
-
-      .topbar {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .topbar nav {
-        flex-wrap: wrap;
-      }
-    }
-
-    @media (max-width: 640px) {
-      .shell {
-        width: min(calc(100% - 1.2rem), var(--container));
-      }
-
-      .hero {
-        gap: 1.2rem;
-        padding-top: 1.2rem;
-      }
-
-      .hero-copy,
-      .hero-panel {
-        padding: 1.2rem;
-      }
-
-      h1 {
-        font-size: clamp(2.3rem, 13vw, 3.4rem);
-      }
-
-      .actions {
-        flex-direction: column;
-      }
-
-      .button {
-        width: 100%;
-      }
+    @media (max-width: 480px) {
+      .metrics { grid-template-columns: 1fr; }
     }
   </style>
 </head>
 <body>
-  <div class="shell">
-    <header class="topbar">
-      <a href="/" class="brand" aria-label="Signal Room 홈">
-        <span class="brand-mark">S</span>
-        <span>Signal Room</span>
-      </a>
-      <nav>
-        <a href="#overview">Overview</a>
-        <a href="#threads">Threads</a>
-        <a href="#signals">Signals</a>
-      </nav>
-    </header>
-
-    <main class="hero" id="overview">
-      <section class="hero-copy">
-        <span class="eyebrow">Flask Sample Template</span>
-        <h1>여러 채팅방을 하나의 리듬으로 정리하는 LLM 화면</h1>
-        <p>
-          이 샘플 페이지는 단순한 테스트 화면이 아니라, 운영 중인 챗봇 대시보드의 분위기를
-          빠르게 잡아볼 수 있도록 만든 시작점입니다. 멀티 채널 대화, 응답 흐름, 작업 상태를
-          한 화면에 담는 구조를 의도했습니다.
-        </p>
-        <div class="actions">
-          <a class="button button-primary" href="#threads">샘플 스레드 보기</a>
-          <a class="button button-secondary" href="#signals">신호 흐름 보기</a>
-        </div>
-        <div class="metrics">
-          <div class="metric">
-            <strong>12 Rooms</strong>
-            <span>현재 연결된 대화방 수</span>
-          </div>
-          <div class="metric">
-            <strong>94%</strong>
-            <span>최근 응답 성공률</span>
-          </div>
-          <div class="metric">
-            <strong>1.2s</strong>
-            <span>평균 첫 토큰 지연 시간</span>
-          </div>
-        </div>
-      </section>
-
-      <aside class="hero-panel" id="threads">
-        <div class="signal-card">
-          <div class="panel-header">
-            <div>
-              <div class="panel-label">Live Threads</div>
-              <strong>실시간 채팅방 상태</strong>
-            </div>
-            <span>03:19 KST</span>
-          </div>
-          <div class="thread-list">
-            <div class="thread-item">
-              <span class="thread-badge"></span>
-              <div>
-                <strong>운영 문의 / room-a</strong>
-                <span>새 메시지 3건, 최근 15초 전</span>
-              </div>
-              <span>busy</span>
-            </div>
-            <div class="thread-item">
-              <span class="thread-badge"></span>
-              <div>
-                <strong>제품 QA / room-b</strong>
-                <span>문맥 14개 저장, 최근 1분 전</span>
-              </div>
-              <span>ready</span>
-            </div>
-            <div class="thread-item">
-              <span class="thread-badge"></span>
-              <div>
-                <strong>세일즈 데모 / room-c</strong>
-                <span>파일 요약 작업 진행 중</span>
-              </div>
-              <span>sync</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="signal-card-dark" id="signals">
-          <div class="card-label">Signal Preview</div>
-          <div class="stack">
-            <div class="bubble-flow">
-              <div class="bubble bubble-user">
-                <strong>User</strong>
-                <span>room-b 대화 맥락만 유지하고 다른 방 기록은 섞지 마.</span>
-              </div>
-              <div class="bubble bubble-ai">
-                <strong>Assistant</strong>
-                <span>채널 식별자를 대화 키에 포함하면 방별 문맥을 안정적으로 분리할 수 있습니다.</span>
-              </div>
-            </div>
-            <div class="detail-grid">
-              <div class="detail-row">
-                <strong>Conversation Key</strong>
-                <span>`workspace:channel:user` 조합 권장</span>
-              </div>
-              <div class="detail-row">
-                <strong>Retention</strong>
-                <span>최근 20개 메시지, TTL 3600초</span>
-              </div>
-              <div class="detail-row">
-                <strong>Status</strong>
-                <span>Redis online, fallback standby</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </aside>
-    </main>
-
-    <section class="features">
-      <article class="section-card">
-        <div class="panel-label">Why This Page</div>
-        <h2>브랜드 없는 기본 화면 대신 바로 시연 가능한 인상</h2>
-        <p>
-          색, 배경, 타이포, 상태 카드가 이미 들어가 있어서 Flask 앱을 띄우자마자 제품 데모처럼
-          보이도록 구성했습니다.
-        </p>
-      </article>
-      <article class="section-card">
-        <div class="panel-label">Template Ready</div>
-        <h2>Jinja 템플릿 기반으로 바로 확장 가능한 구조</h2>
-        <p>
-          현재는 정적 샘플이지만, 이후 `rooms`, `metrics`, `messages` 같은 데이터를 주입해서
-          운영 화면으로 바꾸기 쉬운 형태입니다.
-        </p>
-      </article>
-      <article class="section-card">
-        <div class="panel-label">Responsive</div>
-        <h2>데스크톱과 모바일 모두 무리 없이 읽히는 레이아웃</h2>
-        <p>
-          큰 카드 중심의 그리드에서 작은 화면에서는 단일 컬럼으로 자연스럽게 전환되도록
-          브레이크포인트를 잡았습니다.
-        </p>
-      </article>
-    </section>
-
-    <div class="footer-note">
-      Flask의 기본 `render_template("sample.html")` 연결만으로도 제품 분위기를 확인할 수 있는
-      샘플 페이지입니다. 필요하면 다음 단계에서 실제 채팅방 목록과 대화 이력을 주입하면 됩니다.
+  <div class="container">
+    <div class="brand">
+      <span class="brand-mark">S</span>
+      <span>Signal Room</span>
     </div>
+
+    <div class="card">
+      <h2>Server Status</h2>
+      <p style="color:#5d675f; margin-bottom:1rem; font-size:0.92rem;">
+        Cube 챗봇 서버 &mdash; OSS Agent (One Stop Solution) 연동
+      </p>
+      <div class="status-row">
+        <span>Cube Receiver</span>
+        <span class="badge badge-ok">online</span>
+      </div>
+      <div class="status-row">
+        <span>LLM Agent</span>
+        <span class="badge badge-ok">ready</span>
+      </div>
+      <div class="status-row">
+        <span>Conversation Store</span>
+        <span class="badge badge-ok">connected</span>
+      </div>
+    </div>
+
+    <footer>Signal Room &mdash; Cube Chatbot Server for OSS Agent</footer>
   </div>
 </body>
 </html>
