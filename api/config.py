@@ -12,29 +12,19 @@ else:
     load_dotenv(BASE_DIR / ".env.example")
 
 # Cube
+CUBE_API_ID = os.environ.get("CUBE_API_ID", "")
+CUBE_API_TOKEN = os.environ.get("CUBE_API_TOKEN", "")
 CUBE_API_URL = os.environ.get("CUBE_API_URL", "http://cube.skhynix.com:8888")
 CUBE_RICHNOTIFICATION_URL = os.environ.get("CUBE_RICHNOTIFICATION_URL", "")
-CUBE_TIMEOUT_SECONDS = int(os.environ.get("CUBE_TIMEOUT_SECONDS", 10))
-
-# Cube Bot — ITC_OSS (C0000143)
-CUBE_API_ID_1 = os.environ.get("CUBE_API_ID_1", "")
-CUBE_API_TOKEN_1 = os.environ.get("CUBE_API_TOKEN_1", "")
-CUBE_BOT_NAME_1 = os.environ.get("CUBE_BOT_NAME_1", "ITC_OSS")
-
-# Cube Bot — SKEWNONO (C0000389)
-CUBE_API_ID_2 = os.environ.get("CUBE_API_ID_2", "")
-CUBE_API_TOKEN_2 = os.environ.get("CUBE_API_TOKEN_2", "")
-CUBE_BOT_NAME_2 = os.environ.get("CUBE_BOT_NAME_2", "SKEWNONO")
-
-# Active bot defaults (ITC_OSS)
-CUBE_BOT_ID = os.environ.get("CUBE_BOT_ID", CUBE_API_ID_1)
-CUBE_BOT_TOKEN = os.environ.get("CUBE_BOT_TOKEN", CUBE_API_TOKEN_1)
-CUBE_BOT_NAME = os.environ.get("CUBE_BOT_NAME", CUBE_BOT_NAME_1)
+CUBE_BOT_ID = os.environ.get("CUBE_BOT_ID", CUBE_API_ID)
+CUBE_BOT_TOKEN = os.environ.get("CUBE_BOT_TOKEN", CUBE_API_TOKEN)
+CUBE_BOT_NAME = os.environ.get("CUBE_BOT_NAME", "ITC_OSS")
 CUBE_BOT_USERNAMES = tuple(
     name.strip()
     for name in os.environ.get("CUBE_BOT_USERNAMES", CUBE_BOT_NAME).split(",")
     if name.strip()
 )
+CUBE_TIMEOUT_SECONDS = int(os.environ.get("CUBE_TIMEOUT_SECONDS", 10))
 
 # LLM
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "")
