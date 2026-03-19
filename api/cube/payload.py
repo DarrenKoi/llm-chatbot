@@ -76,6 +76,16 @@ def build_richnotification_result(reply_message: str) -> dict[str, str]:
     }
 
 
+def build_multimessage_payload(*, user_id: str, reply_message: str) -> dict[str, Any]:
+    return {
+        "uniqueName": config.CUBE_API_ID,
+        "token": config.CUBE_API_TOKEN,
+        "uniqueNameList": [user_id],
+        "channelList": [],
+        "msg": reply_message,
+    }
+
+
 def build_richnotification_payload(*, user_id: str, channel_id: str, reply_message: str) -> dict[str, Any]:
     return {
         "richnotification": {

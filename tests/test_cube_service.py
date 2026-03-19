@@ -6,7 +6,7 @@ from api.cube.service import CubePayloadError, CubeUpstreamError, handle_cube_me
 
 
 @patch("api.cube.service.log_request")
-@patch("api.cube.service.send_richnotification")
+@patch("api.cube.service.send_multimessage")
 @patch("api.cube.service.generate_reply", return_value="반갑습니다")
 @patch("api.cube.service.append_message")
 @patch("api.cube.service.get_history", return_value=[{"role": "assistant", "content": "이전 답변"}])
@@ -14,7 +14,7 @@ def test_handle_cube_message_success(
     mock_get_history,
     mock_append_message,
     mock_generate_reply,
-    mock_send_richnotification,
+    mock_send_multimessage,
     mock_log_request,
 ):
     result = handle_cube_message(
@@ -47,21 +47,20 @@ def test_handle_cube_message_success(
         call("u1", {"role": "user", "content": "안녕하세요"}),
         call("u1", {"role": "assistant", "content": "반갑습니다"}),
     ]
-    mock_send_richnotification.assert_called_once_with(
+    mock_send_multimessage.assert_called_once_with(
         user_id="u1",
-        channel_id="c1",
         reply_message="반갑습니다",
     )
     assert mock_log_request.call_count == 2
 
 
-@patch("api.cube.service.send_richnotification")
+@patch("api.cube.service.send_multimessage")
 @patch("api.cube.service.generate_reply")
 @patch("api.cube.service.append_message")
 def test_handle_cube_message_raises_when_message_missing(
     mock_append_message,
     mock_generate_reply,
-    mock_send_richnotification,
+    mock_send_multimessage,
 ):
     with pytest.raises(CubePayloadError, match="No message provided"):
         handle_cube_message(
@@ -82,10 +81,10 @@ def test_handle_cube_message_raises_when_message_missing(
 
     mock_append_message.assert_not_called()
     mock_generate_reply.assert_not_called()
-    mock_send_richnotification.assert_not_called()
+    mock_send_multimessage.assert_not_called()
 
 
-@patch("api.cube.service.send_richnotification")
+@patch("api.cube.service.send_multimessage")
 @patch("api.cube.service.generate_reply")
 @patch("api.cube.service.append_message")
 @patch("api.cube.service.get_history", return_value=[])
@@ -93,7 +92,7 @@ def test_handle_cube_message_raises_when_llm_fails(
     mock_get_history,
     mock_append_message,
     mock_generate_reply,
-    mock_send_richnotification,
+    mock_send_multimessage,
 ):
     from api.llm import LLMServiceError
 
@@ -118,4 +117,4 @@ def test_handle_cube_message_raises_when_llm_fails(
 
     mock_get_history.assert_called_once_with("u1")
     mock_append_message.assert_called_once_with("u1", {"role": "user", "content": "안녕하세요"})
-    mock_send_richnotification.assert_not_called()
+    mock_send_multimessage.assert_not_called()

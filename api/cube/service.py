@@ -5,7 +5,7 @@ import logging
 from typing import Any
 
 from api.conversation_service import append_message, get_history
-from api.cube.client import CubeClientError, send_richnotification
+from api.cube.client import CubeClientError, send_multimessage
 from api.cube.models import CubeHandledMessage, CubeIncomingMessage
 from api.cube.payload import extract_cube_request_fields
 from api.llm import LLMServiceError, generate_reply
@@ -93,9 +93,8 @@ def handle_cube_message(payload: object) -> CubeHandledMessage:
     )
 
     try:
-        send_richnotification(
+        send_multimessage(
             user_id=incoming.user_id,
-            channel_id=incoming.channel_id,
             reply_message=llm_reply,
         )
     except CubeClientError as exc:
@@ -109,7 +108,7 @@ def handle_cube_message(payload: object) -> CubeHandledMessage:
             reason="cube_delivery_error",
             error=str(exc),
         )
-        raise CubeUpstreamError("Cube richnotification delivery failed.") from exc
+        raise CubeUpstreamError("Cube multiMessage delivery failed.") from exc
 
     log_request(
         {
