@@ -14,6 +14,23 @@ else:
 # Cube
 CUBE_API_TOKEN = os.environ.get("CUBE_API_TOKEN", "")
 CUBE_API_URL = os.environ.get("CUBE_API_URL", "")
+CUBE_RICHNOTIFICATION_URL = os.environ.get("CUBE_RICHNOTIFICATION_URL", "")
+CUBE_BOT_ID = os.environ.get("CUBE_BOT_ID", "")
+CUBE_BOT_TOKEN = os.environ.get("CUBE_BOT_TOKEN", CUBE_API_TOKEN)
+CUBE_BOT_NAME = os.environ.get("CUBE_BOT_NAME", "ITC_OSS")
+CUBE_BOT_USERNAMES = tuple(
+    name.strip()
+    for name in os.environ.get("CUBE_BOT_USERNAMES", CUBE_BOT_NAME).split(",")
+    if name.strip()
+)
+CUBE_TIMEOUT_SECONDS = int(os.environ.get("CUBE_TIMEOUT_SECONDS", 10))
+
+# LLM
+LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "")
+LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
+LLM_MODEL = os.environ.get("LLM_MODEL", "")
+LLM_SYSTEM_PROMPT = os.environ.get("LLM_SYSTEM_PROMPT", "You are a helpful assistant.")
+LLM_TIMEOUT_SECONDS = int(os.environ.get("LLM_TIMEOUT_SECONDS", 30))
 
 # Flask
 APP_NAME = os.environ.get("APP_NAME", "llm_chatbot")

@@ -1,0 +1,90 @@
+# Rich Notification Rules and Structure
+
+## Overview
+richnotificationis a JSON-based format for creating interactive bot messages with various UI components. 
+This document outlines the rules and structure
+
+---
+
+## Root Structure
+
+```json
+{
+    "richnotification": {
+        "header": {...},
+        "content": [...],
+        "result": ""
+    }
+}
+```
+
+- All text arrays must have exactly 5 elements for multi-language support (It's OK to fill all with Korean as we normally use Korean)
+- The `result` field at the root level is typically empty
+- Empty strings are used for default values in my properties
+- The `active` property is typically set to `true` for all controls
+- Border styling is primarily used in grid layouts
+- Image URLs should be accessible from the client's network
+- Callback URLs should handle POST requests with form data
+
+### Language Array Index (5 elements):
+- Index 0 : Korean
+- Index 1 : English
+- Index 2 : Japanese
+- Index 3 : Chinese
+- Index 4 : Other/Empty
+
+
+## 1. Header Section
+
+### Required Feilds:
+- `from`: Sender ID (e.g., "2067928", "X905552")
+- `token`: Cube Bot Token
+- `fromusername`: Array of bot names for differnt language (5 elements)
+- `to`: Object containing recipeient information
+  - `uniquename`: Array of recipeient unique names (sender ID)
+  - `channelid`: Array of channel IDs
+  - **note**: at least one of 'uniquename` or `channelid` is required
+
+---
+
+## 2. Content Section
+
+### Structure:
+```json
+"content": [{
+    "header": {},
+    "body": {
+        "bodystyle: "none" | "grid",
+        "row: [...]
+    },
+    "process": {...}
+}]
+```
+### bodystyle options:
+- `none`: Default layout
+- `grid`: Grid-based layout
+
+
+## 3. Row and Column Structure
+
+## Row properties:
+- `bgcolor`: String - Border color (hex format)
+- `border`: Boolean - Border presence (true/false)
+- `align`: String - Left/right alignment ("left", "right", "center")
+- `width`: String - Horizontal ratio (e.g., "100%")
+- `column` : Array of column objects
+
+### column properties:
+- `bgcolor`: String - Background color (hex format)
+- `border`: Boolean - Border presence (true/false)
+- `align`: String - Left/right alignment ("left", "right", "center)
+- `valign`: String - Top/bottom alignment ("top", "bottom", "middle")
+- `width`: String - Horizontal ratio (e.g., "100%", "100px")
+- `type`: String - Rich type, type of screen control represented in column component ("label", "button", "checkbox", "select", "radio", "image", "hypertext", "inputtext")
+- `control`: Control object with type-specific properties
+
+---
+
+## 4. Control Types
+
+will be inserted later

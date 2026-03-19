@@ -1,5 +1,6 @@
 from unittest.mock import patch
 
+from api.cube.models import CubeHandledMessage
 from api.cube.router import _extract_cube_request_fields, log_request
 
 
@@ -45,13 +46,17 @@ def test_extract_cube_request_fields_from_rich_notification_message():
     }
 
 
-@patch("api.cube.router.log_request")
-@patch("api.cube.router.append_message")
-def test_receive_cube_valid(
-    mock_append,
-    mock_log_request,
-    client,
-):
+@patch("api.cube.router.handle_cube_message")
+def test_receive_cube_valid(mock_handle_cube_message, client):
+    mock_handle_cube_message.return_value = CubeHandledMessage(
+        user_id="u1",
+        user_name="홍길동",
+        channel_id="c1",
+        message_id="m1",
+        user_message="Hi",
+        llm_reply="안녕하세요",
+    )
+
     resp = client.post(
         "/api/v1/cube/receiver",
         json={
@@ -71,18 +76,22 @@ def test_receive_cube_valid(
 
     assert resp.status_code == 202
     assert resp.get_json() == {"status": "accepted", "message_id": "m1"}
-    mock_append.assert_called_once_with("u1", {"role": "user", "content": "Hi"})
-    mock_log_request.assert_called_once_with(
-        {
-            "user_id": "u1",
-            "user_name": "홍길동",
-            "channel_id": "c1",
-            "message_id": "m1",
-            "user_message": "Hi",
-            "status": "accepted",
-            "processor": "external",
-        }
+    mock_handle_cube_message.assert_called_once()
+
+
+@patch("api.cube.router.handle_cube_message")
+def test_receive_cube_upstream_failure(mock_handle_cube_message, client):
+    from api.cube.service import CubeUpstreamError
+
+    mock_handle_cube_message.side_effect = CubeUpstreamError("LLM reply generation failed.")
+
+    resp = client.post(
+        "/api/v1/cube/receiver",
+        json={"message": "Hi", "user_id": "u1", "channel": "c1"},
     )
+
+    assert resp.status_code == 502
+    assert resp.get_json() == {"error": "LLM reply generation failed."}
 
 
 def test_log_request_keeps_korean_in_log_output(caplog):
