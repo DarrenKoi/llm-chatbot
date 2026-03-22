@@ -46,7 +46,7 @@ def test_generate_reply_uses_httpx_post(mocker, monkeypatch):
                 {"role": "user", "content": "hi"},
             ],
         },
-        headers={"Content-Type": "application/json", "Authorization": "Bearer secret"},
+        headers={"Authorization": "Bearer secret"},
         timeout=30,
     )
 

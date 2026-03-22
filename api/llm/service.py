@@ -28,10 +28,10 @@ def generate_reply(*, history: list[dict[str, Any]], user_message: str) -> str:
         headers=_build_headers(),
         timeout=config.LLM_TIMEOUT_SECONDS,
     )
-    reply = _extract_reply_text(response)
-    if not reply.strip():
+    reply = _extract_reply_text(response).strip()
+    if not reply:
         raise LLMServiceError("LLM reply is empty.")
-    return reply.strip()
+    return reply
 
 
 def _build_messages(*, history: list[dict[str, Any]], user_message: str) -> list[dict[str, str]]:
@@ -45,15 +45,16 @@ def _build_messages(*, history: list[dict[str, Any]], user_message: str) -> list
             continue
         role = item.get("role")
         content = item.get("content")
-        if role in {"user", "assistant", "system"} and isinstance(content, str) and content.strip():
-            messages.append({"role": role, "content": content.strip()})
+        stripped = content.strip() if isinstance(content, str) else ""
+        if role in {"user", "assistant", "system"} and stripped:
+            messages.append({"role": role, "content": stripped})
 
     messages.append({"role": "user", "content": user_message.strip()})
     return messages
 
 
 def _build_headers() -> dict[str, str]:
-    headers = {"Content-Type": "application/json"}
+    headers: dict[str, str] = {}
     if config.LLM_API_KEY:
         headers["Authorization"] = f"Bearer {config.LLM_API_KEY}"
     return headers
