@@ -40,7 +40,7 @@ def append_messages(user_id: str, messages: list[dict]):
 
 
 class _MongoBackend:
-    COLLECTION = "conversation_messages"
+    COLLECTION = "cube_conversation_messages"
 
     def __init__(self, db):
         self._col = db[self.COLLECTION]
