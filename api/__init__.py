@@ -20,7 +20,7 @@ def create_application() -> Flask:
 
     @app.route("/", methods=["GET"])
     def main() -> str:
-        return render_template("sample.html")
+        return render_template("main.html")
 
     for blueprint in discover_blueprints():
         app.register_blueprint(blueprint)
