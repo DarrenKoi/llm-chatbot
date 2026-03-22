@@ -4,6 +4,7 @@ from typing import Any
 import httpx
 
 from api import config
+from api.llm.prompt import get_system_prompt
 
 
 class LLMServiceError(RuntimeError):
@@ -35,7 +36,7 @@ def generate_reply(*, history: list[dict[str, Any]], user_message: str) -> str:
 
 def _build_messages(*, history: list[dict[str, Any]], user_message: str) -> list[dict[str, str]]:
     messages: list[dict[str, str]] = []
-    system_prompt = config.LLM_SYSTEM_PROMPT.strip()
+    system_prompt = get_system_prompt()
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
 

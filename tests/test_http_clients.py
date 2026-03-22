@@ -22,7 +22,10 @@ def test_generate_reply_uses_httpx_post(mocker, monkeypatch):
     monkeypatch.setattr("api.config.LLM_BASE_URL", "https://llm.example.com/v1")
     monkeypatch.setattr("api.config.LLM_MODEL", "gpt-test")
     monkeypatch.setattr("api.config.LLM_API_KEY", "secret")
-    monkeypatch.setattr("api.config.LLM_SYSTEM_PROMPT", "한국어로 답변하는 ITC OSS Agent")
+    monkeypatch.setattr(
+        "api.config.LLM_SYSTEM_PROMPT_OVERRIDE",
+        "You are ITC OSS (Infra. Tech Center / One Stop Solution) Agent, Answer kindly in Korean.",
+    )
     post_mock = mocker.patch(
         "api.llm.service.httpx.post",
         return_value=_response(json_body={"choices": [{"message": {"content": "hello"}}]}),
@@ -36,7 +39,10 @@ def test_generate_reply_uses_httpx_post(mocker, monkeypatch):
         json={
             "model": "gpt-test",
             "messages": [
-                {"role": "system", "content": "한국어로 답변하는 ITC OSS Agent"},
+                {
+                    "role": "system",
+                    "content": "You are ITC OSS (Infra. Tech Center / One Stop Solution) Agent, Answer kindly in Korean.",
+                },
                 {"role": "user", "content": "hi"},
             ],
         },
