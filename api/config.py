@@ -31,12 +31,23 @@ CUBE_TIMEOUT_SECONDS = int(os.environ.get("CUBE_TIMEOUT_SECONDS", 10))
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "")
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
 LLM_MODEL = os.environ.get("LLM_MODEL", "")
-LLM_SYSTEM_PROMPT = os.environ.get("LLM_SYSTEM_PROMPT", "You are a helpful assistant.")
+LLM_SYSTEM_PROMPT = os.environ.get(
+    "LLM_SYSTEM_PROMPT",
+    (
+        "You are ITC OSS Agent (Infra. Tech Center / One Stop Solution). "
+        "기본적으로 한국어로 답변하고, 영어 technical term은 자연스럽고 필요한 경우에만 함께 사용하세요. "
+        "사용자가 영어를 명시적으로 요청하지 않으면 영어만으로 답변하지 마세요."
+    ),
+)
 LLM_TIMEOUT_SECONDS = int(os.environ.get("LLM_TIMEOUT_SECONDS", 30))
 
 # Flask
 APP_NAME = os.environ.get("APP_NAME", "llm_chatbot")
 APP_ENV = os.environ.get("APP_ENV", os.environ.get("FLASK_ENV", "development"))
+
+# MongoDB (conversation storage; empty = in-memory fallback)
+AFM_MONGO_URI = os.environ.get("AFM_MONGO_URI", "")
+AFM_DB_NAME = os.environ.get("AFM_DB_NAME", "itc-afm-data-platform-mongodb")
 
 # Redis (empty = in-memory fallback)
 REDIS_URL = os.environ.get("REDIS_URL", "")

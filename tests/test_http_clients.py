@@ -2,7 +2,6 @@ import json
 
 import httpx
 import pytest
-
 from api.cube.client import CubeClientError, _send_cube_request
 from api.llm.service import LLMServiceError, generate_reply
 
@@ -23,6 +22,7 @@ def test_generate_reply_uses_httpx_post(mocker, monkeypatch):
     monkeypatch.setattr("api.config.LLM_BASE_URL", "https://llm.example.com/v1")
     monkeypatch.setattr("api.config.LLM_MODEL", "gpt-test")
     monkeypatch.setattr("api.config.LLM_API_KEY", "secret")
+    monkeypatch.setattr("api.config.LLM_SYSTEM_PROMPT", "한국어로 답변하는 ITC OSS Agent")
     post_mock = mocker.patch(
         "api.llm.service.httpx.post",
         return_value=_response(json_body={"choices": [{"message": {"content": "hello"}}]}),
@@ -36,7 +36,7 @@ def test_generate_reply_uses_httpx_post(mocker, monkeypatch):
         json={
             "model": "gpt-test",
             "messages": [
-                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "system", "content": "한국어로 답변하는 ITC OSS Agent"},
                 {"role": "user", "content": "hi"},
             ],
         },
