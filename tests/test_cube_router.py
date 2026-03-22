@@ -14,7 +14,8 @@ def test_receive_cube_missing_message(client):
             }
         },
     )
-    assert resp.status_code == 400
+    assert resp.status_code == 200
+    assert resp.get_json() == {"status": "ignored", "message_id": "m1"}
 
 
 def test_receive_cube_invalid_payload(client):

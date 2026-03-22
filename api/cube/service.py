@@ -44,7 +44,23 @@ def _is_wakeup_message(incoming: CubeIncomingMessage) -> bool:
 
 
 def accept_cube_message(payload: object) -> CubeAcceptedMessage:
-    incoming = _parse_incoming_message(payload)
+    incoming = _parse_incoming_message(payload, require_message=False)
+
+    if not incoming.message.strip():
+        log_activity(
+            "cube_empty_event_ignored",
+            user_id=incoming.user_id,
+            user_name=incoming.user_name,
+            channel_id=incoming.channel_id,
+            message_id=incoming.message_id,
+        )
+        return CubeAcceptedMessage(
+            user_id=incoming.user_id,
+            user_name=incoming.user_name,
+            channel_id=incoming.channel_id,
+            message_id=incoming.message_id,
+            status="ignored",
+        )
 
     if _is_wakeup_message(incoming):
         log_activity(
@@ -247,7 +263,7 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
     )
 
 
-def _parse_incoming_message(payload: object) -> CubeIncomingMessage:
+def _parse_incoming_message(payload: object, *, require_message: bool = True) -> CubeIncomingMessage:
     if not isinstance(payload, dict):
         log_activity("cube_message_rejected", reason="invalid_payload")
         raise CubePayloadError("Invalid JSON payload")
@@ -263,7 +279,10 @@ def _parse_incoming_message(payload: object) -> CubeIncomingMessage:
     channel_id = cube_fields["channel_id"] or ""
     raw_message = cube_fields["message"]
 
-    if not isinstance(raw_message, str) or not raw_message.strip():
+    if not isinstance(raw_message, str):
+        raw_message = ""
+
+    if require_message and not raw_message.strip():
         log_activity(
             "cube_message_rejected",
             user_id=user_id,

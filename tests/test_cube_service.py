@@ -88,6 +88,29 @@ def test_accept_cube_wakeup_message_is_ignored(mock_enqueue):
     mock_enqueue.assert_not_called()
 
 
+@patch("api.cube.service.enqueue_incoming_message")
+def test_accept_cube_empty_event_is_ignored(mock_enqueue):
+    result = accept_cube_message(
+        {
+            "richnotificationmessage": {
+                "header": {
+                    "from": {
+                        "uniquename": "u1",
+                        "messageid": "m1",
+                        "channelid": "c1",
+                        "username": "tester",
+                    }
+                },
+                "process": {},
+            }
+        }
+    )
+
+    assert result.status == "ignored"
+    assert result.message_id == "m1"
+    mock_enqueue.assert_not_called()
+
+
 @patch("api.cube.service.log_request")
 @patch("api.cube.service.send_multimessage")
 @patch("api.cube.service.generate_reply", return_value="nice to meet you")
