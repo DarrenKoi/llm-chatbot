@@ -83,6 +83,51 @@
     .badge-ok { background: rgba(13, 124, 102, 0.14); color: #085746; }
     .badge-busy { background: rgba(216, 140, 58, 0.18); color: #8b5a1a; }
 
+    .conversation-meta {
+      margin-bottom: 1rem;
+      color: #5d675f;
+      font-size: 0.92rem;
+    }
+
+    .message-list {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .message-item {
+      padding: 0.9rem 1rem;
+      border-radius: 1rem;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(24, 33, 29, 0.08);
+    }
+
+    .message-role {
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #085746;
+      margin-bottom: 0.2rem;
+    }
+
+    .message-user {
+      font-size: 0.8rem;
+      color: #5d675f;
+      margin-bottom: 0.45rem;
+    }
+
+    .message-content {
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.5;
+      font-size: 0.94rem;
+    }
+
+    .empty-state {
+      color: #5d675f;
+      font-size: 0.92rem;
+    }
+
     footer {
       margin-top: 1rem;
       font-size: 0.82rem;
@@ -119,6 +164,24 @@
         <span>Conversation Store</span>
         <span class="badge badge-ok">connected</span>
       </div>
+    </div>
+
+    <div class="card">
+      <h2>Conversation Debug</h2>
+      <p class="conversation-meta">전체 대화 기준 최근 50개 메시지</p>
+      {% if conversation %}
+      <div class="message-list">
+        {% for message in conversation %}
+        <div class="message-item">
+          <div class="message-role">{{ message.role or 'unknown' }}</div>
+          <div class="message-user">{{ message.user_id or 'unknown-user' }}</div>
+          <div class="message-content">{{ message.content or '' }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="empty-state">저장된 대화가 없습니다.</p>
+      {% endif %}
     </div>
 
     <footer>Signal Room &mdash; Cube Chatbot Server for OSS Agent</footer>

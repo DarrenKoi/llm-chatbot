@@ -6,6 +6,7 @@ from flask import g, request
 from flask import render_template
 
 from api.blueprint_loader import discover_blueprints
+from api.conversation_service import get_recent_messages
 from api.cube.payload import extract_user_id
 from api.utils.logger import log_activity, setup_logging
 from api.utils.scheduler import start_scheduler
@@ -20,7 +21,8 @@ def create_application() -> Flask:
 
     @app.route("/", methods=["GET"])
     def main() -> str:
-        return render_template("main.html")
+        conversation = get_recent_messages(limit=50)
+        return render_template("main.html", conversation=conversation)
 
     for blueprint in discover_blueprints():
         app.register_blueprint(blueprint)

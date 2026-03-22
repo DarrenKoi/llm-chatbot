@@ -60,6 +60,31 @@ class TestInMemoryBackend:
         h2 = mod.get_history("user1")
         assert h1 is not h2
 
+    @patch.object(config, "AFM_MONGO_URI", "")
+    @patch.object(config, "CONVERSATION_MAX_MESSAGES", 20)
+    def test_get_applies_explicit_limit(self):
+        mod = self._fresh_module()
+        for i in range(5):
+            mod.append_message("user1", {"role": "user", "content": f"msg{i}"})
+
+        history = mod.get_history("user1", limit=2)
+
+        assert [message["content"] for message in history] == ["msg3", "msg4"]
+
+    @patch.object(config, "AFM_MONGO_URI", "")
+    @patch.object(config, "CONVERSATION_MAX_MESSAGES", 20)
+    def test_get_recent_returns_latest_messages_first(self):
+        mod = self._fresh_module()
+        mod.append_message("user1", {"role": "user", "content": "first"})
+        mod.append_message("user2", {"role": "assistant", "content": "second"})
+
+        recent = mod.get_recent_messages(limit=2)
+
+        assert recent == [
+            {"user_id": "user2", "role": "assistant", "content": "second"},
+            {"user_id": "user1", "role": "user", "content": "first"},
+        ]
+
 
 class TestMongoBackend:
     """Test the MongoDB conversation backend with mocked pymongo."""
@@ -122,6 +147,62 @@ class TestMongoBackend:
             assert history[0]["content"] == "newer"
             assert history[1]["content"] == "older"
             mock_cursor.limit.assert_called_with(5)
+
+    @patch.object(config, "CONVERSATION_MAX_MESSAGES", 5)
+    @patch.object(config, "AFM_DB_NAME", "test-db")
+    @patch.object(config, "AFM_MONGO_URI", "mongodb://fake:27017")
+    def test_get_uses_explicit_limit(self):
+        mock_cursor = MagicMock()
+        mock_cursor.sort.return_value = mock_cursor
+        mock_cursor.limit.return_value = mock_cursor
+        mock_cursor.__iter__ = MagicMock(return_value=iter([]))
+
+        mock_col = MagicMock()
+        mock_col.find.return_value = mock_cursor
+        mock_db = MagicMock()
+        mock_db.__getitem__ = MagicMock(return_value=mock_col)
+        mock_client = MagicMock()
+        mock_client.__getitem__ = MagicMock(return_value=mock_db)
+
+        with patch("pymongo.MongoClient", return_value=mock_client):
+            import importlib
+            import api.conversation_service as mod
+            mod._backend = None
+            importlib.reload(mod)
+
+            mod.get_history("user1", limit=50)
+
+            mock_cursor.limit.assert_called_with(50)
+
+    @patch.object(config, "CONVERSATION_MAX_MESSAGES", 5)
+    @patch.object(config, "AFM_DB_NAME", "test-db")
+    @patch.object(config, "AFM_MONGO_URI", "mongodb://fake:27017")
+    def test_get_recent_messages_uses_mongodb_query(self):
+        mock_cursor = MagicMock()
+        mock_cursor.sort.return_value = mock_cursor
+        mock_cursor.limit.return_value = mock_cursor
+        mock_cursor.__iter__ = MagicMock(
+            return_value=iter([{"user_id": "user1", "role": "user", "content": "hello"}])
+        )
+
+        mock_col = MagicMock()
+        mock_col.find.return_value = mock_cursor
+        mock_db = MagicMock()
+        mock_db.__getitem__ = MagicMock(return_value=mock_col)
+        mock_client = MagicMock()
+        mock_client.__getitem__ = MagicMock(return_value=mock_db)
+
+        with patch("pymongo.MongoClient", return_value=mock_client):
+            import importlib
+            import api.conversation_service as mod
+            mod._backend = None
+            importlib.reload(mod)
+
+            recent = mod.get_recent_messages(limit=50)
+
+            assert recent == [{"user_id": "user1", "role": "user", "content": "hello"}]
+            mock_col.find.assert_called_once_with({}, {"_id": 0, "user_id": 1, "role": 1, "content": 1})
+            mock_cursor.limit.assert_called_with(50)
 
     @patch.object(config, "AFM_DB_NAME", "test-db")
     @patch.object(config, "AFM_MONGO_URI", "mongodb://fake:27017")
