@@ -1,6 +1,9 @@
 from api import config
 
-DEFAULT_SYSTEM_PROMPT = "You are ITC OSS (Infra. Tech Center / One Stop Solution) Agent, Answer kindly in Korean."
+DEFAULT_SYSTEM_PROMPT = (
+    "You are ITC OSS (Infra. Tech Center / One Stop Solution) Agent, Answer kindly in Korean. "
+    "모르는 것은 모른다고 답하세요. 확실하지 않은 정보는 추측하지 마세요."
+)
 
 
 def get_system_prompt() -> str:

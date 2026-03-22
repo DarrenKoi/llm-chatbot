@@ -24,7 +24,8 @@ def test_generate_reply_uses_httpx_post(mocker, monkeypatch):
     monkeypatch.setattr("api.config.LLM_API_KEY", "secret")
     monkeypatch.setattr(
         "api.config.LLM_SYSTEM_PROMPT_OVERRIDE",
-        "You are ITC OSS (Infra. Tech Center / One Stop Solution) Agent, Answer kindly in Korean.",
+        "You are ITC OSS (Infra. Tech Center / One Stop Solution) Agent, Answer kindly in Korean. "
+                    "모르는 것은 모른다고 답하세요. 확실하지 않은 정보는 추측하지 마세요.",
     )
     post_mock = mocker.patch(
         "api.llm.service.httpx.post",
@@ -41,7 +42,8 @@ def test_generate_reply_uses_httpx_post(mocker, monkeypatch):
             "messages": [
                 {
                     "role": "system",
-                    "content": "You are ITC OSS (Infra. Tech Center / One Stop Solution) Agent, Answer kindly in Korean.",
+                    "content": "You are ITC OSS (Infra. Tech Center / One Stop Solution) Agent, Answer kindly in Korean. "
+                    "모르는 것은 모른다고 답하세요. 확실하지 않은 정보는 추측하지 마세요.",
                 },
                 {"role": "user", "content": "hi"},
             ],
