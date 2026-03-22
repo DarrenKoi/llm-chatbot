@@ -60,6 +60,7 @@ SCHEDULER_JOB_MISFIRE_GRACE_SECONDS = int(os.environ.get("SCHEDULER_JOB_MISFIRE_
 
 # Logging
 LOG_DIR = Path(os.environ.get("LOG_DIR", str(BASE_DIR / "logs"))).expanduser()
+LOG_TIMEZONE = os.environ.get("LOG_TIMEZONE", "Asia/Seoul")
 ACTIVITY_LOG_THEME = os.environ.get("ACTIVITY_LOG_THEME", "activity")
 # Backward-compatible alias for legacy callers; the logger now uses LOG_DIR/theme layout.
 ACTIVITY_LOG_DIR = Path(os.environ.get("ACTIVITY_LOG_DIR", str(LOG_DIR / ACTIVITY_LOG_THEME))).expanduser()

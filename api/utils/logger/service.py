@@ -1,6 +1,5 @@
 import logging
 import sys
-from datetime import datetime, timezone
 from logging import Handler
 from logging.handlers import TimedRotatingFileHandler
 from threading import Lock
@@ -9,7 +8,12 @@ from typing import Any
 from flask import g, has_request_context, request
 
 from api import config
-from api.utils.logger.formatters import JsonLineFormatter, TEXT_LOG_FORMAT
+from api.utils.logger.formatters import (
+    JsonLineFormatter,
+    LocalTimezoneFormatter,
+    TEXT_LOG_FORMAT,
+    current_log_timestamp,
+)
 from api.utils.logger.paths import get_theme_log_dir, normalize_name
 
 _setup_lock = Lock()
@@ -72,7 +76,7 @@ def _build_file_handler(
     if json_output:
         handler.setFormatter(JsonLineFormatter())
     else:
-        handler.setFormatter(logging.Formatter(TEXT_LOG_FORMAT))
+        handler.setFormatter(LocalTimezoneFormatter(TEXT_LOG_FORMAT))
     return handler
 
 
@@ -87,7 +91,7 @@ def setup_logging() -> None:
 
         if not _has_handler(root, _ROOT_HANDLER_TAG):
             stream_handler = logging.StreamHandler(sys.stdout)
-            stream_handler.setFormatter(logging.Formatter(TEXT_LOG_FORMAT))
+            stream_handler.setFormatter(LocalTimezoneFormatter(TEXT_LOG_FORMAT))
             _set_handler_tag(stream_handler, _ROOT_HANDLER_TAG)
             root.addHandler(stream_handler)
 
@@ -112,7 +116,7 @@ def setup_logging() -> None:
 def build_activity_payload(event: str, **data: Any) -> dict[str, Any]:
     payload: dict[str, Any] = {
         "event": event,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "timestamp": current_log_timestamp(),
     }
     payload.update(_request_context())
     payload.update(data)

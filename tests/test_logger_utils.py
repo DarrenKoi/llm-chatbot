@@ -3,6 +3,7 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 
 from api import config
+from api.utils.logger.formatters import LocalTimezoneFormatter
 from api.utils.logger import (
     get_theme_logger,
     get_topic_logger,
@@ -39,6 +40,7 @@ def _flush_handlers(logger: logging.Logger) -> None:
 
 def test_log_activity_writes_json_line(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(config, "LOG_TIMEZONE", "Asia/Seoul")
     monkeypatch.setattr(config, "ACTIVITY_LOG_THEME", "activity")
     monkeypatch.setattr(config, "LOG_RETENTION_DAYS", 7)
     monkeypatch.setattr(config, "APP_NAME", "chatbot-test")
@@ -68,6 +70,7 @@ def test_log_activity_writes_json_line(tmp_path, monkeypatch):
     assert payload["service"] == "chatbot-test"
     assert "environment" not in payload
     assert "@timestamp" not in payload
+    assert payload["timestamp"].endswith("+09:00")
     assert payload["meta_trace_id"] == "abc"
     assert payload["_type"] == "important"
     assert "홍길동" in first_line
@@ -82,6 +85,7 @@ def test_log_activity_writes_json_line(tmp_path, monkeypatch):
 
 def test_topic_json_logger_and_rollover(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(config, "LOG_TIMEZONE", "Asia/Seoul")
     monkeypatch.setattr(config, "LOG_RETENTION_DAYS", 7)
     _reset_logger_state()
 
@@ -94,6 +98,7 @@ def test_topic_json_logger_and_rollover(tmp_path, monkeypatch):
     payload = json.loads(topic_log_file.read_text(encoding="utf-8").splitlines()[0])
     assert payload["event"] == "jobs_event"
     assert payload["job_id"] == "daily-cleanup"
+    assert payload["timestamp"].endswith("+09:00")
     timed_handlers = [handler for handler in topic_logger.handlers if isinstance(handler, TimedRotatingFileHandler)]
     assert timed_handlers
     assert timed_handlers[0].backupCount == 7
@@ -103,6 +108,7 @@ def test_topic_json_logger_and_rollover(tmp_path, monkeypatch):
 
 def test_theme_logger_writes_under_theme_folder(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(config, "LOG_TIMEZONE", "Asia/Seoul")
     monkeypatch.setattr(config, "LOG_RETENTION_DAYS", 7)
     _reset_logger_state()
 
@@ -113,3 +119,15 @@ def test_theme_logger_writes_under_theme_folder(tmp_path, monkeypatch):
     themed_log_file = config.LOG_DIR / "audit" / "security.log"
     assert themed_log_file.exists()
     assert "access granted" in themed_log_file.read_text(encoding="utf-8")
+
+
+def test_text_formatter_uses_configured_timezone(monkeypatch):
+    monkeypatch.setattr(config, "LOG_TIMEZONE", "Asia/Seoul")
+
+    formatter = LocalTimezoneFormatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+    record = logging.LogRecord("theme.audit", logging.INFO, __file__, 1, "access granted", (), None)
+    record.created = 0
+
+    formatted = formatter.format(record)
+
+    assert formatted.startswith("1970-01-01 09:00:00")

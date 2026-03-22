@@ -2,10 +2,12 @@ import json
 import logging
 from datetime import datetime, timezone
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from api import config
 
 TEXT_LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+_DEFAULT_LOG_TIMEZONE = "Asia/Seoul"
 
 
 class JsonLineFormatter(logging.Formatter):
@@ -23,6 +25,39 @@ class JsonLineFormatter(logging.Formatter):
         return json.dumps(document, ensure_ascii=False, default=str)
 
 
+class LocalTimezoneFormatter(logging.Formatter):
+    """Format text logs using the configured application timezone."""
+
+    def formatTime(self, record: logging.LogRecord, datefmt: str | None = None) -> str:
+        timestamp = datetime.fromtimestamp(record.created, tz=get_log_timezone())
+        if datefmt:
+            return timestamp.strftime(datefmt)
+        return timestamp.strftime(self.default_time_format)
+
+
+def get_log_timezone() -> ZoneInfo:
+    configured_timezone = getattr(config, "LOG_TIMEZONE", _DEFAULT_LOG_TIMEZONE) or _DEFAULT_LOG_TIMEZONE
+    try:
+        return ZoneInfo(configured_timezone)
+    except ZoneInfoNotFoundError:
+        try:
+            return ZoneInfo(_DEFAULT_LOG_TIMEZONE)
+        except ZoneInfoNotFoundError:
+            return timezone.utc
+
+
+def _normalize_datetime(value: datetime) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=get_log_timezone())
+    else:
+        value = value.astimezone(get_log_timezone())
+    return value.isoformat()
+
+
+def current_log_timestamp() -> str:
+    return datetime.now(get_log_timezone()).isoformat()
+
+
 def _sanitize_key(key: str) -> str:
     safe_key = key.replace("\x00", "").replace(".", "_")
     if safe_key.startswith("$"):
@@ -32,7 +67,7 @@ def _sanitize_key(key: str) -> str:
 
 def _normalize_for_json(value: Any) -> Any:
     if isinstance(value, datetime):
-        return value.astimezone(timezone.utc).isoformat()
+        return _normalize_datetime(value)
 
     if isinstance(value, dict):
         normalized: dict[str, Any] = {}
@@ -60,7 +95,7 @@ def build_log_document(record: logging.LogRecord, payload: dict[str, Any]) -> di
     message = str(normalized_payload.get("message", record.getMessage()))
     event = str(normalized_payload.get("event", message))
     timestamp = str(normalized_payload.get("@timestamp") or normalized_payload.get("timestamp")
-                    or datetime.now(timezone.utc).isoformat())
+                    or current_log_timestamp())
 
     document: dict[str, Any] = {
         "timestamp": timestamp,
