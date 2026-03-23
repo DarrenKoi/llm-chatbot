@@ -67,7 +67,12 @@ Cube 메신저
 ── 여기까지 기존과 동일 ──
 
 6.  [신규] rag/retriever.py로 사용자 메시지 기반 관련 문맥 검색
-7.  [신규] mcp/client.py에서 등록된 MCP 서버들의 도구 정의 수집
+    - 사용자 메시지 임베딩 생성 (이 임베딩을 6.5에서 재사용)
+7.  [신규] mcp/tool_selector.py: 도구 필요 여부 판단 + 관련 도구 선택
+    - 6단계에서 생성한 임베딩과 도구 description 임베딩의 유사도 비교
+    - 유사도 max < threshold → tools=None (도구 불필요, 일반 대화)
+    - 유사도 ≥ threshold → 해당 도구만 선택 (도구 필요, 선택된 것만 전달)
+    - 상세: §5.10 도구 선택 전략 참조
 8.  [변경] llm/service.py가 메시지 배열 구성:
     - system prompt + RAG 문맥 + 대화 이력 + 사용자 메시지
     - tools 파라미터에 MCP 도구 정의 포함
@@ -217,21 +222,24 @@ MCP_SERVERS_JSON='[
     "url": "https://mcp-jira.internal.example.com",
     "api_key": "env:MCP_JIRA_API_KEY",
     "timeout_seconds": 15,
-    "enabled": true
+    "enabled": true,
+    "keywords": ["jira", "지라", "이슈", "티켓"]
   },
   {
     "name": "confluence",
     "url": "https://mcp-confluence.internal.example.com",
     "api_key": "env:MCP_CONFLUENCE_API_KEY",
     "timeout_seconds": 15,
-    "enabled": true
+    "enabled": true,
+    "keywords": ["confluence", "컨플루언스", "위키", "문서"]
   },
   {
     "name": "monitoring",
     "url": "https://mcp-monitoring.internal.example.com",
     "api_key": "",
     "timeout_seconds": 10,
-    "enabled": true
+    "enabled": true,
+    "keywords": ["모니터링", "장애", "알림", "서버상태"]
   }
 ]'
 ```
@@ -248,6 +256,7 @@ class MCPServerConfig:
     api_key: str = ""       # 인증 키 (빈 문자열이면 미사용)
     timeout_seconds: int = 15
     enabled: bool = True
+    keywords: tuple[str, ...] = ()  # 도구 선택 키워드 오버라이드 (§5.10.8)
 ```
 
 ### 5.4 도구 탐색 (Tool Discovery)
@@ -368,6 +377,301 @@ MCP_SERVERS_JSON=[]                      # MCP 서버 목록 (JSON 배열)
 MCP_TOOL_CACHE_TTL_SECONDS=300           # 도구 캐시 TTL (기본 5분)
 MCP_TOOL_CALL_TIMEOUT_SECONDS=15         # 개별 도구 호출 타임아웃
 MCP_DISCOVERY_TIMEOUT_SECONDS=10         # 도구 탐색 타임아웃
+MCP_TOOL_SELECT_THRESHOLD=0.35           # 도구 선택 유사도 임계값
+MCP_TOOL_SELECT_MAX_TOOLS=10             # 최대 선택 도구 수
+MCP_TOOL_SELECT_KEYWORD_OVERRIDE=true    # 키워드 매칭 시 threshold 무시
+```
+
+### 5.10 도구 선택 전략 (Embedding 기반 Tool Filtering)
+
+#### 5.10.1 문제: 도구 정의의 토큰 비용
+
+LLM API에 `tools` 파라미터로 도구 정의를 전달하면, 각 도구의 이름·설명·파라미터 스키마가 context에 포함된다. 도구 하나당 약 **100~300 토큰**을 소비한다.
+
+```text
+예시: MCP 서버 5개, 서버당 평균 6개 도구 = 30개 도구
+→ 30 × 200 = 약 6,000 토큰 (매 요청마다)
+
+도구가 50개로 늘어나면:
+→ 50 × 200 = 약 10,000 토큰 (매 요청마다)
+```
+
+대부분의 사용자 메시지는 일반 대화이며, 도구가 필요한 요청은 전체의 30~40% 정도다. 나머지 60~70%의 요청에서 도구 정의 토큰이 낭비된다.
+
+#### 5.10.2 해결: 임베딩 유사도 기반 2단계 필터링
+
+사용자 메시지의 임베딩과 도구 description 임베딩의 유사도를 비교하여, **도구 필요 여부 판단**과 **관련 도구 선택**을 하나의 연산으로 수행한다.
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│ 사용자 메시지 임베딩 (RAG 단계에서 이미 생성됨)           │
+│          ↓                                               │
+│  도구 description 임베딩 인덱스와 유사도 비교              │
+│          ↓                                               │
+│  ┌──────────────────────────────────────────────┐        │
+│  │ max_similarity < TOOL_THRESHOLD (예: 0.35)   │        │
+│  │  → 도구 불필요. tools=None으로 LLM 호출       │        │
+│  │  → 토큰 절약: 도구 정의 0개 전달              │        │
+│  ├──────────────────────────────────────────────┤        │
+│  │ max_similarity ≥ TOOL_THRESHOLD              │        │
+│  │  → threshold 이상인 도구만 선택               │        │
+│  │  → 선택된 도구만 LLM에 전달 (보통 2~5개)      │        │
+│  └──────────────────────────────────────────────┘        │
+└─────────────────────────────────────────────────────────┘
+```
+
+핵심: RAG 검색을 위해 이미 생성한 사용자 메시지 임베딩을 **재사용**한다. 추가 임베딩 API 호출이 필요 없다.
+
+#### 5.10.3 도구 임베딩 인덱스 구축
+
+각 MCP 서버에서 도구 정의를 수집할 때(`tools/list`), 도구의 description을 임베딩하여 인덱스에 저장한다. 도구 캐시(§5.4)와 생명주기를 함께 한다.
+
+```text
+도구 임베딩 인덱스 구축 시점:
+  1. 워커 시작 시 (도구 캐시 초기화와 동시)
+  2. 캐시 TTL 만료 시 갱신 (도구 캐시와 동일한 주기)
+
+인덱스 구조:
+  tool_embeddings: list[ToolEmbedding]
+
+  @dataclass
+  class ToolEmbedding:
+      tool_name: str           # 도구 이름 (예: "jira_create_issue")
+      server_name: str         # 소속 MCP 서버 (예: "jira")
+      description: str         # 도구 설명 원문
+      embedding: list[float]   # description의 임베딩 벡터
+```
+
+임베딩 대상 텍스트는 도구의 `description` 필드를 기본으로 하되, 검색 품질을 높이기 위해 도구 이름과 파라미터 이름을 결합할 수 있다.
+
+```text
+임베딩 입력 텍스트 구성 예시:
+
+방안 1: description만 사용 (단순)
+  "Jira에 새 이슈를 생성합니다"
+
+방안 2: name + description 결합 (권장)
+  "jira_create_issue: Jira에 새 이슈를 생성합니다"
+
+방안 3: name + description + parameters 결합 (정밀)
+  "jira_create_issue: Jira에 새 이슈를 생성합니다. 파라미터: project, summary, description"
+```
+
+방안 2를 기본으로 시작하고, 실제 매칭 품질을 보며 조정한다.
+
+#### 5.10.4 유사도 비교 흐름
+
+```python
+def select_tools(
+    query_embedding: list[float],
+    tool_embeddings: list[ToolEmbedding],
+    threshold: float,
+    max_tools: int = 10,
+) -> list[str] | None:
+    """
+    사용자 메시지 임베딩과 도구 임베딩의 유사도를 비교하여
+    관련 도구를 선택한다.
+
+    Returns:
+        관련 도구 이름 리스트. 도구가 불필요하면 None.
+    """
+    similarities = []
+    for tool_emb in tool_embeddings:
+        score = cosine_similarity(query_embedding, tool_emb.embedding)
+        if score >= threshold:
+            similarities.append((tool_emb.tool_name, score))
+
+    if not similarities:
+        return None  # 도구 불필요 → tools=None으로 LLM 호출
+
+    # 유사도 높은 순 정렬, 상위 max_tools개 선택
+    similarities.sort(key=lambda x: x[1], reverse=True)
+    return [name for name, _ in similarities[:max_tools]]
+```
+
+```text
+예시 1: "안녕하세요, 오늘 기분이 좋아요"
+  → 모든 도구와 유사도 < 0.35
+  → return None → tools=None → 일반 대화 (토큰 절약)
+
+예시 2: "ITC 프로젝트에서 이번 주 생성된 이슈 목록 보여줘"
+  → "jira_search_issues" 유사도 0.82
+  → "jira_create_issue" 유사도 0.51
+  → "confluence_search" 유사도 0.28 (threshold 미만, 제외)
+  → return ["jira_search_issues", "jira_create_issue"] → 2개만 LLM에 전달
+
+예시 3: "서버 장애 현황 확인하고 관련 이슈 만들어줘"
+  → "monitoring_check_status" 유사도 0.78
+  → "jira_create_issue" 유사도 0.65
+  → "monitoring_get_alerts" 유사도 0.61
+  → return [...] → 3개만 전달 (여러 서버의 도구가 섞여도 정상 동작)
+```
+
+#### 5.10.5 RAG 임베딩 인프라 재사용
+
+RAG(§4)에서 사용자 메시지를 임베딩하여 OpenSearch kNN 검색에 사용한다. 이 임베딩을 도구 선택에도 재사용하면 추가 비용이 없다.
+
+```text
+현재 (RAG만):
+  user_message → [Embedding API 호출] → query_embedding → OpenSearch kNN
+
+변경 후 (RAG + Tool Selection):
+  user_message → [Embedding API 호출] → query_embedding
+                                           ├→ OpenSearch kNN (RAG)
+                                           └→ 도구 임베딩 유사도 비교 (Tool Selection)
+```
+
+임베딩 모델은 RAG와 동일한 모델을 사용한다. 도구 description 임베딩도 같은 모델로 생성해야 유사도 비교가 유의미하다.
+
+단, **RAG가 비활성화(`RAG_ENABLED=false`)인 경우**에도 도구 선택은 독립적으로 동작해야 한다. 이 경우 도구 선택을 위해 별도로 임베딩 API를 호출한다.
+
+```text
+if RAG_ENABLED and MCP_ENABLED:
+    query_embedding = embed(user_message)  # 1회 호출
+    rag_context = opensearch_knn(query_embedding)
+    selected_tools = select_tools(query_embedding, ...)
+
+elif MCP_ENABLED only:
+    query_embedding = embed(user_message)  # 도구 선택 전용 1회 호출
+    selected_tools = select_tools(query_embedding, ...)
+
+elif RAG_ENABLED only:
+    query_embedding = embed(user_message)
+    rag_context = opensearch_knn(query_embedding)
+    # 도구 선택 불필요
+
+else:
+    # 기존 동작 (RAG 없음, MCP 없음)
+```
+
+#### 5.10.6 도구 임베딩 저장소
+
+도구 임베딩은 **인메모리**로 관리한다. 도구 수는 보통 수십~수백 개 수준이므로 메모리 부담이 없다.
+
+```text
+도구 50개 × 임베딩 차원 1536 × float32(4 bytes) = 약 300KB
+→ 메모리 부담 없음. 별도 DB 불필요.
+```
+
+도구 캐시(§5.4)가 갱신될 때 임베딩 인덱스도 함께 갱신한다.
+
+```text
+도구 캐시 갱신 흐름 (변경 후):
+  1. MCP 서버에 tools/list 요청
+  2. 도구 정의 파싱 → _tool_cache 업데이트
+  3. [신규] 각 도구 description 임베딩 → _tool_embeddings 업데이트
+  4. [신규] 역매핑 _tool_server_map 업데이트 (기존)
+```
+
+#### 5.10.7 Threshold 튜닝 전략
+
+threshold가 너무 높으면 필요한 도구를 놓치고, 너무 낮으면 불필요한 도구를 포함한다.
+
+```text
+threshold 튜닝 가이드:
+
+1. 초기값: 0.35 (보수적 — 도구를 놓치지 않는 방향)
+
+2. 로그 기반 튜닝:
+   - 도구 선택 결과를 로그에 기록 (메시지, 선택된 도구, 유사도 점수)
+   - 실제 LLM이 tool_calls를 생성했는지 대조
+   - False negative (도구가 필요했으나 선택 안 됨) → threshold 낮춤
+   - False positive (불필요한 도구가 선택됨) → threshold 높임
+
+3. 안전 장치:
+   - 사용자 메시지에 명시적 키워드가 있으면 threshold 무시하고 포함
+     예: "Jira" → jira 서버 도구 강제 포함
+   - 유사도 점수가 전반적으로 낮지만 가장 높은 점수가
+     soft_threshold(예: 0.25) 이상이면 상위 1~2개는 포함
+```
+
+```text
+환경 변수:
+  MCP_TOOL_SELECT_THRESHOLD=0.35         # 도구 선택 유사도 임계값
+  MCP_TOOL_SELECT_MAX_TOOLS=10           # 최대 선택 도구 수
+  MCP_TOOL_SELECT_KEYWORD_OVERRIDE=true  # 키워드 매칭 시 threshold 무시
+```
+
+#### 5.10.8 키워드 오버라이드 (Fallback 보완)
+
+임베딩 유사도만으로는 놓칠 수 있는 경우를 키워드 매칭으로 보완한다.
+
+```text
+키워드 오버라이드 흐름:
+
+1. 각 MCP 서버에 키워드 목록을 등록 (MCP_SERVERS_JSON에 추가)
+   {
+     "name": "jira",
+     "url": "...",
+     "keywords": ["jira", "이슈", "티켓", "지라"]
+   }
+
+2. 사용자 메시지에 키워드가 포함되면:
+   - 해당 서버의 모든 도구를 후보에 추가
+   - 임베딩 유사도 결과와 합집합
+
+3. 최종 선택 도구 = 임베딩 선택 ∪ 키워드 선택
+```
+
+이 방식은 임베딩 모델이 도메인 용어(Jira, Confluence 등)를 잘 이해하지 못하는 경우에도 안정적으로 동작한다.
+
+#### 5.10.9 토큰 절약 효과 추정
+
+```text
+시나리오: 도구 30개, 도구당 평균 200 토큰
+
+AS-IS (모든 도구 전달):
+  매 요청당 도구 토큰 = 30 × 200 = 6,000 토큰
+
+TO-BE (임베딩 필터링):
+  일반 대화 (60%): 도구 토큰 = 0
+  도구 필요 (40%): 평균 3개 선택 = 3 × 200 = 600 토큰
+
+  가중 평균 = 0.6 × 0 + 0.4 × 600 = 240 토큰/요청
+  절약률 = (6,000 - 240) / 6,000 = 96%
+
+  하루 1,000 요청 기준:
+    AS-IS: 6,000,000 토큰 (도구 정의만)
+    TO-BE:   240,000 토큰
+    절약:  5,760,000 토큰/일
+```
+
+#### 5.10.10 패키지 구조 변경
+
+```text
+api/mcp/
+├── __init__.py
+├── client.py
+├── registry.py
+├── models.py             # ToolEmbedding dataclass 추가
+├── tool_selector.py      # [신규] 임베딩 기반 도구 선택
+└── errors.py
+```
+
+#### 5.10.11 llm/service.py 통합
+
+```python
+def generate_reply(*, history: list[dict], user_message: str) -> str:
+    # 1. 사용자 메시지 임베딩 (RAG + 도구 선택 공용)
+    query_embedding = _embed_query(user_message)
+
+    # 2. RAG 검색
+    rag_context = _retrieve_rag_context(user_message, query_embedding)
+
+    # 3. 도구 선택 (임베딩 유사도 기반)
+    selected_tool_names = _select_tools(query_embedding)
+    tools = _get_mcp_tools(only=selected_tool_names)  # None이면 tools 파라미터 생략
+
+    # 4. 메시지 배열 구성
+    messages = _build_messages(
+        history=history,
+        user_message=user_message,
+        rag_context=rag_context,
+    )
+
+    # 5. LLM 호출 (tools가 None이면 일반 대화, 있으면 에이전틱 루프)
+    reply = _agentic_loop(messages=messages, tools=tools)
+    return reply
 ```
 
 ---
@@ -682,6 +986,7 @@ mcp dev server.py
 | `api/mcp/registry.py` | MCP 서버 등록 정보 관리 |
 | `api/mcp/models.py` | MCP 관련 dataclass |
 | `api/mcp/errors.py` | MCP 관련 예외 |
+| `api/mcp/tool_selector.py` | 임베딩 기반 도구 필요 여부 판단 + 관련 도구 선택 |
 | `tests/test_rag_retriever.py` | RAG 검색 테스트 |
 | `tests/test_mcp_client.py` | MCP 클라이언트 테스트 |
 | `tests/test_agentic_loop.py` | 에이전틱 루프 테스트 |
@@ -762,6 +1067,7 @@ llm_chatbot/
 │   │   ├── client.py
 │   │   ├── registry.py
 │   │   ├── models.py
+│   │   ├── tool_selector.py          # [신규] 임베딩 기반 도구 선택
 │   │   └── errors.py
 │   ├── cdn/
 │   └── utils/
