@@ -89,7 +89,7 @@ WORKSPACE_ROOT = Path(os.environ.get("WORKSPACE_ROOT", str(_default_workspace_ro
 PVC_ROOT = Path(os.environ.get("PVC_ROOT", str(WORKSPACE_ROOT / "pvc" / "download"))).expanduser()
 
 # CDN
-CDN_STORAGE_DIR = Path(os.environ.get("CDN_STORAGE_DIR", str(PVC_ROOT / "cdn" / "files"))).expanduser()
+CDN_STORAGE_DIR = Path(os.environ.get("CDN_STORAGE_DIR", "/project/workSpace/itc-1stop-solution-pjt-shared/cdn")).expanduser()
 CDN_BASE_URL = os.environ.get("CDN_BASE_URL", "http://localhost:5000/cdn/files")
 CDN_MAX_UPLOAD_BYTES = int(os.environ.get("CDN_MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
 CDN_STORAGE_LIMIT_BYTES = int(os.environ.get("CDN_STORAGE_LIMIT_BYTES", 8 * 1024 * 1024 * 1024))
