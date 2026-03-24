@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 from api import config, create_application
-from api.utils.scheduler.tasks import member_refresh as member_refresh_task
+from api.utils.scheduler.tasks import hynix_member_info as hynix_member_info_task
 
 
 def test_create_application_skips_scheduler_by_default(monkeypatch):
@@ -24,15 +24,15 @@ def test_create_application_can_start_scheduler_when_enabled(monkeypatch):
     start_scheduler.assert_called_once()
 
 
-def test_member_refresh_registers_job_when_enabled(monkeypatch):
+def test_hynix_member_info_registers_job_when_enabled(monkeypatch):
     scheduler = MagicMock()
-    monkeypatch.setattr(config, "MEMBER_REFRESH_ENABLED", True)
-    monkeypatch.setattr(config, "MEMBER_REFRESH_INTERVAL_MINUTES", 432)
+    monkeypatch.setattr(config, "HYNIX_MEMBER_INFO_ENABLED", True)
+    monkeypatch.setattr(config, "HYNIX_MEMBER_INFO_INTERVAL_MINUTES", 432)
 
-    member_refresh_task.register(scheduler)
+    hynix_member_info_task.register(scheduler)
 
     scheduler.add_job.assert_called_once()
     kwargs = scheduler.add_job.call_args.kwargs
-    assert kwargs["id"] == "member_refresh_batch"
+    assert kwargs["id"] == "hynix_member_info_batch"
     assert kwargs["trigger"] == "interval"
     assert kwargs["minutes"] == 432

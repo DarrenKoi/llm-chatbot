@@ -12,7 +12,7 @@ _in_memory_state: dict[str, str] = {}
 
 
 @dataclass
-class MemberRefreshState:
+class HynixMemberInfoState:
     next_offset: int = 0
     cycle: int = 0
     last_total_count: int = 0
@@ -22,7 +22,7 @@ class MemberRefreshState:
 
 
 @dataclass(frozen=True)
-class MemberRefreshBatch:
+class HynixMemberInfoBatch:
     offset: int
     limit: int
     cycle: int
@@ -41,7 +41,7 @@ def _get_backend():
     if _backend is not None:
         return _backend
 
-    redis_url = config.MEMBER_REFRESH_REDIS_URL
+    redis_url = config.HYNIX_MEMBER_INFO_REDIS_URL
     if not redis_url:
         _backend = _InMemoryStateBackend()
         return _backend
@@ -52,7 +52,7 @@ def _get_backend():
         _backend = redis.from_url(redis_url)
         return _backend
     except Exception:
-        logger.exception("Failed to initialize member refresh state backend. Falling back to in-memory state.")
+        logger.exception("Failed to initialize hynix member info state backend. Falling back to in-memory state.")
         _backend = _InMemoryStateBackend()
         return _backend
 
@@ -65,10 +65,10 @@ def _normalize_non_negative(value: int) -> int:
     return max(0, int(value))
 
 
-def load_member_refresh_state() -> MemberRefreshState:
-    raw = _get_backend().get(config.MEMBER_REFRESH_STATE_KEY)
+def load_hynix_member_info_state() -> HynixMemberInfoState:
+    raw = _get_backend().get(config.HYNIX_MEMBER_INFO_STATE_KEY)
     if not raw:
-        return MemberRefreshState()
+        return HynixMemberInfoState()
 
     if isinstance(raw, bytes):
         raw = raw.decode("utf-8")
@@ -76,10 +76,10 @@ def load_member_refresh_state() -> MemberRefreshState:
     try:
         payload = json.loads(raw)
     except (TypeError, json.JSONDecodeError):
-        logger.warning("Invalid member refresh state payload. Resetting stored state.")
-        return MemberRefreshState()
+        logger.warning("Invalid hynix member info state payload. Resetting stored state.")
+        return HynixMemberInfoState()
 
-    return MemberRefreshState(
+    return HynixMemberInfoState(
         next_offset=_normalize_non_negative(payload.get("next_offset", 0)),
         cycle=_normalize_non_negative(payload.get("cycle", 0)),
         last_total_count=_normalize_non_negative(payload.get("last_total_count", 0)),
@@ -89,38 +89,38 @@ def load_member_refresh_state() -> MemberRefreshState:
     )
 
 
-def save_member_refresh_state(state: MemberRefreshState) -> MemberRefreshState:
+def save_hynix_member_info_state(state: HynixMemberInfoState) -> HynixMemberInfoState:
     payload = json.dumps(asdict(state), ensure_ascii=False)
-    _get_backend().set(config.MEMBER_REFRESH_STATE_KEY, payload)
+    _get_backend().set(config.HYNIX_MEMBER_INFO_STATE_KEY, payload)
     return state
 
 
-def get_next_member_refresh_batch(total_count: int, *, batch_size: int | None = None) -> MemberRefreshBatch:
+def get_next_hynix_member_info_batch(total_count: int, *, batch_size: int | None = None) -> HynixMemberInfoBatch:
     if total_count <= 0:
         raise ValueError("total_count must be positive")
 
-    effective_batch_size = _normalize_non_negative(batch_size or config.MEMBER_REFRESH_BATCH_SIZE)
+    effective_batch_size = _normalize_non_negative(batch_size or config.HYNIX_MEMBER_INFO_BATCH_SIZE)
     if effective_batch_size <= 0:
         raise ValueError("batch_size must be positive")
 
-    state = load_member_refresh_state()
+    state = load_hynix_member_info_state()
     offset = state.next_offset % total_count
     limit = min(effective_batch_size, total_count)
-    return MemberRefreshBatch(offset=offset, limit=limit, cycle=state.cycle)
+    return HynixMemberInfoBatch(offset=offset, limit=limit, cycle=state.cycle)
 
 
-def mark_member_refresh_completed(
+def mark_hynix_member_info_completed(
     *,
     total_count: int,
     processed_count: int,
     started_at: str | None = None,
     finished_at: str | None = None,
-) -> MemberRefreshState:
+) -> HynixMemberInfoState:
     if total_count <= 0:
         raise ValueError("total_count must be positive")
 
     processed = min(_normalize_non_negative(processed_count), total_count)
-    state = load_member_refresh_state()
+    state = load_hynix_member_info_state()
     current_offset = state.next_offset % total_count
     next_offset = current_offset + processed
     next_cycle = state.cycle
@@ -129,8 +129,8 @@ def mark_member_refresh_completed(
         next_offset %= total_count
         next_cycle += 1
 
-    return save_member_refresh_state(
-        MemberRefreshState(
+    return save_hynix_member_info_state(
+        HynixMemberInfoState(
             next_offset=next_offset,
             cycle=next_cycle,
             last_total_count=total_count,
@@ -141,7 +141,7 @@ def mark_member_refresh_completed(
     )
 
 
-def reset_member_refresh_state() -> None:
+def reset_hynix_member_info_state() -> None:
     global _backend
     _backend = None
     _in_memory_state.clear()

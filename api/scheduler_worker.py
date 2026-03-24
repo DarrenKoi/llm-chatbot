@@ -12,9 +12,9 @@ def run_scheduler_worker() -> None:
     log_activity(
         "scheduler_worker_started",
         idle_seconds=max(1, config.SCHEDULER_WORKER_IDLE_SECONDS),
-        member_refresh_enabled=config.MEMBER_REFRESH_ENABLED,
-        member_refresh_batch_size=config.MEMBER_REFRESH_BATCH_SIZE,
-        member_refresh_interval_minutes=config.MEMBER_REFRESH_INTERVAL_MINUTES,
+        hynix_member_info_enabled=config.HYNIX_MEMBER_INFO_ENABLED,
+        hynix_member_info_batch_size=config.HYNIX_MEMBER_INFO_BATCH_SIZE,
+        hynix_member_info_interval_minutes=config.HYNIX_MEMBER_INFO_INTERVAL_MINUTES,
     )
 
     while True:

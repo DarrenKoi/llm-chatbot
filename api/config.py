@@ -64,15 +64,21 @@ SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS = int(os.environ.get("SCHEDULER_LOCK_RENEW
 SCHEDULER_JOB_MISFIRE_GRACE_SECONDS = int(os.environ.get("SCHEDULER_JOB_MISFIRE_GRACE_SECONDS", 60))
 SCHEDULER_WORKER_IDLE_SECONDS = int(os.environ.get("SCHEDULER_WORKER_IDLE_SECONDS", 60))
 
-# Member refresh batch scheduler
-MEMBER_REFRESH_ENABLED = os.environ.get("MEMBER_REFRESH_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
-MEMBER_REFRESH_REDIS_URL = os.environ.get(
-    "MEMBER_REFRESH_REDIS_URL",
+# Hynix member info batch scheduler
+HYNIX_MEMBER_INFO_ENABLED = os.environ.get("HYNIX_MEMBER_INFO_ENABLED", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+HYNIX_MEMBER_INFO_REDIS_URL = os.environ.get(
+    "HYNIX_MEMBER_INFO_REDIS_URL",
     SCHEDULER_REDIS_URL or REDIS_FALLBACK_URL or REDIS_URL,
 )
-MEMBER_REFRESH_STATE_KEY = os.environ.get("MEMBER_REFRESH_STATE_KEY", "member_refresh:state")
-MEMBER_REFRESH_BATCH_SIZE = int(os.environ.get("MEMBER_REFRESH_BATCH_SIZE", 500))
-MEMBER_REFRESH_INTERVAL_MINUTES = int(os.environ.get("MEMBER_REFRESH_INTERVAL_MINUTES", 432))
+HYNIX_MEMBER_INFO_STATE_KEY = os.environ.get("HYNIX_MEMBER_INFO_STATE_KEY", "hynix_member_info:state")
+HYNIX_MEMBER_INFO_BATCH_SIZE = int(os.environ.get("HYNIX_MEMBER_INFO_BATCH_SIZE", 500))
+HYNIX_MEMBER_INFO_INTERVAL_MINUTES = int(os.environ.get("HYNIX_MEMBER_INFO_INTERVAL_MINUTES", 432))
+HYNIX_MEMBER_INFO_DUMMY_TOTAL_COUNT = int(os.environ.get("HYNIX_MEMBER_INFO_DUMMY_TOTAL_COUNT", 50000))
 
 # Logging
 LOG_DIR = Path(os.environ.get("LOG_DIR", str(BASE_DIR / "logs"))).expanduser()
