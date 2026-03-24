@@ -19,3 +19,22 @@ python index.py
 ```
 
 The local dev server listens on fixed port `5000`.
+
+## Dedicated Scheduler Worker
+
+Run APScheduler as a separate process instead of inside the Flask web workers:
+
+```bash
+python scheduler_worker.py
+```
+
+Recommended environment flags:
+
+```bash
+APP_START_SCHEDULER=false
+MEMBER_REFRESH_ENABLED=true
+MEMBER_REFRESH_BATCH_SIZE=500
+MEMBER_REFRESH_INTERVAL_MINUTES=432
+```
+
+`432` minutes is a 30-day cycle target for `50,000 / 500 = 100` runs.

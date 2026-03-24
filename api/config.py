@@ -37,6 +37,7 @@ LLM_TIMEOUT_SECONDS = int(os.environ.get("LLM_TIMEOUT_SECONDS", 30))
 # Flask
 APP_NAME = os.environ.get("APP_NAME", "llm_chatbot")
 APP_ENV = os.environ.get("APP_ENV", os.environ.get("FLASK_ENV", "development"))
+APP_START_SCHEDULER = os.environ.get("APP_START_SCHEDULER", "").strip().lower() in {"1", "true", "yes", "on"}
 
 # MongoDB (conversation storage; empty = in-memory fallback)
 AFM_MONGO_URI = os.environ.get("AFM_MONGO_URI", "")
@@ -61,6 +62,17 @@ SCHEDULER_LOCK_PREFIX = os.environ.get("SCHEDULER_LOCK_PREFIX", "scheduler:sknn_
 SCHEDULER_LOCK_TTL_SECONDS = int(os.environ.get("SCHEDULER_LOCK_TTL_SECONDS", 3600))
 SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS = int(os.environ.get("SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS", 30))
 SCHEDULER_JOB_MISFIRE_GRACE_SECONDS = int(os.environ.get("SCHEDULER_JOB_MISFIRE_GRACE_SECONDS", 60))
+SCHEDULER_WORKER_IDLE_SECONDS = int(os.environ.get("SCHEDULER_WORKER_IDLE_SECONDS", 60))
+
+# Member refresh batch scheduler
+MEMBER_REFRESH_ENABLED = os.environ.get("MEMBER_REFRESH_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+MEMBER_REFRESH_REDIS_URL = os.environ.get(
+    "MEMBER_REFRESH_REDIS_URL",
+    SCHEDULER_REDIS_URL or REDIS_FALLBACK_URL or REDIS_URL,
+)
+MEMBER_REFRESH_STATE_KEY = os.environ.get("MEMBER_REFRESH_STATE_KEY", "member_refresh:state")
+MEMBER_REFRESH_BATCH_SIZE = int(os.environ.get("MEMBER_REFRESH_BATCH_SIZE", 500))
+MEMBER_REFRESH_INTERVAL_MINUTES = int(os.environ.get("MEMBER_REFRESH_INTERVAL_MINUTES", 432))
 
 # Logging
 LOG_DIR = Path(os.environ.get("LOG_DIR", str(BASE_DIR / "logs"))).expanduser()

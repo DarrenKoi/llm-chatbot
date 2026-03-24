@@ -5,6 +5,7 @@ from flask import Flask
 from flask import g, request
 from flask import render_template
 
+from api import config
 from api.blueprint_loader import discover_blueprints
 from api.conversation_service import get_recent_messages
 from api.cube.payload import extract_user_id
@@ -15,7 +16,8 @@ from api.utils.scheduler import start_scheduler
 def create_application() -> Flask:
     """Create and configure the Flask application."""
     setup_logging()
-    start_scheduler()
+    if config.APP_START_SCHEDULER:
+        start_scheduler()
 
     app = Flask(__name__)
 
