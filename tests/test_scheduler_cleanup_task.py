@@ -1,6 +1,6 @@
 from datetime import date
 
-from api.utils.scheduler.tasks import cleanup as cleanup_task
+from api.scheduled_tasks.tasks import cleanup as cleanup_task
 
 
 def test_cleanup_uwsgi_logs_deletes_only_files_older_than_a_week_by_filename(tmp_path, monkeypatch):

@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 from api import config, create_application
-from api.utils.scheduler.tasks import hynix_member_info as hynix_member_info_task
+from api.scheduled_tasks.scan_member_info import task as scan_member_info_task
 
 
 def test_create_application_skips_scheduler_by_default(monkeypatch):
@@ -29,7 +29,7 @@ def test_hynix_member_info_registers_job_when_enabled(monkeypatch):
     monkeypatch.setattr(config, "HYNIX_MEMBER_INFO_ENABLED", True)
     monkeypatch.setattr(config, "HYNIX_MEMBER_INFO_INTERVAL_MINUTES", 432)
 
-    hynix_member_info_task.register(scheduler)
+    scan_member_info_task.register(scheduler)
 
     scheduler.add_job.assert_called_once()
     kwargs = scheduler.add_job.call_args.kwargs

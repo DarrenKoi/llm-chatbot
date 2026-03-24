@@ -10,7 +10,7 @@ from api.blueprint_loader import discover_blueprints
 from api.conversation_service import get_recent_messages
 from api.cube.payload import extract_user_id
 from api.utils.logger import log_activity, setup_logging
-from api.utils.scheduler import start_scheduler
+from api.scheduled_tasks import start_scheduler
 
 
 def create_application() -> Flask:

@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from api import config
-from api.utils.scheduler._lock import run_locked_job
+from api.scheduled_tasks._lock import run_locked_job
 
 logger = logging.getLogger(__name__)
 

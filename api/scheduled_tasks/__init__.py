@@ -3,8 +3,8 @@ import logging
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from api import config
-from api.utils.scheduler._lock import run_locked_job
-from api.utils.scheduler._registry import discover_and_register
+from api.scheduled_tasks._lock import run_locked_job
+from api.scheduled_tasks._registry import discover_and_register
 
 logger = logging.getLogger(__name__)
 

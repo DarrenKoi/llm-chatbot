@@ -1,5 +1,5 @@
 from api import config
-from api.hynix_member_info import (
+from api.scheduled_tasks.scan_member_info import (
     get_next_hynix_member_info_batch,
     load_hynix_member_info_state,
     mark_hynix_member_info_completed,

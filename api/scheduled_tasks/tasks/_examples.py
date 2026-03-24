@@ -63,7 +63,7 @@ trigger="date", run_date=datetime(2026, 4, 1, 9, 0, 0)
 #
 # import logging
 #
-# from api.utils.scheduler._lock import run_locked_job
+# from api.scheduled_tasks._lock import run_locked_job
 #
 # logger = logging.getLogger(__name__)
 #
@@ -89,7 +89,7 @@ trigger="date", run_date=datetime(2026, 4, 1, 9, 0, 0)
 #
 # import logging
 #
-# from api.utils.scheduler._lock import run_locked_job
+# from api.scheduled_tasks._lock import run_locked_job
 #
 # logger = logging.getLogger(__name__)
 #
@@ -116,7 +116,7 @@ trigger="date", run_date=datetime(2026, 4, 1, 9, 0, 0)
 #
 # import logging
 #
-# from api.utils.scheduler._lock import run_locked_job
+# from api.scheduled_tasks._lock import run_locked_job
 #
 # logger = logging.getLogger(__name__)
 #

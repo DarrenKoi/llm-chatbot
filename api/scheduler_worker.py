@@ -1,9 +1,10 @@
 import argparse
 import time
 
-from api import config
 from api.utils.logger import log_activity, setup_logging
-from api.utils.scheduler import start_scheduler
+from api.scheduled_tasks import start_scheduler
+
+IDLE_SECONDS = 60
 
 
 def run_scheduler_worker() -> None:
@@ -11,14 +12,11 @@ def run_scheduler_worker() -> None:
     start_scheduler()
     log_activity(
         "scheduler_worker_started",
-        idle_seconds=max(1, config.SCHEDULER_WORKER_IDLE_SECONDS),
-        hynix_member_info_enabled=config.HYNIX_MEMBER_INFO_ENABLED,
-        hynix_member_info_batch_size=config.HYNIX_MEMBER_INFO_BATCH_SIZE,
-        hynix_member_info_interval_minutes=config.HYNIX_MEMBER_INFO_INTERVAL_MINUTES,
+        idle_seconds=IDLE_SECONDS,
     )
 
     while True:
-        time.sleep(max(1, config.SCHEDULER_WORKER_IDLE_SECONDS))
+        time.sleep(IDLE_SECONDS)
 
 
 def main(argv: list[str] | None = None) -> int:

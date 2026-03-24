@@ -4,7 +4,7 @@ import logging
 import pkgutil
 from typing import Any, Callable
 
-from api.utils.scheduler._lock import run_locked_job
+from api.scheduled_tasks._lock import run_locked_job
 
 logger = logging.getLogger(__name__)
 
@@ -75,10 +75,8 @@ def _register_decorated_jobs(scheduler, module) -> int:
     return registered
 
 
-def discover_and_register(scheduler) -> None:
-    from api.utils.scheduler import tasks
-
-    for module_info in pkgutil.iter_modules(tasks.__path__, tasks.__name__ + "."):
+def _scan_package(scheduler, package) -> None:
+    for module_info in pkgutil.iter_modules(package.__path__, package.__name__ + "."):
         short_name = module_info.name.rsplit(".", 1)[-1]
         if short_name.startswith("_"):
             continue
@@ -117,3 +115,47 @@ def discover_and_register(scheduler) -> None:
                 "Scheduler task module '%s' has no register() or @scheduled_job task, skipping.",
                 module_info.name,
             )
+
+
+def _register_task_package(scheduler, package_path: str) -> None:
+    try:
+        pkg = importlib.import_module(package_path)
+    except Exception:
+        logger.exception("Failed to import task package: %s", package_path)
+        return
+
+    task_mod_name = f"{package_path}.task"
+    try:
+        mod = importlib.import_module(task_mod_name)
+    except Exception:
+        logger.exception("Failed to import task module: %s", task_mod_name)
+        return
+
+    register_fn = getattr(mod, "register", None)
+    if callable(register_fn):
+        try:
+            register_fn(scheduler)
+            logger.info("Registered scheduler tasks from '%s' via register().", task_mod_name)
+        except Exception:
+            logger.exception("Failed to register scheduler tasks from '%s' via register().", task_mod_name)
+
+    try:
+        count = _register_decorated_jobs(scheduler, mod)
+        if count > 0:
+            logger.info("Registered %s scheduler task(s) from '%s' via @scheduled_job.", count, task_mod_name)
+    except Exception:
+        logger.exception("Failed to register scheduler tasks from '%s' via @scheduled_job.", task_mod_name)
+
+
+_TASK_PACKAGES = [
+    "api.scheduled_tasks.scan_member_info",
+]
+
+
+def discover_and_register(scheduler) -> None:
+    from api.scheduled_tasks import tasks
+
+    _scan_package(scheduler, tasks)
+
+    for pkg_path in _TASK_PACKAGES:
+        _register_task_package(scheduler, pkg_path)

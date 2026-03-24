@@ -3,9 +3,9 @@ from types import SimpleNamespace
 import uuid
 
 from api import config
-from api.utils.scheduler import _lock as lock_mod
-from api.utils.scheduler import _registry as registry_mod
-import api.utils.scheduler as scheduler_pkg
+from api.scheduled_tasks import _lock as lock_mod
+from api.scheduled_tasks import _registry as registry_mod
+import api.scheduled_tasks as scheduler_pkg
 
 
 class _FakeRedis:
@@ -132,13 +132,14 @@ def test_discover_and_register_supports_scheduled_job_decorator(monkeypatch):
         return
 
     fake_module = SimpleNamespace(
-        __name__="api.utils.scheduler.tasks.fake",
+        __name__="api.scheduled_tasks.tasks.fake",
         decorator_job=_job,
     )
-    fake_module_info = SimpleNamespace(name="api.utils.scheduler.tasks.fake")
+    fake_module_info = SimpleNamespace(name="api.scheduled_tasks.tasks.fake")
 
     monkeypatch.setattr(registry_mod.pkgutil, "iter_modules", lambda *_args, **_kwargs: [fake_module_info])
     monkeypatch.setattr(registry_mod.importlib, "import_module", lambda _name: fake_module)
+    monkeypatch.setattr(registry_mod, "_TASK_PACKAGES", [])
 
     registry_mod.discover_and_register(mock_scheduler)
 

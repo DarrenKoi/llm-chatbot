@@ -1,4 +1,4 @@
-from api.hynix_member_info.service import (
+from api.scheduled_tasks.scan_member_info.service import (
     HynixMemberInfoBatch,
     HynixMemberInfoState,
     get_next_hynix_member_info_batch,

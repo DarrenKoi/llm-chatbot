@@ -2,8 +2,8 @@ import logging
 from datetime import datetime, timezone
 
 from api import config
-from api.hynix_member_info import get_next_hynix_member_info_batch, mark_hynix_member_info_completed
-from api.utils.scheduler._lock import run_locked_job
+from api.scheduled_tasks.scan_member_info import get_next_hynix_member_info_batch, mark_hynix_member_info_completed
+from api.scheduled_tasks._lock import run_locked_job
 
 logger = logging.getLogger(__name__)
 
