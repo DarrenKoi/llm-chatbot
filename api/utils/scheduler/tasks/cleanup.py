@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from api import config
-from api.utils.scheduler._registry import scheduled_job
+from api.utils.scheduler._lock import run_locked_job
 
 logger = logging.getLogger(__name__)
 
@@ -39,11 +39,15 @@ def _cleanup_uwsgi_logs(*, today: date | None = None) -> None:
                 logger.info("Deleted old uWSGI log: %s", log_file.name)
 
 
-@scheduled_job(
-    id="cleanup_uwsgi_logs",
-    trigger="cron",
-    hour=1,
-    minute=0,
-)
-def cleanup_uwsgi_logs_job() -> None:
-    _cleanup_uwsgi_logs()
+def register(scheduler) -> None:
+    def _run() -> None:
+        run_locked_job("cleanup_uwsgi_logs", _cleanup_uwsgi_logs)
+
+    scheduler.add_job(
+        _run,
+        id="cleanup_uwsgi_logs",
+        trigger="cron",
+        hour=1,
+        minute=0,
+        replace_existing=True,
+    )

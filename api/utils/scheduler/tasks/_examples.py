@@ -80,8 +80,6 @@ trigger="date", run_date=datetime(2026, 4, 1, 9, 0, 0)
 #         minute=0,
 #         id="daily_report",
 #         replace_existing=True,
-#         max_instances=1,
-#         coalesce=True,
 #     )
 
 
@@ -109,8 +107,6 @@ trigger="date", run_date=datetime(2026, 4, 1, 9, 0, 0)
 #         minute=0,
 #         id="weekly_cleanup",
 #         replace_existing=True,
-#         max_instances=1,
-#         coalesce=True,
 #     )
 
 
@@ -136,8 +132,6 @@ trigger="date", run_date=datetime(2026, 4, 1, 9, 0, 0)
 #         minutes=10,
 #         id="health_check",
 #         replace_existing=True,
-#         max_instances=1,
-#         coalesce=True,
 #     )
 
 
@@ -162,6 +156,4 @@ trigger="date", run_date=datetime(2026, 4, 1, 9, 0, 0)
 #         minutes=5,
 #         id="refresh_cache",
 #         replace_existing=True,
-#         max_instances=1,
-#         coalesce=True,
 #     )
