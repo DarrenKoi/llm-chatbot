@@ -12,8 +12,7 @@ def _get_total_hynix_member_count() -> int:
     return max(0, config.HYNIX_MEMBER_INFO_DUMMY_TOTAL_COUNT)
 
 
-def _load_hynix_member_batch(*, offset: int, limit: int) -> list[dict]:
-    total_count = _get_total_hynix_member_count()
+def _load_hynix_member_batch(*, offset: int, limit: int, total_count: int) -> list[dict]:
     if total_count <= 0 or limit <= 0:
         return []
 
@@ -49,31 +48,29 @@ def hynix_member_info_batch_job() -> None:
         logger.warning("Skipping hynix member info batch: HYNIX_MEMBER_INFO_BATCH_SIZE must be positive.")
         return
 
-    started_at = datetime.now(timezone.utc).isoformat()
     total_count = _get_total_hynix_member_count()
     if total_count <= 0:
         logger.info("Skipping hynix member info batch: dummy source returned no members.")
         return
 
+    started_at = datetime.now(timezone.utc).isoformat()
     batch = get_next_hynix_member_info_batch(
         total_count=total_count,
         batch_size=config.HYNIX_MEMBER_INFO_BATCH_SIZE,
     )
-    members = _load_hynix_member_batch(offset=batch.offset, limit=batch.limit)
+    members = _load_hynix_member_batch(offset=batch.offset, limit=batch.limit, total_count=total_count)
 
-    processed_count = 0
     for member in members:
         _parse_hynix_member_info(member)
-        processed_count += 1
 
     state = mark_hynix_member_info_completed(
         total_count=total_count,
-        processed_count=processed_count,
+        processed_count=len(members),
         started_at=started_at,
     )
     logger.info(
         "Hynix member info batch completed: processed=%s start_member_no=%s next_offset=%s total=%s cycle=%s",
-        processed_count,
+        len(members),
         batch.offset + 1,
         state.next_offset,
         total_count,

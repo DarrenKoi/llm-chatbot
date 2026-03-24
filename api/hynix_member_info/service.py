@@ -8,7 +8,6 @@ from api import config
 logger = logging.getLogger(__name__)
 
 _backend = None
-_in_memory_state: dict[str, str] = {}
 
 
 @dataclass
@@ -29,11 +28,14 @@ class HynixMemberInfoBatch:
 
 
 class _InMemoryStateBackend:
+    def __init__(self) -> None:
+        self._store: dict[str, str] = {}
+
     def get(self, key: str) -> str | None:
-        return _in_memory_state.get(key)
+        return self._store.get(key)
 
     def set(self, key: str, value: str) -> None:
-        _in_memory_state[key] = value
+        self._store[key] = value
 
 
 def _get_backend():
@@ -144,4 +146,3 @@ def mark_hynix_member_info_completed(
 def reset_hynix_member_info_state() -> None:
     global _backend
     _backend = None
-    _in_memory_state.clear()
