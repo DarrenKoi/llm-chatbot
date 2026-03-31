@@ -70,6 +70,22 @@ LangGraph 도입 후에도 `api/cube/`는 이 책임만 유지하고, 실제 대
 
 기존 `llm/service.py`의 raw `httpx` 호출은 `ChatOpenAI`로 대체된다.
 
+### 2.6 대화 히스토리는 checkpointer가 관리하고, 완료된 대화는 OpenSearch로 아카이빙한다
+
+LangGraph checkpointer(`MongoDBSaver`)가 대화 히스토리의 저장/복원을 자동으로 처리한다.
+기존 `conversation_service.py`의 수동 `get_history` / `append_message` 패턴은 제거된다.
+
+다만 checkpointer는 메시지를 무한히 누적하므로, 완료된 대화에서 중요 정보를 추출하여 **OpenSearch에 아카이빙**한 뒤 오래된 메시지를 트리밍하는 전략이 필요하다.
+
+흐름:
+
+1. 대화 처리 완료 후, 비동기로 아카이빙 수행
+2. 대화에서 키워드, 주제, 사용자 만족도 신호 추출
+3. OpenSearch에 인덱싱 (검색, 분석, 품질 개선용)
+4. 주기적으로 오래된 checkpointer 히스토리를 트리밍
+
+사용자 불만족 대화는 아카이브에 플래그를 달아 나중에 분석·개선할 수 있다.
+
 ---
 
 ## 3. 권장 `api/` 폴더 구조
@@ -79,7 +95,7 @@ api/
   __init__.py
   blueprint_loader.py
   config.py
-  conversation_service.py
+  conversation_service.py       # → checkpointer로 대체 예정, 이후 제거
 
   cube/
     __init__.py
@@ -145,6 +161,13 @@ api/
     ranker.py
     context_builder.py
     sources/
+
+  archive/
+    __init__.py
+    service.py
+    extractor.py
+    opensearch_client.py
+    models.py
 
   utils/
     ...
@@ -275,7 +298,65 @@ RAG 기능 자체를 담당하는 계층이다.
 
 초기에는 `chat` workflow의 한 node에서 이 계층을 호출하면 충분하다.
 
-### 4.7 `api/workflows/rag/`
+### 4.7 `api/archive/`
+
+완료된 대화에서 중요 정보를 추출하고 OpenSearch에 아카이빙하는 계층이다.
+
+주요 책임:
+
+- 대화 메시지에서 키워드, 주제, 의도 추출 (`extractor.py`)
+- 사용자 만족도 신호 감지 (불만족 표현, 재질문 패턴 등)
+- 추출된 데이터를 OpenSearch에 인덱싱 (`opensearch_client.py`)
+- 아카이빙 완료 후 checkpointer의 오래된 메시지 트리밍
+
+#### 아카이빙 타이밍
+
+대화 처리가 완료된 후 **비동기**로 수행한다.
+사용자 응답 속도에 영향을 주지 않는 것이 원칙이다.
+
+```
+cube/service.py
+  ├─ chat/service.py 호출 → reply 수신
+  ├─ send_multimessage (Cube 응답 전송)
+  └─ archive/service.py 호출 (비동기, 실패해도 대화 흐름에 영향 없음)
+```
+
+#### OpenSearch 인덱스 구조 (예시)
+
+```json
+{
+  "user_id": "user-123",
+  "channel_id": "ch-456",
+  "thread_id": "user-123",
+  "timestamp": "2026-03-31T10:00:00Z",
+  "user_message": "...",
+  "assistant_reply": "...",
+  "keywords": ["키워드1", "키워드2"],
+  "topic": "일정 관리",
+  "satisfaction": "neutral",
+  "model_used": "kimi-k2.5",
+  "tool_calls": ["tool_name_1"],
+  "flagged": false
+}
+```
+
+#### 불만족 대화 처리
+
+사용자가 답변에 만족하지 않는 경우 (`satisfaction: "unsatisfied"`):
+
+- 아카이브에 `flagged: true`로 표시
+- OpenSearch에서 `flagged` 대화만 필터링하여 분석 가능
+- 나중에 프롬프트 개선, 모델 변경, RAG 소스 보강 등에 활용
+
+#### checkpointer 히스토리 트리밍
+
+아카이빙이 완료된 오래된 대화는 checkpointer에서 트리밍할 수 있다.
+이 작업은 `scheduled_tasks/`에서 주기적으로 수행한다.
+
+- 아카이빙 완료 확인 후 N일 이상 된 메시지 삭제
+- 최근 M개 메시지는 항상 유지 (즉시 대화 재개를 위해)
+
+### 4.8 `api/workflows/rag/`
 
 RAG가 단순 검색이 아니라 별도 graph가 되어야 할 때만 사용한다.
 
@@ -289,7 +370,7 @@ RAG가 단순 검색이 아니라 별도 graph가 되어야 할 때만 사용한
 
 이 수준으로 복잡해지면 `chat` workflow 안의 단일 node로 두기보다 reusable subgraph로 분리하는 편이 낫다.
 
-### 4.8 `api/workflows/agent/`
+### 4.9 `api/workflows/agent/`
 
 Agent가 독립적인 planning/execution loop를 가지게 될 때 사용하는 workflow 계층이다.
 
@@ -364,10 +445,14 @@ LangGraph 도입에 따라 아래 패키지가 추가로 필요하다.
 langgraph
 langchain-core
 langchain-openai
+langgraph-checkpoint-mongodb
+opensearch-py
 ```
 
-기존 `httpx` 기반 직접 호출은 `ChatOpenAI`로 대체되므로, LLM 호출 목적의 `httpx` 사용은 제거된다.
-(단, `httpx` 자체는 다른 용도로 사용 중이면 유지)
+- 기존 `httpx` 기반 직접 호출은 `ChatOpenAI`로 대체되므로, LLM 호출 목적의 `httpx` 사용은 제거된다.
+  (단, `httpx` 자체는 다른 용도로 사용 중이면 유지)
+- `langgraph-checkpoint-mongodb`: 대화 히스토리를 MongoDB에 자동 저장/복원
+- `opensearch-py`: 완료된 대화의 아카이빙 및 검색
 
 ---
 
@@ -392,14 +477,15 @@ cube/service.py
   ├─ wake-up / empty / duplicate 판정 (유지)
   ├─ chat/service.py::run_chat_workflow() 호출
   │    ├─ ! command 판정 → command이면 직접 처리 후 reply 반환
-  │    ├─ history 조회
-  │    ├─ workflows/chat/graph 실행
+  │    ├─ workflows/chat/graph 실행 (checkpointer가 history 자동 관리)
   │    │    ├─ llm/registry에서 모델 선택
   │    │    ├─ mcp tool calling (필요 시)
   │    │    └─ 최종 reply 생성
-  │    ├─ history 저장
   │    └─ reply 반환
-  └─ send_multimessage (Cube 응답 전송)
+  ├─ send_multimessage (Cube 응답 전송)
+  └─ archive/service.py 호출 (비동기)
+       ├─ 키워드·주제·만족도 추출
+       └─ OpenSearch 인덱싱
 ```
 
 핵심: `cube/service.py`는 reply를 받아 전송하는 역할만 하고, 대화 로직은 `chat/`과 `workflows/`로 이동한다.
@@ -415,8 +501,9 @@ cube/service.py
 
 - `api/chat/`
 - `api/workflows/chat/`
+- `api/llm/` (registry 리팩터링)
+- `api/archive/` (OpenSearch 아카이빙)
 - `api/mcp/`
-- `api/rag/`
 
 ### 9.2 나중에 만드는 것
 
@@ -450,15 +537,13 @@ def run_chat_workflow(incoming, attempt: int = 0):
 
 예상 state 필드:
 
+- messages (`Annotated[list[BaseMessage], add_messages]` — checkpointer가 자동 관리)
 - user_id
 - channel_id
-- user_message
-- history
 - requested_model
 - resolved_model
 - selected_tools
 - tool_results
-- final_reply
 - error
 
 ### 10.3 `api/llm/registry.py`
@@ -477,7 +562,27 @@ def get_model(task: str | None = None) -> ChatOpenAI:
     ...
 ```
 
-### 10.4 `api/mcp/`
+### 10.4 `api/archive/service.py`
+
+핵심 역할:
+
+- 완료된 대화에서 키워드·주제·만족도 추출
+- OpenSearch에 인덱싱
+- checkpointer 히스토리 트리밍 (scheduled task에서 호출)
+
+예상 인터페이스:
+
+```python
+def archive_conversation(thread_id: str, messages: list[BaseMessage], **metadata) -> None:
+    """대화를 OpenSearch에 아카이빙한다. 비동기로 호출된다."""
+    ...
+
+def trim_old_history(thread_id: str, *, keep_recent: int = 20) -> None:
+    """아카이빙 완료된 오래된 메시지를 checkpointer에서 제거한다."""
+    ...
+```
+
+### 10.5 `api/mcp/`
 
 핵심 역할:
 
@@ -486,7 +591,7 @@ def get_model(task: str | None = None) -> ChatOpenAI:
 - tool schema 변환
 - tool 실행 라우팅
 
-### 10.5 `api/cube/models.py`
+### 10.6 `api/cube/models.py`
 
 `CubeIncomingMessage`에는 최소한 아래 확장이 필요할 수 있다.
 
@@ -534,7 +639,13 @@ def get_model(task: str | None = None) -> ChatOpenAI:
 - timeout 처리
 - 일부 MCP 서버 장애 시 graceful degradation
 
-### 11.7 `tests/test_rag_retriever.py`
+### 11.7 `tests/test_archive_service.py`
+
+- 대화 메시지에서 키워드·만족도 추출 검증
+- OpenSearch 인덱싱 호출 검증 (mock)
+- 아카이빙 실패 시 대화 흐름에 영향 없음 확인
+
+### 11.8 `tests/test_rag_retriever.py`
 
 - retrieval 및 context 조합 검증
 
@@ -544,17 +655,27 @@ def get_model(task: str | None = None) -> ChatOpenAI:
 
 최종적으로는 아래처럼 이해하면 된다.
 
-- `api/chat/`: 채팅 유스케이스
+- `api/chat/`: 채팅 유스케이스 (command 처리 포함)
 - `api/workflows/chat/`: 현재 주력 LangGraph
+- `api/llm/`: LangChain 모델 레지스트리 (task 기반 모델 선택)
 - `api/mcp/`: 대규모 MCP tool calling 인프라
+- `api/archive/`: 대화 아카이빙 (OpenSearch) + 히스토리 트리밍
 - `api/rag/`: retrieval 기능 계층
 - `api/workflows/rag/`: 나중에 RAG가 subgraph가 될 때 추가
 - `api/workflows/agent/`: 나중에 agent가 독립 loop가 될 때 추가
+
+대화 히스토리 관리:
+
+- **실시간**: LangGraph checkpointer (`MongoDBSaver`)가 자동 저장/복원
+- **아카이빙**: 완료된 대화 → `archive/`가 키워드·만족도 추출 → OpenSearch 인덱싱
+- **트리밍**: `scheduled_tasks/`에서 주기적으로 오래된 checkpointer 히스토리 정리
+- **기존** `conversation_service.py`는 checkpointer로 대체 후 제거
 
 즉, 지금 당장 모든 workflow를 만들기보다:
 
 1. `chat` workflow부터 시작하고
 2. MCP는 처음부터 확장형으로 분리하고
-3. RAG와 Agent는 실제 복잡도가 생기면 subgraph로 승격한다
+3. 아카이빙은 초기부터 구축하여 대화 품질 개선에 활용하고
+4. RAG와 Agent는 실제 복잡도가 생기면 subgraph로 승격한다
 
 이 방식이 가장 현실적이고 유지보수하기 쉽다.
