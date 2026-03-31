@@ -96,6 +96,7 @@ api/
     service.py
     models.py
     history.py
+    commands.py
 
   workflows/
     chat/
@@ -181,6 +182,7 @@ Cube worker가 호출하는 실제 진입점은 여기로 모은다.
 
 - `run_chat_workflow(...)` 진입점 제공
 - 요청/응답 모델 정의
+- `!` 접두사 command 판정 및 처리 (`commands.py`)
 - history 조회/저장 연결
 - workflow 실행 전후 조립
 - **reply 문자열을 반환** (Cube 전송은 하지 않음)
@@ -188,6 +190,21 @@ Cube worker가 호출하는 실제 진입점은 여기로 모은다.
 여기서 중요한 점은, `api/chat/`는 LangGraph에 종속된 디렉터리가 아니라는 것이다.
 즉, 채팅이라는 유스케이스는 유지하되, 내부 구현으로 LangGraph를 사용하는 구조다.
 또한, Cube라는 전송 수단을 전혀 알 필요가 없어 테스트와 재사용이 쉬워진다.
+
+#### `commands.py` — 사용자 명령어 처리
+
+Cube 플랫폼이 `/` 접두사를 자체 명령어로 사용하므로, 봇 명령어는 `!` 접두사를 사용한다.
+
+command가 감지되면 workflow를 타지 않고 `commands.py`에서 직접 처리하여 결과를 반환한다.
+
+예정된 명령어:
+
+| 명령어 | 설명 |
+|---|---|
+| `!model [이름]` | 사용할 LLM 모델 변경 (인자 없으면 현재 모델 표시 또는 목록) |
+| `!remove` | 해당 사용자의 대화 히스토리 삭제 |
+
+이후 필요에 따라 명령어를 추가한다.
 
 ### 4.3 `api/workflows/chat/`
 
@@ -205,11 +222,13 @@ Cube worker가 호출하는 실제 진입점은 여기로 모은다.
 예상되는 기본 흐름:
 
 1. context 준비
-2. command 여부 판정
-3. 필요 tool 선택
-4. LLM 호출
-5. tool call이 있으면 실행 후 재호출
-6. 최종 답변 생성
+2. 필요 tool 선택
+3. LLM 호출
+4. tool call이 있으면 실행 후 재호출
+5. 최종 답변 생성
+
+참고: `!` command 판정은 `chat/service.py`에서 workflow 진입 전에 처리한다.
+command이면 workflow를 타지 않고 직접 결과를 반환한다.
 
 ### 4.4 `api/llm/`
 
@@ -296,7 +315,7 @@ Agent가 독립적인 planning/execution loop를 가지게 될 때 사용하는 
 - worker나 상위 계층이 호출하는 진입점
 - 요청/응답 조립
 - history 저장 연결
-- command 처리
+- `!` command 판정 및 처리
 
 ### `api/workflows/chat/`
 
@@ -372,6 +391,7 @@ langchain-openai
 cube/service.py
   ├─ wake-up / empty / duplicate 판정 (유지)
   ├─ chat/service.py::run_chat_workflow() 호출
+  │    ├─ ! command 판정 → command이면 직접 처리 후 reply 반환
   │    ├─ history 조회
   │    ├─ workflows/chat/graph 실행
   │    │    ├─ llm/registry에서 모델 선택
