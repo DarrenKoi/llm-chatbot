@@ -52,8 +52,23 @@ RAG와 Agent는 나중에 필요해질 수 있지만, 처음부터 무조건 독
 
 ### 2.4 Cube와 queue 계층은 얇게 유지한다
 
-현재 `cube` 계층은 HTTP ingress, payload parsing, queue 적재, worker 실행에 강점이 있다.  
+현재 `cube` 계층은 HTTP ingress, payload parsing, queue 적재, worker 실행에 강점이 있다.
 LangGraph 도입 후에도 `api/cube/`는 이 책임만 유지하고, 실제 대화 판단은 `chat`과 `workflows`로 옮긴다.
+
+단, **Cube 응답 전송은 `cube/service.py`가 담당한다.**
+`chat/service.py`는 최종 reply 문자열을 반환하고, `cube/service.py`가 이를 받아서 `send_multimessage`로 전달한다.
+이렇게 하면 `chat/` 계층은 Cube를 전혀 알 필요가 없다.
+
+### 2.5 LLM 계층은 LangChain 모델 제공자로 사용한다
+
+사내 LLM은 모두 OpenAI-compatible endpoint이므로 `langchain-openai`의 `ChatOpenAI`를 사용한다.
+`api/llm/`은 모델 인스턴스를 생성해 반환하는 **모델 레지스트리** 역할을 한다.
+
+- 모델별 설정(base_url, api_key, temperature 등)을 관리
+- task나 조건에 따라 적절한 모델을 선택할 수 있는 인터페이스 제공
+- workflow의 각 node가 필요한 모델을 registry에서 가져다 쓰는 구조
+
+기존 `llm/service.py`의 raw `httpx` 호출은 `ChatOpenAI`로 대체된다.
 
 ---
 
@@ -68,6 +83,7 @@ api/
 
   cube/
     __init__.py
+    client.py
     router.py
     service.py
     worker.py
@@ -79,7 +95,6 @@ api/
     __init__.py
     service.py
     models.py
-    commands.py
     history.py
 
   workflows/
@@ -89,7 +104,6 @@ api/
       state.py
       nodes.py
       routing.py
-      policies.py
       prompts.py
 
     rag/
@@ -105,15 +119,10 @@ api/
       state.py
       nodes.py
       routing.py
-      policies.py
 
   llm/
     __init__.py
-    clients.py
     registry.py
-    providers/
-      __init__.py
-      openai_compatible.py
     prompt/
       __init__.py
       system.py
@@ -156,9 +165,12 @@ Cube 연동 경계다.
 - wake-up / empty / duplicate 처리
 - Redis queue 적재
 - worker 루프 실행
-- 최종 Cube 응답 전송
+- **최종 Cube 응답 전송** (`client.py`의 `send_multimessage`)
 
 LangGraph 도입 후에도 이 계층은 얇게 유지하는 것이 좋다.
+
+즉, `cube/service.py`는 `chat/service.py`를 호출하여 reply를 받고, 그 reply를 `send_multimessage`로 전달한다.
+`chat/` 계층은 Cube의 존재를 모르며, 순수하게 reply 문자열만 반환한다.
 
 ### 4.2 `api/chat/`
 
@@ -169,12 +181,13 @@ Cube worker가 호출하는 실제 진입점은 여기로 모은다.
 
 - `run_chat_workflow(...)` 진입점 제공
 - 요청/응답 모델 정의
-- command 처리
 - history 조회/저장 연결
 - workflow 실행 전후 조립
+- **reply 문자열을 반환** (Cube 전송은 하지 않음)
 
-여기서 중요한 점은, `api/chat/`는 LangGraph에 종속된 디렉터리가 아니라는 것이다.  
+여기서 중요한 점은, `api/chat/`는 LangGraph에 종속된 디렉터리가 아니라는 것이다.
 즉, 채팅이라는 유스케이스는 유지하되, 내부 구현으로 LangGraph를 사용하는 구조다.
+또한, Cube라는 전송 수단을 전혀 알 필요가 없어 테스트와 재사용이 쉬워진다.
 
 ### 4.3 `api/workflows/chat/`
 
@@ -198,7 +211,23 @@ Cube worker가 호출하는 실제 진입점은 여기로 모은다.
 5. tool call이 있으면 실행 후 재호출
 6. 최종 답변 생성
 
-### 4.4 `api/mcp/`
+### 4.4 `api/llm/`
+
+LangChain 모델 인스턴스를 생성·관리하는 **모델 레지스트리** 계층이다.
+
+사내 LLM은 모두 OpenAI-compatible endpoint이므로 `langchain-openai`의 `ChatOpenAI`를 사용한다.
+기존 `llm/service.py`의 raw `httpx` 호출은 `ChatOpenAI`로 대체되며, `service.py`는 삭제된다.
+
+주요 책임:
+
+- 사용 가능한 모델 목록 관리 (Kimi-K2.5, Qwen3, GPT-OSS 등)
+- 모델별 설정 관리 (base_url, api_key, temperature, max_tokens 등)
+- task나 조건에 따른 모델 선택 인터페이스 제공
+- `ChatOpenAI` 인스턴스 생성 및 반환
+
+workflow의 각 node는 `llm/registry.py`에서 필요한 모델을 가져다 쓴다.
+
+### 4.5 `api/mcp/`
 
 MCP tool calling을 위한 인프라 계층이다.
 
@@ -214,7 +243,7 @@ MCP tool calling을 위한 인프라 계층이다.
 
 그래서 `mcp`는 workflow 안의 helper가 아니라 독립 패키지로 두는 것이 맞다.
 
-### 4.5 `api/rag/`
+### 4.6 `api/rag/`
 
 RAG 기능 자체를 담당하는 계층이다.
 
@@ -227,7 +256,7 @@ RAG 기능 자체를 담당하는 계층이다.
 
 초기에는 `chat` workflow의 한 node에서 이 계층을 호출하면 충분하다.
 
-### 4.6 `api/workflows/rag/`
+### 4.7 `api/workflows/rag/`
 
 RAG가 단순 검색이 아니라 별도 graph가 되어야 할 때만 사용한다.
 
@@ -241,7 +270,7 @@ RAG가 단순 검색이 아니라 별도 graph가 되어야 할 때만 사용한
 
 이 수준으로 복잡해지면 `chat` workflow 안의 단일 node로 두기보다 reusable subgraph로 분리하는 편이 낫다.
 
-### 4.7 `api/workflows/agent/`
+### 4.8 `api/workflows/agent/`
 
 Agent가 독립적인 planning/execution loop를 가지게 될 때 사용하는 workflow 계층이다.
 
@@ -308,19 +337,68 @@ Agent가 독립적인 planning/execution loop를 가지게 될 때 사용하는 
 
 ---
 
-## 7. 초기 구현 권장 범위
+## 7. 필요 의존성
 
-처음부터 모든 폴더를 다 구현할 필요는 없다.  
+LangGraph 도입에 따라 아래 패키지가 추가로 필요하다.
+
+```text
+langgraph
+langchain-core
+langchain-openai
+```
+
+기존 `httpx` 기반 직접 호출은 `ChatOpenAI`로 대체되므로, LLM 호출 목적의 `httpx` 사용은 제거된다.
+(단, `httpx` 자체는 다른 용도로 사용 중이면 유지)
+
+---
+
+## 8. 마이그레이션 경로
+
+현재 `cube/service.py`의 `process_incoming_message`가 담당하는 책임을 아래와 같이 분리한다.
+
+### 현재 흐름 (`cube/service.py:process_incoming_message`)
+
+```
+1. wake-up 판정
+2. history 조회 + user message 저장
+3. generate_reply (httpx → LLM)
+4. assistant message 저장
+5. send_multimessage (Cube 응답)
+```
+
+### 변경 후 흐름
+
+```
+cube/service.py
+  ├─ wake-up / empty / duplicate 판정 (유지)
+  ├─ chat/service.py::run_chat_workflow() 호출
+  │    ├─ history 조회
+  │    ├─ workflows/chat/graph 실행
+  │    │    ├─ llm/registry에서 모델 선택
+  │    │    ├─ mcp tool calling (필요 시)
+  │    │    └─ 최종 reply 생성
+  │    ├─ history 저장
+  │    └─ reply 반환
+  └─ send_multimessage (Cube 응답 전송)
+```
+
+핵심: `cube/service.py`는 reply를 받아 전송하는 역할만 하고, 대화 로직은 `chat/`과 `workflows/`로 이동한다.
+
+---
+
+## 9. 초기 구현 권장 범위
+
+처음부터 모든 폴더를 다 구현할 필요는 없다.
 초기 범위는 아래 정도가 적절하다.
 
-### 7.1 먼저 만드는 것
+### 9.1 먼저 만드는 것
 
 - `api/chat/`
 - `api/workflows/chat/`
 - `api/mcp/`
 - `api/rag/`
 
-### 7.2 나중에 만드는 것
+### 9.2 나중에 만드는 것
 
 - `api/workflows/rag/`
 - `api/workflows/agent/`
@@ -335,11 +413,11 @@ Agent가 독립적인 planning/execution loop를 가지게 될 때 사용하는 
 
 ---
 
-## 8. 예상 인터페이스
+## 10. 예상 인터페이스
 
 초기 구조 기준으로 중요한 인터페이스는 아래와 같다.
 
-### 8.1 `api/chat/service.py`
+### 10.1 `api/chat/service.py`
 
 ```python
 def run_chat_workflow(incoming, attempt: int = 0):
@@ -348,7 +426,7 @@ def run_chat_workflow(incoming, attempt: int = 0):
 
 이 함수가 worker가 호출하는 채팅 유스케이스 진입점이 된다.
 
-### 8.2 `api/workflows/chat/state.py`
+### 10.2 `api/workflows/chat/state.py`
 
 예상 state 필드:
 
@@ -363,7 +441,23 @@ def run_chat_workflow(incoming, attempt: int = 0):
 - final_reply
 - error
 
-### 8.3 `api/mcp/`
+### 10.3 `api/llm/registry.py`
+
+핵심 역할:
+
+- 사내 모델 목록 정의 및 관리
+- task/조건 기반 모델 선택
+- `ChatOpenAI` 인스턴스 생성·반환
+
+예상 인터페이스:
+
+```python
+def get_model(task: str | None = None) -> ChatOpenAI:
+    """task에 맞는 모델 인스턴스를 반환한다."""
+    ...
+```
+
+### 10.4 `api/mcp/`
 
 핵심 역할:
 
@@ -372,7 +466,7 @@ def run_chat_workflow(incoming, attempt: int = 0):
 - tool schema 변환
 - tool 실행 라우팅
 
-### 8.4 `api/cube/models.py`
+### 10.5 `api/cube/models.py`
 
 `CubeIncomingMessage`에는 최소한 아래 확장이 필요할 수 있다.
 
@@ -382,45 +476,51 @@ def run_chat_workflow(incoming, attempt: int = 0):
 
 ---
 
-## 9. 테스트 계획
+## 11. 테스트 계획
 
 초기 구조가 들어가면 아래 테스트가 필요하다.
 
-### 9.1 `tests/test_cube_service.py`
+### 11.1 `tests/test_cube_service.py`
 
 - Cube service가 `chat.service`로 위임하는지 검증
 - empty / wake-up / duplicate 처리 유지 확인
 
-### 9.2 `tests/test_chat_service.py`
+### 11.2 `tests/test_chat_service.py`
 
 - 채팅 유스케이스 진입점 테스트
 - history 연결과 응답 후처리 검증
 
-### 9.3 `tests/test_chat_graph.py`
+### 11.3 `tests/test_chat_graph.py`
 
 - 일반 응답 경로
 - conditional routing 경로
 - tool loop 경로 검증
 
-### 9.4 `tests/test_mcp_registry.py`
+### 11.4 `tests/test_llm_registry.py`
+
+- 모델 목록 로딩
+- task 기반 모델 선택
+- 미등록 모델 요청 시 fallback 동작
+
+### 11.5 `tests/test_mcp_registry.py`
 
 - MCP 서버 설정 로딩
 - enabled / disabled 처리
 - 서버 증가 시 동작 안정성 검증
 
-### 9.5 `tests/test_mcp_executor.py`
+### 11.6 `tests/test_mcp_executor.py`
 
 - tool name 기준 서버 라우팅
 - timeout 처리
 - 일부 MCP 서버 장애 시 graceful degradation
 
-### 9.6 `tests/test_rag_retriever.py`
+### 11.7 `tests/test_rag_retriever.py`
 
 - retrieval 및 context 조합 검증
 
 ---
 
-## 10. 최종 권장안
+## 12. 최종 권장안
 
 최종적으로는 아래처럼 이해하면 된다.
 
