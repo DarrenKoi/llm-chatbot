@@ -11,12 +11,22 @@ GitHub 전체 저장소에서 동료와 공유할 파일만 선별하여
 """
 
 import argparse
+import platform
 import shutil
 import sys
 from pathlib import Path
 
 # 프로젝트 루트 (이 스크립트의 상위 디렉토리)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+# ──────────────────────────────────────────────
+# 대상 경로 설정 (OS별 하드코딩)
+# --dst 인자 없이 실행하면 이 경로를 사용합니다.
+# ──────────────────────────────────────────────
+DEFAULT_DST = {
+    "Windows": Path("C:/work/llm_chatbot_share"),
+    "Darwin": PROJECT_ROOT.parent / "llm_chatbot_share",
+}
 
 # ──────────────────────────────────────────────
 # 공유할 파일/폴더 목록
@@ -119,7 +129,7 @@ def main():
     )
     args = parser.parse_args()
 
-    dst = args.dst or PROJECT_ROOT.parent / "llm_chatbot_share"
+    dst = args.dst or DEFAULT_DST.get(platform.system(), PROJECT_ROOT.parent / "llm_chatbot_share")
 
     if not dst.exists():
         print(f"오류: 대상 디렉토리가 존재하지 않습니다: {dst}")
