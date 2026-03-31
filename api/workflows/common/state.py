@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from api.workflows.models import WorkflowState
 
 
-@dataclass(slots=True)
+@dataclass
 class CommonWorkflowState(WorkflowState):
     """여러 업무 워크플로에서 재사용할 공통 상태다."""
 
     pending_action: str = ""
     confirmation_required: bool = False
-    attachment_paths: list[Path] = field(default_factory=list)
+    attachment_paths: list[str] = field(default_factory=list)

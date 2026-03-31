@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-CACHE_DIR = Path("var") / "mcp_cache"
+from api.config import MCP_CACHE_DIR as CACHE_DIR
 
 
 def load_cache(cache_key: str) -> dict[str, Any] | None:

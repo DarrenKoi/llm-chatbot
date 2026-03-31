@@ -6,16 +6,23 @@ import json
 from dataclasses import asdict
 from pathlib import Path
 
+from api.config import WORKFLOW_STATE_DIR
 from api.workflows.models import WorkflowState
 
-STATE_STORE_DIR = Path("var") / "workflow_state"
+_STATE_CLASSES: dict[str, type[WorkflowState]] = {}
+
+
+def register_state_class(workflow_id: str, cls: type[WorkflowState]) -> None:
+    """워크플로별 상태 클래스를 등록한다."""
+
+    _STATE_CLASSES[workflow_id] = cls
 
 
 def _build_state_path(user_id: str) -> Path:
     """사용자별 워크플로 상태 파일 경로를 생성한다."""
 
     safe_user_id = user_id.replace("/", "_")
-    return STATE_STORE_DIR / f"{safe_user_id}.json"
+    return WORKFLOW_STATE_DIR / f"{safe_user_id}.json"
 
 
 def load_state(user_id: str) -> WorkflowState | None:
@@ -26,13 +33,14 @@ def load_state(user_id: str) -> WorkflowState | None:
         return None
 
     payload = json.loads(state_path.read_text(encoding="utf-8"))
-    return WorkflowState(**payload)
+    cls = _STATE_CLASSES.get(payload.get("workflow_id", ""), WorkflowState)
+    return cls(**payload)
 
 
 def save_state(state: WorkflowState) -> WorkflowState:
     """워크플로 상태를 저장하고 동일 객체를 반환한다."""
 
-    STATE_STORE_DIR.mkdir(parents=True, exist_ok=True)
+    WORKFLOW_STATE_DIR.mkdir(parents=True, exist_ok=True)
     state_path = _build_state_path(state.user_id)
     state_path.write_text(
         json.dumps(asdict(state), ensure_ascii=False, indent=2, default=str),

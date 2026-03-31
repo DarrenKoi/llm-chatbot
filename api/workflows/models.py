@@ -9,7 +9,7 @@ WorkflowStatus = Literal["active", "waiting_user_input", "completed", "cancelled
 NodeAction = Literal["reply", "handoff", "resume", "complete", "wait"]
 
 
-@dataclass(slots=True)
+@dataclass
 class WorkflowState:
     """오케스트레이터가 공통으로 다루는 워크플로 상태다."""
 
@@ -21,7 +21,7 @@ class WorkflowState:
     stack: list[dict[str, str]] = field(default_factory=list)
 
 
-@dataclass(slots=True)
+@dataclass
 class NodeResult:
     """노드 실행 후 오케스트레이터에 반환하는 표준 결과다."""
 

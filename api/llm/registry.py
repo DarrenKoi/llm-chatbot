@@ -15,7 +15,7 @@ class LLMConfig:
     options: dict[str, Any] = field(default_factory=dict)
 
 
-_DEFAULT_CONFIG = LLMConfig(model_name="gpt-4.1-mini")
+_DEFAULT_CONFIG = LLMConfig(model_name="Kimi-K2.5")
 
 
 def get_llm_config(*, workflow_id: str, node_id: str | None = None) -> LLMConfig:

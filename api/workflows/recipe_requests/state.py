@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from api.workflows.models import WorkflowState
 
 
-@dataclass(slots=True)
+@dataclass
 class RecipeRequestsWorkflowState(WorkflowState):
     """레시피 요청 slot-filling에 필요한 상태다."""
 

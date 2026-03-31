@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from api.workflows.models import WorkflowState
 
 
-@dataclass(slots=True)
+@dataclass
 class AtWaferQuotaWorkflowState(WorkflowState):
     """quota 조회와 후속 액션에 필요한 상태다."""
 

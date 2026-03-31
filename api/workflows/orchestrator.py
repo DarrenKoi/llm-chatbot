@@ -25,9 +25,13 @@ def handle_message(incoming: CubeIncomingMessage, attempt: int = 0) -> str:
         node_id=DEFAULT_ENTRY_NODE_ID,
         data={"latest_user_message": incoming.message},
     )
-    workflow = get_workflow(state.workflow_id)
-    workflow["build_graph"]()
-
     state.data["latest_user_message"] = incoming.message
+
+    workflow_def = get_workflow(state.workflow_id)
+    graph = workflow_def["build_graph"]()
+
+    # TODO: graph["nodes"][state.node_id] 실행 → NodeResult 수신 → state 갱신
+    _ = graph
+
     save_state(state)
-    return f"[{workflow['workflow_id']}] 워크플로 스켈레톤이 준비되었습니다."
+    return f"[{workflow_def['workflow_id']}] 워크플로 스켈레톤이 준비되었습니다."

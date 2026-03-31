@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from api.workflows.models import WorkflowState
 
 
-@dataclass(slots=True)
+@dataclass
 class GeneralChatWorkflowState(WorkflowState):
     """자유 대화와 fallback 라우팅에 필요한 상태다."""
 

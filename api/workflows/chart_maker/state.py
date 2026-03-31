@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from api.workflows.models import WorkflowState
 
 
-@dataclass(slots=True)
+@dataclass
 class ChartMakerWorkflowState(WorkflowState):
     """차트 요구사항 수집과 명세 생성에 필요한 상태다."""
 
