@@ -4,6 +4,7 @@ from api.file_delivery.file_delivery_service import (
     get_file,
     get_file_metadata,
     get_file_variant,
+    is_image_file,
     list_files_for_user,
     save_uploaded_file,
 )
@@ -13,6 +14,7 @@ __all__ = [
     "get_file",
     "get_file_variant",
     "get_file_metadata",
+    "is_image_file",
     "list_files_for_user",
     "get_expired_file_ids",
     "delete_file",
