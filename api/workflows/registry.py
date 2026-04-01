@@ -11,6 +11,7 @@ from api.workflows.common.graph import build_graph as build_common_graph
 from api.workflows.general_chat.graph import build_graph as build_general_chat_graph
 from api.workflows.ppt_maker.graph import build_graph as build_ppt_maker_graph
 from api.workflows.recipe_requests.graph import build_graph as build_recipe_requests_graph
+from api.workflows.sample.graph import build_graph as build_sample_graph
 
 WorkflowDefinition = dict[str, Any]
 WorkflowBuilder = Callable[[], WorkflowDefinition]
@@ -45,6 +46,11 @@ _WORKFLOWS: dict[str, WorkflowDefinition] = {
         "workflow_id": "recipe_requests",
         "entry_node_id": "entry",
         "build_graph": build_recipe_requests_graph,
+    },
+    "sample": {
+        "workflow_id": "sample",
+        "entry_node_id": "entry",
+        "build_graph": build_sample_graph,
     },
 }
 
