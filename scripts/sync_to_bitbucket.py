@@ -24,7 +24,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # --dst 인자 없이 실행하면 이 경로를 사용합니다.
 # ──────────────────────────────────────────────
 DEFAULT_DST = {
-    "Windows": Path("C:/work/llm_chatbot_share"),
+    "Windows": Path("F:/itc-1stop-solution-llm"),
     "Darwin": PROJECT_ROOT.parent / "llm_chatbot_share",
 }
 
