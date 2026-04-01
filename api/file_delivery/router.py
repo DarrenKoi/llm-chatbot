@@ -11,9 +11,6 @@ bp = Blueprint("file_delivery", __name__)
 
 
 def _resolve_request_user_id() -> str:
-    explicit_user_id = request.form.get("user_id", "").strip()
-    if explicit_user_id:
-        return explicit_user_id
     return request.cookies.get("LASTUSER", "").strip()
 
 
@@ -33,6 +30,9 @@ def upload_file_delivery_file():
 
     file = request.files["file"]
     user_id = _resolve_request_user_id()
+    if not user_id:
+        log_activity("file_delivery_upload_rejected", reason="missing_user")
+        return jsonify({"error": "Unable to resolve user from session"}), 400
     title = request.form.get("title", "")
     try:
         stored = save_uploaded_file(file, user_id=user_id, title=title)

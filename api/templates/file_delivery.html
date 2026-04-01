@@ -282,13 +282,13 @@
       <div class="panel">
         <h2>Upload</h2>
         <p class="helper">
-          브라우저 쿠키의 <code>LASTUSER</code> 값을 기본 사용자 ID로 사용합니다.
-          필요하면 제목만 입력하고 파일을 업로드하면 됩니다.
+          현재 로그인 세션의 <code>LASTUSER</code> 값을 업로드 사용자로 사용합니다.
+          제목만 입력하고 파일을 업로드하면 됩니다.
         </p>
         <form id="upload-form">
           <div class="field">
             <label for="user-id">User ID</label>
-            <input id="user-id" name="user_id" type="text" value="{{ user_id }}" readonly>
+            <input id="user-id" type="text" value="{{ user_id }}" readonly>
           </div>
           <div class="field">
             <label for="title">Title</label>
@@ -397,9 +397,6 @@
       setStatus("업로드 중입니다...", false);
 
       const formData = new FormData(form);
-      if (!formData.get("user_id") && cookieUser) {
-        formData.set("user_id", cookieUser);
-      }
 
       try {
         const response = await fetch("/api/v1/file-delivery/upload", {
