@@ -2,8 +2,7 @@ import logging
 
 from flask import Blueprint, request, jsonify, render_template, send_file
 
-from api.file_delivery import get_file_metadata, get_file_variant, list_files_for_user, save_uploaded_file
-from api.file_delivery.file_delivery_service import _IMAGE_EXTENSIONS, _extract_extension
+from api.file_delivery import get_file_metadata, get_file_variant, is_image_file, list_files_for_user, save_uploaded_file
 from api.utils.logger import log_activity
 
 logger = logging.getLogger(__name__)
@@ -92,12 +91,7 @@ def get_file_delivery_file(file_id: str):
     file_path, content_type = result
     metadata = get_file_metadata(file_id) or {}
 
-    try:
-        ext = _extract_extension(file_path.name)
-    except ValueError:
-        ext = ""
-
-    if ext not in _IMAGE_EXTENSIONS:
+    if not is_image_file(file_path.name):
         response = send_file(
             file_path,
             mimetype=content_type,

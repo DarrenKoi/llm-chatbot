@@ -30,6 +30,14 @@ _CONTENT_TYPE_BY_EXT = {
 _IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
 
+def is_image_file(filename: str) -> bool:
+    try:
+        ext = _extract_extension(filename)
+    except ValueError:
+        return False
+    return ext in _IMAGE_EXTENSIONS
+
+
 def _metadata_key(file_id: str) -> str:
     return f"file_delivery:file:{file_id}"
 
@@ -144,14 +152,17 @@ def _load_metadata(file_id: str) -> dict | None:
     return _get_metadata_backend().get(file_id)
 
 
+def _enrich_metadata(file_id: str, metadata: dict) -> dict:
+    result = dict(metadata)
+    result["file_url"] = _build_file_url(file_id)
+    return result
+
+
 def get_file_metadata(file_id: str) -> dict | None:
     metadata = _load_metadata(file_id)
     if metadata is None:
         return None
-
-    copied = dict(metadata)
-    copied["file_url"] = _build_file_url(file_id)
-    return copied
+    return _enrich_metadata(file_id, metadata)
 
 
 def _sanitize_filename_component(value: str, *, fallback: str, max_length: int = 48) -> str:
@@ -169,8 +180,8 @@ def _build_stored_filename(
     original_filename: str,
     user_id: str,
     title: str,
+    timestamp: str,
 ) -> str:
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
     original_stem = Path(original_filename).stem if original_filename else ""
     safe_user_id = _sanitize_filename_component(user_id, fallback="anonymous", max_length=32)
     safe_title = _sanitize_filename_component(title or original_stem, fallback="file", max_length=64)
@@ -186,12 +197,7 @@ def save_uploaded_file(file: FileStorage, *, user_id: str = "", title: str = "")
         raise ValueError(f"Unsupported file extension: {extension}")
 
     content_type = (file.mimetype or "").lower()
-
     data = file.read()
-    if not data:
-        raise ValueError("Uploaded file is empty")
-    if len(data) > config.FILE_DELIVERY_MAX_UPLOAD_BYTES:
-        raise ValueError(f"File is too large (max {config.FILE_DELIVERY_MAX_UPLOAD_BYTES} bytes)")
 
     return save_file_bytes(
         data=data,
@@ -220,7 +226,8 @@ def save_file_bytes(
         raise ValueError(f"File is too large (max {config.FILE_DELIVERY_MAX_UPLOAD_BYTES} bytes)")
     _assert_storage_limit(len(data))
 
-    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    now = datetime.now(timezone.utc)
+    date_str = now.strftime("%Y-%m-%d")
     user_storage_key = _user_storage_key(user_id)
     storage_dir = _original_dir() / user_storage_key / date_str
     storage_dir.mkdir(parents=True, exist_ok=True)
@@ -232,6 +239,7 @@ def save_file_bytes(
         original_filename=original_filename,
         user_id=user_id,
         title=title,
+        timestamp=now.strftime("%Y%m%d%H%M%S"),
     )
     file_path = storage_dir / filename
     file_path.write_bytes(data)
@@ -242,7 +250,7 @@ def save_file_bytes(
         "file_path": str(file_path),
         "content_type": content_type or _CONTENT_TYPE_BY_EXT.get(extension, "application/octet-stream"),
         "size_bytes": len(data),
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": now.isoformat(),
         "original_filename": original_filename,
         "stored_filename": filename,
         "user_id": user_id,
@@ -265,9 +273,7 @@ def list_files_for_user(user_id: str, limit: int = 20) -> list[dict]:
         if not metadata or metadata.get("user_id", "").strip() != normalized_user_id:
             continue
 
-        copied = dict(metadata)
-        copied["file_url"] = _build_file_url(file_id)
-        items.append(copied)
+        items.append(_enrich_metadata(file_id, metadata))
 
     items.sort(key=lambda item: item.get("created_at", ""), reverse=True)
     return items[:limit]
@@ -329,9 +335,7 @@ def get_file_variant(
 def _pil_resample_filter():
     from PIL import Image
 
-    if hasattr(Image, "Resampling"):
-        return Image.Resampling.LANCZOS
-    return Image.LANCZOS
+    return Image.Resampling.LANCZOS
 
 
 def _image_format_by_extension(extension: str) -> str:
@@ -352,21 +356,20 @@ def _create_variant_bytes(source_file: Path, extension: str, target_width: int |
         raise RuntimeError("Pillow is required for resize/thumbnail") from e
 
     with Image.open(source_file) as img:
-        result = img.copy()
-        src_width, src_height = result.size
+        src_width, src_height = img.size
 
         box = (target_width or src_width, target_height or src_height)
-        result.thumbnail(box, _pil_resample_filter())
+        img.thumbnail(box, _pil_resample_filter())
 
         image_format = _image_format_by_extension(extension)
         save_kwargs = {"format": image_format}
         if image_format in {"JPEG", "WEBP"}:
             save_kwargs["quality"] = 85
-        if image_format == "JPEG" and result.mode not in {"RGB", "L"}:
-            result = result.convert("RGB")
+        if image_format == "JPEG" and img.mode not in {"RGB", "L"}:
+            img = img.convert("RGB")
 
         buffer = BytesIO()
-        result.save(buffer, **save_kwargs)
+        img.save(buffer, **save_kwargs)
         return buffer.getvalue()
 
 
