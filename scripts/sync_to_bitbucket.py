@@ -40,8 +40,6 @@ INCLUDE = [
     "index.py",
     "cube_worker.py",
     "scheduler_worker.py",
-    # 설정
-    ".gitignore",
 ]
 
 # api/ 내에서 제외할 항목 (Claude 개인 설정 등은 루트에만 있으므로 별도 제외 불필요)
