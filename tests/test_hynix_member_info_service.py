@@ -16,9 +16,9 @@ def teardown_function():
 
 
 def test_hynix_member_info_batch_advances_and_wraps(monkeypatch):
-    monkeypatch.setattr(config, "HYNIX_MEMBER_INFO_REDIS_URL", "")
-    monkeypatch.setattr(config, "HYNIX_MEMBER_INFO_BATCH_SIZE", 500)
-    monkeypatch.setattr(config, "HYNIX_MEMBER_INFO_STATE_KEY", "test:hynix-member-info")
+    monkeypatch.setattr(config, "SCAN_MEMBER_INFO_REDIS_URL", "")
+    monkeypatch.setattr(config, "SCAN_MEMBER_INFO_BATCH_SIZE", 500)
+    monkeypatch.setattr(config, "SCAN_MEMBER_INFO_STATE_KEY", "test:scan-member-info")
 
     first_batch = get_next_hynix_member_info_batch(total_count=1200)
     assert first_batch.offset == 0
@@ -44,8 +44,8 @@ def test_hynix_member_info_batch_advances_and_wraps(monkeypatch):
 
 
 def test_hynix_member_info_state_defaults_when_empty(monkeypatch):
-    monkeypatch.setattr(config, "HYNIX_MEMBER_INFO_REDIS_URL", "")
-    monkeypatch.setattr(config, "HYNIX_MEMBER_INFO_STATE_KEY", "test:hynix-member-info-empty")
+    monkeypatch.setattr(config, "SCAN_MEMBER_INFO_REDIS_URL", "")
+    monkeypatch.setattr(config, "SCAN_MEMBER_INFO_STATE_KEY", "test:scan-member-info-empty")
 
     state = load_hynix_member_info_state()
 

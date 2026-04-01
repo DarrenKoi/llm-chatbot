@@ -26,7 +26,7 @@ def get_monitoring_snapshot() -> dict[str, object]:
         _check_cube_queue_redis(),
         _check_scheduler_redis(),
         _check_file_delivery_redis(),
-        _check_hynix_member_info_redis(),
+        _check_scan_member_info_redis(),
     ]
     return {
         "checked_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -116,22 +116,22 @@ def _check_file_delivery_redis() -> MonitorEntry:
     )
 
 
-def _check_hynix_member_info_redis() -> MonitorEntry:
-    if not config.HYNIX_MEMBER_INFO_ENABLED:
+def _check_scan_member_info_redis() -> MonitorEntry:
+    if not config.SCAN_MEMBER_INFO_ENABLED:
         return MonitorEntry(
-            name="Hynix Member Batch",
+            name="Member Info Batch",
             backend="Redis",
             tone="disabled",
             status="disabled",
-            target=_mask_url(config.HYNIX_MEMBER_INFO_REDIS_URL),
-            detail="HYNIX_MEMBER_INFO_ENABLED 가 꺼져 있어 배치 상태 저장소를 사용하지 않습니다.",
+            target=_mask_url(config.SCAN_MEMBER_INFO_REDIS_URL),
+            detail="SCAN_MEMBER_INFO_ENABLED 가 꺼져 있어 배치 상태 저장소를 사용하지 않습니다.",
         )
 
     return _check_redis_component(
-        name="Hynix Member Batch",
-        redis_url=config.HYNIX_MEMBER_INFO_REDIS_URL,
+        name="Member Info Batch",
+        redis_url=config.SCAN_MEMBER_INFO_REDIS_URL,
         allow_fallback=False,
-        empty_detail="HYNIX_MEMBER_INFO_REDIS_URL 이 없어 배치 상태를 저장할 수 없습니다.",
+        empty_detail="SCAN_MEMBER_INFO_REDIS_URL 이 없어 배치 상태를 저장할 수 없습니다.",
     )
 
 

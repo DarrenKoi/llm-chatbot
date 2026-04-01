@@ -64,21 +64,21 @@ SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS = int(os.environ.get("SCHEDULER_LOCK_RENEW
 SCHEDULER_JOB_MISFIRE_GRACE_SECONDS = int(os.environ.get("SCHEDULER_JOB_MISFIRE_GRACE_SECONDS", 60))
 SCHEDULER_WORKER_IDLE_SECONDS = int(os.environ.get("SCHEDULER_WORKER_IDLE_SECONDS", 60))
 
-# Hynix member info batch scheduler
-HYNIX_MEMBER_INFO_ENABLED = os.environ.get("HYNIX_MEMBER_INFO_ENABLED", "").strip().lower() in {
+# Scan member info batch scheduler
+SCAN_MEMBER_INFO_ENABLED = os.environ.get("SCAN_MEMBER_INFO_ENABLED", "").strip().lower() in {
     "1",
     "true",
     "yes",
     "on",
 }
-HYNIX_MEMBER_INFO_REDIS_URL = os.environ.get(
-    "HYNIX_MEMBER_INFO_REDIS_URL",
+SCAN_MEMBER_INFO_REDIS_URL = os.environ.get(
+    "SCAN_MEMBER_INFO_REDIS_URL",
     SCHEDULER_REDIS_URL or REDIS_FALLBACK_URL or REDIS_URL,
 )
-HYNIX_MEMBER_INFO_STATE_KEY = os.environ.get("HYNIX_MEMBER_INFO_STATE_KEY", "hynix_member_info:state")
-HYNIX_MEMBER_INFO_BATCH_SIZE = int(os.environ.get("HYNIX_MEMBER_INFO_BATCH_SIZE", 500))
-HYNIX_MEMBER_INFO_INTERVAL_MINUTES = int(os.environ.get("HYNIX_MEMBER_INFO_INTERVAL_MINUTES", 432))
-HYNIX_MEMBER_INFO_DUMMY_TOTAL_COUNT = int(os.environ.get("HYNIX_MEMBER_INFO_DUMMY_TOTAL_COUNT", 50000))
+SCAN_MEMBER_INFO_STATE_KEY = os.environ.get("SCAN_MEMBER_INFO_STATE_KEY", "scan_member_info:state")
+SCAN_MEMBER_INFO_BATCH_SIZE = int(os.environ.get("SCAN_MEMBER_INFO_BATCH_SIZE", 500))
+SCAN_MEMBER_INFO_INTERVAL_MINUTES = int(os.environ.get("SCAN_MEMBER_INFO_INTERVAL_MINUTES", 432))
+SCAN_MEMBER_INFO_DUMMY_TOTAL_COUNT = int(os.environ.get("SCAN_MEMBER_INFO_DUMMY_TOTAL_COUNT", 50000))
 
 # Logging
 LOG_DIR = Path(os.environ.get("LOG_DIR", str(BASE_DIR / "logs"))).expanduser()
@@ -102,7 +102,7 @@ MCP_CACHE_DIR = Path(os.environ.get("MCP_CACHE_DIR", str(BASE_DIR / "var" / "mcp
 CONVERSATION_MAX_MESSAGES = int(os.environ.get("CONVERSATION_MAX_MESSAGES", 20))
 CONVERSATION_TTL_SECONDS = int(os.environ.get("CONVERSATION_TTL_SECONDS", 3600))
 
-# Workspace / PVC (cross-platform)
+# Workspace (cross-platform)
 _linux_workspace_root = Path("/project/workSpace")
 if system() == "Linux" and _linux_workspace_root.exists():
     _default_workspace_root = _linux_workspace_root
@@ -110,45 +110,44 @@ else:
     _default_workspace_root = BASE_DIR
 
 WORKSPACE_ROOT = Path(os.environ.get("WORKSPACE_ROOT", str(_default_workspace_root))).expanduser()
-PVC_ROOT = Path(os.environ.get("PVC_ROOT", str(WORKSPACE_ROOT / "pvc" / "download"))).expanduser()
 
 # File delivery
 FILE_DELIVERY_STORAGE_DIR = Path(
     os.environ.get(
         "FILE_DELIVERY_STORAGE_DIR",
-        os.environ.get("CDN_STORAGE_DIR", "/project/workSpace/itc-1stop-solution-pjt-shared/file_delivery"),
+        "/project/workSpace/itc-1stop-solution-pjt-shared/file_delivery",
     )
 ).expanduser()
 FILE_DELIVERY_BASE_URL = os.environ.get(
     "FILE_DELIVERY_BASE_URL",
-    os.environ.get("CDN_BASE_URL", "http://itc-1stop-solution-llm-webapp.aipp02.skhynix.com/file-delivery/files"),
+    "http://itc-1stop-solution-llm-webapp.aipp02.skhynix.com/file-delivery/files",
 )
-FILE_DELIVERY_MAX_UPLOAD_BYTES = int(os.environ.get("FILE_DELIVERY_MAX_UPLOAD_BYTES", os.environ.get("CDN_MAX_UPLOAD_BYTES", 10 * 1024 * 1024)))
+FILE_DELIVERY_MAX_UPLOAD_BYTES = int(os.environ.get("FILE_DELIVERY_MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
 FILE_DELIVERY_STORAGE_LIMIT_BYTES = int(
-    os.environ.get("FILE_DELIVERY_STORAGE_LIMIT_BYTES", os.environ.get("CDN_STORAGE_LIMIT_BYTES", 8 * 1024 * 1024 * 1024))
+    os.environ.get("FILE_DELIVERY_STORAGE_LIMIT_BYTES", 8 * 1024 * 1024 * 1024)
 )
 FILE_DELIVERY_ALLOWED_EXTENSIONS = tuple(
     ext.strip().lower()
     for ext in os.environ.get(
         "FILE_DELIVERY_ALLOWED_EXTENSIONS",
-        os.environ.get("CDN_ALLOWED_EXTENSIONS", "png,jpg,jpeg,gif,webp,xlsx,pptx,docx"),
+        "png,jpg,jpeg,gif,webp,xlsx,pptx,docx",
     ).split(",")
     if ext.strip()
 )
 FILE_DELIVERY_IMAGE_TTL_SECONDS = int(
-    os.environ.get("FILE_DELIVERY_IMAGE_TTL_SECONDS", os.environ.get("CDN_IMAGE_TTL_SECONDS", 0))
+    os.environ.get("FILE_DELIVERY_IMAGE_TTL_SECONDS", 0)
 )
-FILE_DELIVERY_REDIS_URL = os.environ.get("FILE_DELIVERY_REDIS_URL", os.environ.get("CDN_REDIS_URL", REDIS_FALLBACK_URL or REDIS_URL))
-FILE_DELIVERY_RETENTION_DAYS = int(os.environ.get("FILE_DELIVERY_RETENTION_DAYS", os.environ.get("CDN_RETENTION_DAYS", 30)))
+FILE_DELIVERY_REDIS_URL = os.environ.get("FILE_DELIVERY_REDIS_URL", REDIS_FALLBACK_URL or REDIS_URL)
+FILE_DELIVERY_RETENTION_DAYS = int(os.environ.get("FILE_DELIVERY_RETENTION_DAYS", 30))
 FILE_DELIVERY_MAX_RESIZE_WIDTH = int(
-    os.environ.get("FILE_DELIVERY_MAX_RESIZE_WIDTH", os.environ.get("CDN_MAX_RESIZE_WIDTH", 2048))
+    os.environ.get("FILE_DELIVERY_MAX_RESIZE_WIDTH", 2048)
 )
 FILE_DELIVERY_MAX_RESIZE_HEIGHT = int(
-    os.environ.get("FILE_DELIVERY_MAX_RESIZE_HEIGHT", os.environ.get("CDN_MAX_RESIZE_HEIGHT", 2048))
+    os.environ.get("FILE_DELIVERY_MAX_RESIZE_HEIGHT", 2048)
 )
 FILE_DELIVERY_THUMBNAIL_WIDTH = int(
-    os.environ.get("FILE_DELIVERY_THUMBNAIL_WIDTH", os.environ.get("CDN_THUMBNAIL_WIDTH", 320))
+    os.environ.get("FILE_DELIVERY_THUMBNAIL_WIDTH", 320)
 )
 FILE_DELIVERY_THUMBNAIL_HEIGHT = int(
-    os.environ.get("FILE_DELIVERY_THUMBNAIL_HEIGHT", os.environ.get("CDN_THUMBNAIL_HEIGHT", 320))
+    os.environ.get("FILE_DELIVERY_THUMBNAIL_HEIGHT", 320)
 )

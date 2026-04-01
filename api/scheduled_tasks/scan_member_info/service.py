@@ -43,7 +43,7 @@ def _get_backend():
     if _backend is not None:
         return _backend
 
-    redis_url = config.HYNIX_MEMBER_INFO_REDIS_URL
+    redis_url = config.SCAN_MEMBER_INFO_REDIS_URL
     if not redis_url:
         _backend = _InMemoryStateBackend()
         return _backend
@@ -68,7 +68,7 @@ def _normalize_non_negative(value: int) -> int:
 
 
 def load_hynix_member_info_state() -> HynixMemberInfoState:
-    raw = _get_backend().get(config.HYNIX_MEMBER_INFO_STATE_KEY)
+    raw = _get_backend().get(config.SCAN_MEMBER_INFO_STATE_KEY)
     if not raw:
         return HynixMemberInfoState()
 
@@ -93,7 +93,7 @@ def load_hynix_member_info_state() -> HynixMemberInfoState:
 
 def save_hynix_member_info_state(state: HynixMemberInfoState) -> HynixMemberInfoState:
     payload = json.dumps(asdict(state), ensure_ascii=False)
-    _get_backend().set(config.HYNIX_MEMBER_INFO_STATE_KEY, payload)
+    _get_backend().set(config.SCAN_MEMBER_INFO_STATE_KEY, payload)
     return state
 
 
@@ -101,7 +101,7 @@ def get_next_hynix_member_info_batch(total_count: int, *, batch_size: int | None
     if total_count <= 0:
         raise ValueError("total_count must be positive")
 
-    effective_batch_size = _normalize_non_negative(batch_size or config.HYNIX_MEMBER_INFO_BATCH_SIZE)
+    effective_batch_size = _normalize_non_negative(batch_size or config.SCAN_MEMBER_INFO_BATCH_SIZE)
     if effective_batch_size <= 0:
         raise ValueError("batch_size must be positive")
 

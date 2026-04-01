@@ -26,8 +26,8 @@ def test_create_application_can_start_scheduler_when_enabled(monkeypatch):
 
 def test_hynix_member_info_registers_job_when_enabled(monkeypatch):
     scheduler = MagicMock()
-    monkeypatch.setattr(config, "HYNIX_MEMBER_INFO_ENABLED", True)
-    monkeypatch.setattr(config, "HYNIX_MEMBER_INFO_INTERVAL_MINUTES", 432)
+    monkeypatch.setattr(config, "SCAN_MEMBER_INFO_ENABLED", True)
+    monkeypatch.setattr(config, "SCAN_MEMBER_INFO_INTERVAL_MINUTES", 432)
 
     scan_member_info_task.register(scheduler)
 

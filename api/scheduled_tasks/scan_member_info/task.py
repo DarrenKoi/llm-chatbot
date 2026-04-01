@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_total_hynix_member_count() -> int:
-    return max(0, config.HYNIX_MEMBER_INFO_DUMMY_TOTAL_COUNT)
+    return max(0, config.SCAN_MEMBER_INFO_DUMMY_TOTAL_COUNT)
 
 
 def _load_hynix_member_batch(*, offset: int, limit: int, total_count: int) -> list[dict]:
@@ -40,12 +40,12 @@ def _parse_hynix_member_info(member: dict) -> None:
 
 
 def hynix_member_info_batch_job() -> None:
-    if not config.HYNIX_MEMBER_INFO_ENABLED:
-        logger.info("Skipping hynix member info batch: HYNIX_MEMBER_INFO_ENABLED is disabled.")
+    if not config.SCAN_MEMBER_INFO_ENABLED:
+        logger.info("Skipping hynix member info batch: SCAN_MEMBER_INFO_ENABLED is disabled.")
         return
 
-    if config.HYNIX_MEMBER_INFO_BATCH_SIZE <= 0:
-        logger.warning("Skipping hynix member info batch: HYNIX_MEMBER_INFO_BATCH_SIZE must be positive.")
+    if config.SCAN_MEMBER_INFO_BATCH_SIZE <= 0:
+        logger.warning("Skipping hynix member info batch: SCAN_MEMBER_INFO_BATCH_SIZE must be positive.")
         return
 
     total_count = _get_total_hynix_member_count()
@@ -56,7 +56,7 @@ def hynix_member_info_batch_job() -> None:
     started_at = datetime.now(timezone.utc).isoformat()
     batch = get_next_hynix_member_info_batch(
         total_count=total_count,
-        batch_size=config.HYNIX_MEMBER_INFO_BATCH_SIZE,
+        batch_size=config.SCAN_MEMBER_INFO_BATCH_SIZE,
     )
     members = _load_hynix_member_batch(offset=batch.offset, limit=batch.limit, total_count=total_count)
 
@@ -79,7 +79,7 @@ def hynix_member_info_batch_job() -> None:
 
 
 def register(scheduler) -> None:
-    if not config.HYNIX_MEMBER_INFO_ENABLED:
+    if not config.SCAN_MEMBER_INFO_ENABLED:
         logger.info("Hynix member info scheduler job is disabled.")
         return
 
@@ -90,6 +90,6 @@ def register(scheduler) -> None:
         _run,
         id="hynix_member_info_batch",
         trigger="interval",
-        minutes=config.HYNIX_MEMBER_INFO_INTERVAL_MINUTES,
+        minutes=config.SCAN_MEMBER_INFO_INTERVAL_MINUTES,
         replace_existing=True,
     )
