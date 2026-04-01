@@ -5,5 +5,16 @@ pymongo
 apscheduler
 pillow
 httpx
+uwsgi
+
+# LangChain / LangGraph stack used by the project architecture
+langchain
+langchain-core
+langchain-openai
+langgraph
+langgraph-checkpoint-mongodb
+opensearch-py
+
+# Test dependencies
 pytest
 pytest-mock
