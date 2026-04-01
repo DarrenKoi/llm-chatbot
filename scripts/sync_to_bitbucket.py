@@ -42,7 +42,14 @@ INCLUDE = [
     "scheduler_worker.py",
 ]
 
-# api/ 내에서 제외할 항목 (Claude 개인 설정 등은 루트에만 있으므로 별도 제외 불필요)
+# ──────────────────────────────────────────────
+# 동기화 전 대상 폴더에서 삭제할 경로 목록
+# 소스에서 삭제된 파일이 대상에 남는 것을 방지
+# ──────────────────────────────────────────────
+CLEAN_BEFORE_SYNC = [
+    "api/",
+]
+
 EXCLUDE_PATTERNS = [
     "__pycache__",
     "*.pyc",
@@ -127,6 +134,16 @@ def main():
     print(f"대상: {dst}")
     print(f"모드: {'미리보기 (dry-run)' if args.dry_run else '실제 복사'}")
     print()
+
+    # 지정된 경로 정리
+    for entry in CLEAN_BEFORE_SYNC:
+        target = dst / entry.rstrip("/")
+        if target.exists():
+            if args.dry_run:
+                print(f"  [삭제 예정] {entry}")
+            else:
+                shutil.rmtree(target) if target.is_dir() else target.unlink()
+                print(f"  [삭제 완료] {entry}")
 
     # 파일 복사 (기존 파일 덮어쓰기, 수동 추가 파일은 유지)
     total = 0
