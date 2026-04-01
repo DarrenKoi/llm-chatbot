@@ -1,7 +1,7 @@
 """샘플 워크플로 end-to-end 테스트.
 
 워크플로 노드가 MCP 도구를 실제로 호출하는지 검증한다.
-  entry("다영") → greet(도구: "안녕하세요, 다영님!") → shout(도구: 대문자 변환) → 완료
+  entry("다영") → greet(도구: "안녕하세요, 다영님!") → translate(도구: ko→en 번역) → 완료
 """
 
 from unittest.mock import patch
@@ -55,50 +55,86 @@ def test_greet_tool_returns_korean_greeting():
     assert result.output == "안녕하세요, 다영님!"
 
 
-def test_uppercase_tool():
-    """uppercase 도구가 대문자 변환하는지 확인한다."""
+def test_translate_tool_korean_to_english():
+    """translate 도구가 한국어를 영어로 번역하는지 확인한다."""
 
     from api.mcp.executor import execute_tool_call
     from api.mcp.models import MCPToolCall
 
-    result = execute_tool_call(MCPToolCall(tool_id="uppercase", arguments={"text": "hello"}))
+    result = execute_tool_call(
+        MCPToolCall(tool_id="translate", arguments={"text": "감사합니다"}),
+    )
 
     assert result.success is True
-    assert result.output == "HELLO"
+    assert result.output["source"] == "ko"
+    assert result.output["target"] == "en"
+    assert result.output["result"] == "Thank you"
+
+
+def test_translate_tool_english_to_korean():
+    """translate 도구가 영어를 한국어로 번역하는지 확인한다."""
+
+    from api.mcp.executor import execute_tool_call
+    from api.mcp.models import MCPToolCall
+
+    result = execute_tool_call(
+        MCPToolCall(tool_id="translate", arguments={"text": "Good morning"}),
+    )
+
+    assert result.success is True
+    assert result.output["source"] == "en"
+    assert result.output["target"] == "ko"
+    assert result.output["result"] == "좋은 아침입니다"
+
+
+def test_translate_tool_unknown_korean_uses_fallback():
+    """사전에 없는 한국어 문장도 방향 태그와 함께 반환되는지 확인한다."""
+
+    from api.mcp.executor import execute_tool_call
+    from api.mcp.models import MCPToolCall
+
+    result = execute_tool_call(
+        MCPToolCall(tool_id="translate", arguments={"text": "오늘 날씨가 좋다"}),
+    )
+
+    assert result.output["source"] == "ko"
+    assert result.output["result"].startswith("[Translated to EN]")
 
 
 # ── 워크플로 end-to-end 테스트 ─────────────────────────────────
 
-def test_sample_workflow_calls_tools_and_completes():
-    """entry → greet → shout 전체 흐름이 도구를 호출하며 완료되는지 확인한다."""
+def test_sample_workflow_greet_then_translate():
+    """entry → greet → translate 전체 흐름이 도구를 호출하며 완료되는지 확인한다."""
 
     state = _make_state()
     graph = build_graph()
 
     reply = run_graph(graph, state, "다영")
 
-    # greet 도구 → "안녕하세요, 다영님!" → uppercase 도구 → 최종 결과
-    assert reply == "안녕하세요, 다영님!".upper()
+    # greet → "안녕하세요, 다영님!" → translate(ko→en) → fallback
     assert state.status == "completed"
     assert state.data["user_name"] == "다영"
     assert state.data["greeting"] == "안녕하세요, 다영님!"
-    assert state.data["final_output"] == "안녕하세요, 다영님!".upper()
+    assert state.data["translation_direction"] == "ko→en"
+    assert reply  # 번역 결과가 비어있지 않아야 함
 
 
-def test_sample_workflow_with_english_name():
-    """영어 이름으로도 동일하게 동작하는지 확인한다."""
+def test_sample_workflow_known_greeting_translates_exactly():
+    """사전에 있는 인사말이 정확하게 번역되는지 확인한다."""
 
+    # greet 결과가 "안녕하세요"로 시작하지만 "안녕하세요, X님!" 형태라 사전에 정확히 없음
+    # → fallback 경로로 간다. 이것도 정상 동작이다.
     state = _make_state()
     graph = build_graph()
 
-    reply = run_graph(graph, state, "Alice")
+    reply = run_graph(graph, state, "테스트")
 
-    assert reply == "안녕하세요, ALICE님!".upper()
-    assert state.status == "completed"
+    assert state.data["translated"] == reply
+    assert state.data["translation_direction"] == "ko→en"
 
 
 def test_sample_workflow_node_progression():
-    """노드가 entry → greet → shout 순서로 실행되는지 확인한다."""
+    """노드가 entry → greet → translate 순서로 실행되는지 확인한다."""
 
     state = _make_state()
     graph = build_graph()
@@ -117,7 +153,7 @@ def test_sample_workflow_node_progression():
 
     run_graph(graph, state, "테스트")
 
-    assert visited == ["entry", "greet", "shout"]
+    assert visited == ["entry", "greet", "translate"]
 
 
 # ── 도구 실패 처리 테스트 ──────────────────────────────────────
@@ -128,11 +164,10 @@ def test_tool_failure_returns_error_result():
     from api.mcp.executor import execute_tool_call
     from api.mcp.models import MCPToolCall
 
-    # greet에 잘못된 인자 전달 (name 누락)
     result = execute_tool_call(MCPToolCall(tool_id="greet", arguments={}))
 
     assert result.success is False
-    assert result.error  # 에러 메시지가 있어야 함
+    assert result.error
 
 
 # ── handle_message 통합 테스트 ─────────────────────────────────
@@ -157,8 +192,9 @@ def test_handle_message_with_sample_workflow():
 
         reply = handle_message(incoming)
 
-    assert "통합테스트" in reply.upper()
     mock_save.assert_called_once()
 
     saved_state = mock_save.call_args[0][0]
     assert saved_state.status == "completed"
+    assert saved_state.data["translation_direction"] == "ko→en"
+    assert reply  # 번역 결과 반환

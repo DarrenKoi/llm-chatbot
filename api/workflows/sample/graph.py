@@ -4,7 +4,7 @@ from api.workflows.sample import nodes
 
 
 def build_graph() -> dict[str, object]:
-    """entry → greet(도구호출) → shout(도구호출) → 완료."""
+    """entry → greet(도구호출) → translate(도구호출) → 완료."""
 
     return {
         "workflow_id": "sample",
@@ -12,6 +12,6 @@ def build_graph() -> dict[str, object]:
         "nodes": {
             "entry": nodes.entry_node,
             "greet": nodes.greet_node,
-            "shout": nodes.shout_node,
+            "translate": nodes.translate_node,
         },
     }

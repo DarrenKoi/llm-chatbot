@@ -32,23 +32,31 @@ def greet_node(state: WorkflowState, user_message: str) -> NodeResult:
 
     return NodeResult(
         action="resume",
-        next_node_id="shout",
+        next_node_id="translate",
         data_updates={"greeting": result.output},
     )
 
 
-def shout_node(state: WorkflowState, user_message: str) -> NodeResult:
-    """MCP uppercase 도구를 호출하여 인사말을 대문자로 변환한다."""
+def translate_node(state: WorkflowState, user_message: str) -> NodeResult:
+    """MCP translate 도구를 호출하여 인사말을 번역한다."""
 
     del user_message
     greeting = state.data.get("greeting", "")
 
-    log.info("[sample] uppercase 도구 호출: text=%s", greeting)
-    result = execute_tool_call(MCPToolCall(tool_id="uppercase", arguments={"text": greeting}))
-    log.info("[sample] uppercase 도구 결과: %s", result)
+    log.info("[sample] translate 도구 호출: text=%s", greeting)
+    result = execute_tool_call(MCPToolCall(tool_id="translate", arguments={"text": greeting}))
+    log.info("[sample] translate 도구 결과: %s", result)
+
+    translated = result.output.get("result", "") if isinstance(result.output, dict) else ""
+    direction = ""
+    if isinstance(result.output, dict):
+        direction = f"{result.output['source']}→{result.output['target']}"
 
     return NodeResult(
         action="complete",
-        reply=result.output,
-        data_updates={"final_output": result.output},
+        reply=translated,
+        data_updates={
+            "translation_direction": direction,
+            "translated": translated,
+        },
     )
