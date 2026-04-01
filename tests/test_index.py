@@ -1,14 +1,14 @@
 from io import BytesIO
 
 import pytest
-import api.cdn.cdn_service as cdn_service
+import api.file_delivery.file_delivery_service as file_delivery_service
 from api import config
 
 
 def test_cdn_upload_and_get_image(client, tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "CDN_STORAGE_DIR", tmp_path / "cdn")
-    monkeypatch.setattr(config, "CDN_REDIS_URL", "")
-    cdn_service._metadata_backend = None
+    monkeypatch.setattr(config, "FILE_DELIVERY_STORAGE_DIR", tmp_path / "file_delivery")
+    monkeypatch.setattr(config, "FILE_DELIVERY_REDIS_URL", "")
+    file_delivery_service._metadata_backend = None
 
     # 1x1 transparent PNG
     png_bytes = (
@@ -17,7 +17,7 @@ def test_cdn_upload_and_get_image(client, tmp_path, monkeypatch):
         b"\x00\x02\x00\x01\xe5'\xd4\xa2\x00\x00\x00\x00IEND\xaeB`\x82"
     )
     upload = client.post(
-        "/api/v1/cdn/upload",
+        "/api/v1/file-delivery/upload",
         data={"file": (BytesIO(png_bytes), "dot.png")},
         content_type="multipart/form-data",
     )
@@ -26,25 +26,26 @@ def test_cdn_upload_and_get_image(client, tmp_path, monkeypatch):
     payload = upload.get_json()
     assert payload["file_id"]
     assert payload["file_url"].endswith(payload["file_id"])
+    assert payload["stored_filename"].endswith(".png")
 
-    download = client.get(f"/cdn/files/{payload['file_id']}")
+    download = client.get(f"/file-delivery/files/{payload['file_id']}")
     assert download.status_code == 200
     assert download.mimetype == "image/png"
     assert download.data == png_bytes
 
 
 def test_cdn_upload_missing_file(client):
-    resp = client.post("/api/v1/cdn/upload", data={}, content_type="multipart/form-data")
+    resp = client.post("/api/v1/file-delivery/upload", data={}, content_type="multipart/form-data")
     assert resp.status_code == 400
 
 
 def test_cdn_upload_invalid_extension(client, monkeypatch, tmp_path):
-    monkeypatch.setattr(config, "CDN_STORAGE_DIR", tmp_path / "cdn")
-    monkeypatch.setattr(config, "CDN_REDIS_URL", "")
-    cdn_service._metadata_backend = None
+    monkeypatch.setattr(config, "FILE_DELIVERY_STORAGE_DIR", tmp_path / "file_delivery")
+    monkeypatch.setattr(config, "FILE_DELIVERY_REDIS_URL", "")
+    file_delivery_service._metadata_backend = None
 
     resp = client.post(
-        "/api/v1/cdn/upload",
+        "/api/v1/file-delivery/upload",
         data={"file": (BytesIO(b"hello"), "note.txt")},
         content_type="multipart/form-data",
     )
@@ -54,25 +55,25 @@ def test_cdn_upload_invalid_extension(client, monkeypatch, tmp_path):
 def test_cdn_resize_image(client, monkeypatch, tmp_path):
     image_module = pytest.importorskip("PIL.Image")
 
-    monkeypatch.setattr(config, "CDN_STORAGE_DIR", tmp_path / "cdn")
-    monkeypatch.setattr(config, "CDN_REDIS_URL", "")
-    monkeypatch.setattr(config, "CDN_MAX_RESIZE_WIDTH", 2048)
-    monkeypatch.setattr(config, "CDN_MAX_RESIZE_HEIGHT", 2048)
-    cdn_service._metadata_backend = None
+    monkeypatch.setattr(config, "FILE_DELIVERY_STORAGE_DIR", tmp_path / "file_delivery")
+    monkeypatch.setattr(config, "FILE_DELIVERY_REDIS_URL", "")
+    monkeypatch.setattr(config, "FILE_DELIVERY_MAX_RESIZE_WIDTH", 2048)
+    monkeypatch.setattr(config, "FILE_DELIVERY_MAX_RESIZE_HEIGHT", 2048)
+    file_delivery_service._metadata_backend = None
 
     src = image_module.new("RGB", (300, 150), color="red")
     src_buffer = BytesIO()
     src.save(src_buffer, format="PNG")
 
     upload = client.post(
-        "/api/v1/cdn/upload",
+        "/api/v1/file-delivery/upload",
         data={"file": (BytesIO(src_buffer.getvalue()), "source.png")},
         content_type="multipart/form-data",
     )
     assert upload.status_code == 201
     file_id = upload.get_json()["file_id"]
 
-    resized = client.get(f"/cdn/files/{file_id}?w=120")
+    resized = client.get(f"/file-delivery/files/{file_id}?w=120")
     assert resized.status_code == 200
 
     resized_img = image_module.open(BytesIO(resized.data))
@@ -83,27 +84,27 @@ def test_cdn_resize_image(client, monkeypatch, tmp_path):
 def test_cdn_thumbnail_image(client, monkeypatch, tmp_path):
     image_module = pytest.importorskip("PIL.Image")
 
-    monkeypatch.setattr(config, "CDN_STORAGE_DIR", tmp_path / "cdn")
-    monkeypatch.setattr(config, "CDN_REDIS_URL", "")
-    monkeypatch.setattr(config, "CDN_THUMBNAIL_WIDTH", 64)
-    monkeypatch.setattr(config, "CDN_THUMBNAIL_HEIGHT", 64)
-    monkeypatch.setattr(config, "CDN_MAX_RESIZE_WIDTH", 2048)
-    monkeypatch.setattr(config, "CDN_MAX_RESIZE_HEIGHT", 2048)
-    cdn_service._metadata_backend = None
+    monkeypatch.setattr(config, "FILE_DELIVERY_STORAGE_DIR", tmp_path / "file_delivery")
+    monkeypatch.setattr(config, "FILE_DELIVERY_REDIS_URL", "")
+    monkeypatch.setattr(config, "FILE_DELIVERY_THUMBNAIL_WIDTH", 64)
+    monkeypatch.setattr(config, "FILE_DELIVERY_THUMBNAIL_HEIGHT", 64)
+    monkeypatch.setattr(config, "FILE_DELIVERY_MAX_RESIZE_WIDTH", 2048)
+    monkeypatch.setattr(config, "FILE_DELIVERY_MAX_RESIZE_HEIGHT", 2048)
+    file_delivery_service._metadata_backend = None
 
     src = image_module.new("RGB", (500, 300), color="blue")
     src_buffer = BytesIO()
     src.save(src_buffer, format="PNG")
 
     upload = client.post(
-        "/api/v1/cdn/upload",
+        "/api/v1/file-delivery/upload",
         data={"file": (BytesIO(src_buffer.getvalue()), "source.png")},
         content_type="multipart/form-data",
     )
     assert upload.status_code == 201
     file_id = upload.get_json()["file_id"]
 
-    thumb = client.get(f"/cdn/files/{file_id}?thumbnail=true")
+    thumb = client.get(f"/file-delivery/files/{file_id}?thumbnail=true")
     assert thumb.status_code == 200
 
     thumb_img = image_module.open(BytesIO(thumb.data))
@@ -112,9 +113,9 @@ def test_cdn_thumbnail_image(client, monkeypatch, tmp_path):
 
 
 def test_cdn_resize_invalid_query(client, monkeypatch, tmp_path):
-    monkeypatch.setattr(config, "CDN_STORAGE_DIR", tmp_path / "cdn")
-    monkeypatch.setattr(config, "CDN_REDIS_URL", "")
-    cdn_service._metadata_backend = None
+    monkeypatch.setattr(config, "FILE_DELIVERY_STORAGE_DIR", tmp_path / "file_delivery")
+    monkeypatch.setattr(config, "FILE_DELIVERY_REDIS_URL", "")
+    file_delivery_service._metadata_backend = None
 
     # upload minimal valid png
     png_bytes = (
@@ -123,28 +124,32 @@ def test_cdn_resize_invalid_query(client, monkeypatch, tmp_path):
         b"\x00\x02\x00\x01\xe5'\xd4\xa2\x00\x00\x00\x00IEND\xaeB`\x82"
     )
     upload = client.post(
-        "/api/v1/cdn/upload",
+        "/api/v1/file-delivery/upload",
         data={"file": (BytesIO(png_bytes), "dot.png")},
         content_type="multipart/form-data",
     )
     file_id = upload.get_json()["file_id"]
 
-    bad = client.get(f"/cdn/files/{file_id}?w=abc")
+    bad = client.get(f"/file-delivery/files/{file_id}?w=abc")
     assert bad.status_code == 400
 
-    bad_mix = client.get(f"/cdn/files/{file_id}?thumbnail=true&w=10")
+    bad_mix = client.get(f"/file-delivery/files/{file_id}?thumbnail=true&w=10")
     assert bad_mix.status_code == 400
 
 
 def test_cdn_upload_docx(client, tmp_path, monkeypatch):
-    monkeypatch.setattr(config, "CDN_STORAGE_DIR", tmp_path / "cdn")
-    monkeypatch.setattr(config, "CDN_REDIS_URL", "")
-    monkeypatch.setattr(config, "CDN_ALLOWED_EXTENSIONS", ("png", "jpg", "jpeg", "gif", "webp", "xlsx", "pptx", "docx"))
-    cdn_service._metadata_backend = None
+    monkeypatch.setattr(config, "FILE_DELIVERY_STORAGE_DIR", tmp_path / "file_delivery")
+    monkeypatch.setattr(config, "FILE_DELIVERY_REDIS_URL", "")
+    monkeypatch.setattr(
+        config,
+        "FILE_DELIVERY_ALLOWED_EXTENSIONS",
+        ("png", "jpg", "jpeg", "gif", "webp", "xlsx", "pptx", "docx"),
+    )
+    file_delivery_service._metadata_backend = None
 
     docx_bytes = b"PK\x03\x04fake-docx-content-for-testing"
     upload = client.post(
-        "/api/v1/cdn/upload",
+        "/api/v1/file-delivery/upload",
         data={"file": (BytesIO(docx_bytes), "report.docx")},
         content_type="multipart/form-data",
     )
@@ -154,7 +159,34 @@ def test_cdn_upload_docx(client, tmp_path, monkeypatch):
     assert payload["file_id"]
     assert payload["file_url"].endswith(payload["file_id"])
 
-    download = client.get(f"/cdn/files/{payload['file_id']}")
+    download = client.get(f"/file-delivery/files/{payload['file_id']}")
     assert download.status_code == 200
     assert download.data == docx_bytes
     assert "attachment" in download.headers.get("Content-Disposition", "")
+
+
+def test_file_delivery_upload_uses_user_id_and_title_in_stored_filename(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "FILE_DELIVERY_STORAGE_DIR", tmp_path / "file_delivery")
+    monkeypatch.setattr(config, "FILE_DELIVERY_REDIS_URL", "")
+    file_delivery_service._metadata_backend = None
+
+    png_bytes = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc`\x00\x00"
+        b"\x00\x02\x00\x01\xe5'\xd4\xa2\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+
+    upload = client.post(
+        "/api/v1/file-delivery/upload",
+        data={
+            "file": (BytesIO(png_bytes), "report.png"),
+            "user_id": "user.alpha@corp",
+            "title": "월간 보고서 1Q",
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert upload.status_code == 201
+    payload = upload.get_json()
+    assert "user.alpha-corp" in payload["stored_filename"]
+    assert payload["stored_filename"].endswith(".png")

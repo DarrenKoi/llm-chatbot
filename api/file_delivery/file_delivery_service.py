@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import shutil
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -13,6 +14,7 @@ from api import config
 logger = logging.getLogger(__name__)
 
 _metadata_backend = None
+_FILENAME_SAFE_CHARS = re.compile(r"[^a-zA-Z0-9._-]+")
 
 _CONTENT_TYPE_BY_EXT = {
     "png": "image/png",
@@ -29,23 +31,23 @@ _IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
 
 
 def _metadata_key(file_id: str) -> str:
-    return f"cdn:file:{file_id}"
+    return f"file_delivery:file:{file_id}"
 
 
 def _metadata_index_key() -> str:
-    return "cdn:file:index"
+    return "file_delivery:file:index"
 
 
 def _build_file_url(file_id: str) -> str:
-    return f"{config.CDN_BASE_URL.rstrip('/')}/{file_id}"
+    return f"{config.FILE_DELIVERY_BASE_URL.rstrip('/')}/{file_id}"
 
 
 def _original_dir() -> Path:
-    return Path(config.CDN_STORAGE_DIR) / "original"
+    return Path(config.FILE_DELIVERY_STORAGE_DIR) / "original"
 
 
 def _variant_root_dir() -> Path:
-    return Path(config.CDN_STORAGE_DIR) / "variant"
+    return Path(config.FILE_DELIVERY_STORAGE_DIR) / "variant"
 
 
 def _extract_extension(filename: str) -> str:
@@ -78,36 +80,36 @@ def _normalize_resize_options(
     if thumbnail:
         if width is not None or height is not None:
             raise ValueError("thumbnail cannot be combined with w/h options")
-        width = config.CDN_THUMBNAIL_WIDTH
-        height = config.CDN_THUMBNAIL_HEIGHT
+        width = config.FILE_DELIVERY_THUMBNAIL_WIDTH
+        height = config.FILE_DELIVERY_THUMBNAIL_HEIGHT
         mode = "thumbnail"
     elif width is not None or height is not None:
         mode = "resize"
     else:
         mode = "original"
 
-    if width is not None and width > config.CDN_MAX_RESIZE_WIDTH:
-        raise ValueError(f"w must be <= {config.CDN_MAX_RESIZE_WIDTH}")
-    if height is not None and height > config.CDN_MAX_RESIZE_HEIGHT:
-        raise ValueError(f"h must be <= {config.CDN_MAX_RESIZE_HEIGHT}")
+    if width is not None and width > config.FILE_DELIVERY_MAX_RESIZE_WIDTH:
+        raise ValueError(f"w must be <= {config.FILE_DELIVERY_MAX_RESIZE_WIDTH}")
+    if height is not None and height > config.FILE_DELIVERY_MAX_RESIZE_HEIGHT:
+        raise ValueError(f"h must be <= {config.FILE_DELIVERY_MAX_RESIZE_HEIGHT}")
 
     return width, height, mode
 
 
 def _storage_usage_bytes() -> int:
-    root = Path(config.CDN_STORAGE_DIR)
+    root = Path(config.FILE_DELIVERY_STORAGE_DIR)
     if not root.exists():
         return 0
     return sum(path.stat().st_size for path in root.rglob("*") if path.is_file())
 
 
 def _assert_storage_limit(extra_bytes: int = 0) -> None:
-    limit = config.CDN_STORAGE_LIMIT_BYTES
+    limit = config.FILE_DELIVERY_STORAGE_LIMIT_BYTES
     if limit <= 0:
         return
     current = _storage_usage_bytes()
     if current + extra_bytes > limit:
-        raise ValueError("CDN storage limit exceeded")
+        raise ValueError("File delivery storage limit exceeded")
 
 
 def _get_metadata_backend():
@@ -115,16 +117,16 @@ def _get_metadata_backend():
     if _metadata_backend is not None:
         return _metadata_backend
 
-    if config.CDN_REDIS_URL:
+    if config.FILE_DELIVERY_REDIS_URL:
         try:
             import redis
 
-            client = redis.from_url(config.CDN_REDIS_URL)
+            client = redis.from_url(config.FILE_DELIVERY_REDIS_URL)
             client.ping()
             _metadata_backend = _RedisMetadataBackend(client)
             return _metadata_backend
         except Exception:
-            logger.exception("CDN Redis is unavailable. Falling back to in-memory metadata backend.")
+            logger.exception("File delivery Redis is unavailable. Falling back to in-memory metadata backend.")
 
     _metadata_backend = _InMemoryMetadataBackend()
     return _metadata_backend
@@ -138,12 +140,35 @@ def _load_metadata(file_id: str) -> dict | None:
     return _get_metadata_backend().get(file_id)
 
 
-def save_uploaded_file(file: FileStorage) -> dict:
+def _sanitize_filename_component(value: str, *, fallback: str, max_length: int = 48) -> str:
+    normalized = _FILENAME_SAFE_CHARS.sub("-", value.strip())
+    normalized = normalized.strip("._-")
+    if not normalized:
+        return fallback
+    return normalized[:max_length]
+
+
+def _build_stored_filename(
+    *,
+    file_id: str,
+    extension: str,
+    original_filename: str,
+    user_id: str,
+    title: str,
+) -> str:
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    original_stem = Path(original_filename).stem if original_filename else ""
+    safe_user_id = _sanitize_filename_component(user_id, fallback="anonymous", max_length=32)
+    safe_title = _sanitize_filename_component(title or original_stem, fallback="file", max_length=64)
+    return f"{timestamp}-{safe_user_id}-{safe_title}-{file_id}.{extension}"
+
+
+def save_uploaded_file(file: FileStorage, *, user_id: str = "", title: str = "") -> dict:
     if file is None or not file.filename:
         raise ValueError("No file provided")
 
     extension = _extract_extension(file.filename)
-    if extension not in config.CDN_ALLOWED_EXTENSIONS:
+    if extension not in config.FILE_DELIVERY_ALLOWED_EXTENSIONS:
         raise ValueError(f"Unsupported file extension: {extension}")
 
     content_type = (file.mimetype or "").lower()
@@ -151,24 +176,34 @@ def save_uploaded_file(file: FileStorage) -> dict:
     data = file.read()
     if not data:
         raise ValueError("Uploaded file is empty")
-    if len(data) > config.CDN_MAX_UPLOAD_BYTES:
-        raise ValueError(f"File is too large (max {config.CDN_MAX_UPLOAD_BYTES} bytes)")
+    if len(data) > config.FILE_DELIVERY_MAX_UPLOAD_BYTES:
+        raise ValueError(f"File is too large (max {config.FILE_DELIVERY_MAX_UPLOAD_BYTES} bytes)")
 
     return save_file_bytes(
         data=data,
         extension=extension,
         content_type=content_type or _CONTENT_TYPE_BY_EXT.get(extension, "application/octet-stream"),
         original_filename=file.filename,
+        user_id=user_id,
+        title=title,
     )
 
 
-def save_file_bytes(data: bytes, extension: str, content_type: str, original_filename: str = "") -> dict:
-    if extension not in config.CDN_ALLOWED_EXTENSIONS:
+def save_file_bytes(
+    data: bytes,
+    extension: str,
+    content_type: str,
+    original_filename: str = "",
+    *,
+    user_id: str = "",
+    title: str = "",
+) -> dict:
+    if extension not in config.FILE_DELIVERY_ALLOWED_EXTENSIONS:
         raise ValueError(f"Unsupported file extension: {extension}")
     if not data:
         raise ValueError("File data is empty")
-    if len(data) > config.CDN_MAX_UPLOAD_BYTES:
-        raise ValueError(f"File is too large (max {config.CDN_MAX_UPLOAD_BYTES} bytes)")
+    if len(data) > config.FILE_DELIVERY_MAX_UPLOAD_BYTES:
+        raise ValueError(f"File is too large (max {config.FILE_DELIVERY_MAX_UPLOAD_BYTES} bytes)")
     _assert_storage_limit(len(data))
 
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -176,7 +211,13 @@ def save_file_bytes(data: bytes, extension: str, content_type: str, original_fil
     storage_dir.mkdir(parents=True, exist_ok=True)
 
     file_id = uuid.uuid4().hex
-    filename = f"{file_id}.{extension}"
+    filename = _build_stored_filename(
+        file_id=file_id,
+        extension=extension,
+        original_filename=original_filename,
+        user_id=user_id,
+        title=title,
+    )
     file_path = storage_dir / filename
     file_path.write_bytes(data)
 
@@ -188,6 +229,9 @@ def save_file_bytes(data: bytes, extension: str, content_type: str, original_fil
         "size_bytes": len(data),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "original_filename": original_filename,
+        "stored_filename": filename,
+        "user_id": user_id,
+        "title": title,
     }
     _save_metadata(file_id, metadata)
     metadata["file_url"] = _build_file_url(file_id)
@@ -292,7 +336,7 @@ def _create_variant_bytes(source_file: Path, extension: str, target_width: int |
 
 
 def get_expired_file_ids(reference_time: datetime | None = None) -> list[str]:
-    retention_days = config.CDN_RETENTION_DAYS
+    retention_days = config.FILE_DELIVERY_RETENTION_DAYS
     if retention_days <= 0:
         return []
 
@@ -343,8 +387,8 @@ class _RedisMetadataBackend:
     def set(self, file_id: str, metadata: dict):
         payload = json.dumps(metadata, ensure_ascii=False)
         key = _metadata_key(file_id)
-        if config.CDN_IMAGE_TTL_SECONDS > 0:
-            self._r.set(key, payload, ex=config.CDN_IMAGE_TTL_SECONDS)
+        if config.FILE_DELIVERY_IMAGE_TTL_SECONDS > 0:
+            self._r.set(key, payload, ex=config.FILE_DELIVERY_IMAGE_TTL_SECONDS)
         else:
             self._r.set(key, payload)
         self._r.sadd(_metadata_index_key(), file_id)

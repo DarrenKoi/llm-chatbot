@@ -24,3 +24,18 @@ def test_cleanup_uwsgi_logs_deletes_only_files_older_than_a_week_by_filename(tmp
     assert not typo_prefix_old_log.exists()
     assert invalid_date_log.exists()
     assert unrelated_log.exists()
+
+
+def test_cleanup_expired_file_delivery_files_deletes_expired_ids(monkeypatch):
+    deleted_ids: list[str] = []
+
+    monkeypatch.setattr(cleanup_task, "get_expired_file_ids", lambda: ["file-1", "file-2", "file-3"])
+    monkeypatch.setattr(
+        cleanup_task,
+        "delete_file",
+        lambda file_id: deleted_ids.append(file_id) or file_id != "file-2",
+    )
+
+    cleanup_task._cleanup_expired_file_delivery_files()
+
+    assert deleted_ids == ["file-1", "file-2", "file-3"]

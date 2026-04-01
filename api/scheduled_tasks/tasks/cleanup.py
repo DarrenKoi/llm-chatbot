@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 from api import config
+from api.file_delivery import delete_file, get_expired_file_ids
 from api.scheduled_tasks._lock import run_locked_job
 
 logger = logging.getLogger(__name__)
@@ -39,15 +40,39 @@ def _cleanup_uwsgi_logs(*, today: date | None = None) -> None:
                 logger.info("Deleted old uWSGI log: %s", log_file.name)
 
 
+def _cleanup_expired_file_delivery_files() -> None:
+    expired_file_ids = get_expired_file_ids()
+    deleted_count = 0
+
+    for file_id in expired_file_ids:
+        if delete_file(file_id):
+            deleted_count += 1
+
+    if deleted_count > 0:
+        logger.info("Deleted %s expired file delivery item(s).", deleted_count)
+
+
 def register(scheduler) -> None:
-    def _run() -> None:
+    def _run_uwsgi_cleanup() -> None:
         run_locked_job("cleanup_uwsgi_logs", _cleanup_uwsgi_logs)
 
     scheduler.add_job(
-        _run,
+        _run_uwsgi_cleanup,
         id="cleanup_uwsgi_logs",
         trigger="cron",
         hour=1,
+        minute=0,
+        replace_existing=True,
+    )
+
+    def _run_file_delivery_cleanup() -> None:
+        run_locked_job("cleanup_file_delivery", _cleanup_expired_file_delivery_files)
+
+    scheduler.add_job(
+        _run_file_delivery_cleanup,
+        id="cleanup_file_delivery",
+        trigger="cron",
+        hour=2,
         minute=0,
         replace_existing=True,
     )

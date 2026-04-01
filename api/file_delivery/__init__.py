@@ -1,4 +1,4 @@
-from api.cdn.cdn_service import (
+from api.file_delivery.file_delivery_service import (
     delete_file,
     get_expired_file_ids,
     get_file,

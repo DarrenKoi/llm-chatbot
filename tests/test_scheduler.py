@@ -107,15 +107,18 @@ def test_start_scheduler_uses_strict_job_defaults(monkeypatch):
     scheduler_pkg.start_scheduler()
     scheduler_pkg.start_scheduler()
 
-    assert mock_scheduler.add_job.call_count == 1
-    kwargs = mock_scheduler.add_job.call_args.kwargs
-    assert kwargs["id"] == "cleanup_uwsgi_logs"
-    assert kwargs["trigger"] == "cron"
-    assert kwargs["hour"] == 1
-    assert kwargs["minute"] == 0
-    assert "max_instances" not in kwargs, "per-job max_instances should come from job_defaults"
-    assert "coalesce" not in kwargs, "per-job coalesce should come from job_defaults"
-    assert "misfire_grace_time" not in kwargs, "per-job misfire_grace_time should come from job_defaults"
+    assert mock_scheduler.add_job.call_count == 2
+
+    registered_jobs = [call.kwargs for call in mock_scheduler.add_job.call_args_list]
+    registered_job_ids = {job["id"] for job in registered_jobs}
+    assert registered_job_ids == {"cleanup_uwsgi_logs", "cleanup_file_delivery"}
+
+    for kwargs in registered_jobs:
+        assert kwargs["trigger"] == "cron"
+        assert "max_instances" not in kwargs, "per-job max_instances should come from job_defaults"
+        assert "coalesce" not in kwargs, "per-job coalesce should come from job_defaults"
+        assert "misfire_grace_time" not in kwargs, "per-job misfire_grace_time should come from job_defaults"
+
     mock_scheduler.start.assert_called_once()
 
 
