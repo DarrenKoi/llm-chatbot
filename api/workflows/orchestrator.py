@@ -9,7 +9,7 @@ from api.workflows.state_service import load_state, save_state
 
 log = logging.getLogger(__name__)
 
-DEFAULT_WORKFLOW_ID = "general_chat"
+DEFAULT_WORKFLOW_ID = "start_chat"
 DEFAULT_ENTRY_NODE_ID = "entry"
 MAX_RESUME_STEPS = 20
 
@@ -30,10 +30,45 @@ def _apply_result(state: WorkflowState, result: NodeResult) -> None:
         state.status = "active"
 
 
+def _handle_handoff(state: WorkflowState, result: NodeResult, user_message: str) -> str:
+    """현재 워크플로를 중단하고 대상 워크플로로 전환한다."""
+
+    target_workflow_id = result.next_workflow_id
+    if not target_workflow_id:
+        log.warning("handoff 대상 워크플로가 지정되지 않았습니다.")
+        return ""
+
+    # 현재 위치를 스택에 저장 (복귀용)
+    state.stack.append({
+        "workflow_id": state.workflow_id,
+        "node_id": state.node_id,
+    })
+
+    # 대상 워크플로로 전환
+    target_def = get_workflow(target_workflow_id)
+    state.workflow_id = target_workflow_id
+    state.node_id = target_def["entry_node_id"]
+    state.status = "active"
+
+    # 대상 워크플로 그래프 실행
+    target_graph = target_def["build_graph"]()
+    reply = run_graph(target_graph, state, user_message)
+
+    # 대상 워크플로가 완료되면 스택에서 복귀
+    if state.status == "completed" and state.stack:
+        return_point = state.stack.pop()
+        state.workflow_id = return_point["workflow_id"]
+        state.node_id = return_point["node_id"]
+        state.status = "active"
+
+    return reply
+
+
 def run_graph(graph: dict, state: WorkflowState, user_message: str) -> str:
     """그래프 노드를 실행하고 최종 reply를 반환한다.
 
     action이 "resume"이면 다음 노드를 즉시 이어서 실행하고,
+    "handoff"이면 대상 워크플로로 전환한다.
     그 외("reply", "wait", "complete" 등)에서는 멈춘다.
     """
 
@@ -56,6 +91,12 @@ def run_graph(graph: dict, state: WorkflowState, user_message: str) -> str:
 
         if result.reply:
             reply = result.reply
+
+        if result.action == "handoff":
+            handoff_reply = _handle_handoff(state, result, user_message)
+            if handoff_reply:
+                reply = handoff_reply
+            break
 
         if result.action != "resume":
             break

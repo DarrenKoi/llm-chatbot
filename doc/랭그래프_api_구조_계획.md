@@ -24,7 +24,7 @@
 
 즉, 처음부터 아래와 같은 workflow target을 최상위 폴더로 둔다.
 
-- `api/workflows/general_chat/`
+- `api/workflows/start_chat/`
 - `api/workflows/chart_maker/`
 - `api/workflows/ppt_maker/`
 - `api/workflows/at_wafer_quota/`
@@ -41,14 +41,14 @@
 
 예:
 
-- `api/workflows/general_chat/rag/`
-- `api/workflows/general_chat/agent/`
+- `api/workflows/start_chat/rag/`
+- `api/workflows/start_chat/agent/`
 - `api/workflows/ppt_maker/rag/`
 - `api/workflows/ppt_maker/agent/`
 
 의미:
 
-- `general_chat`의 retrieval 전략과 `ppt_maker`의 retrieval 전략은 다를 수 있다.
+- `start_chat`의 retrieval 전략과 `ppt_maker`의 retrieval 전략은 다를 수 있다.
 - `at_wafer_quota`의 agent loop와 `recipe_requests`의 agent loop는 필요한 tool, 정책, 종료 조건이 다를 수 있다.
 - 따라서 초기 설계 기준은 "공용 rag/agent"가 아니라 "업무별 rag/agent"가 더 자연스럽다.
 
@@ -123,9 +123,9 @@ LLM은 workflow 전체를 자유롭게 결정하는 controller가 아니라, 각
 
 ### 2.7 workflow별 확장 방식은 달라도, orchestration contract는 공통이어야 한다
 
-`general_chat`, `ppt_maker`, `at_wafer_quota`는 성격이 다르다.
+`start_chat`, `ppt_maker`, `at_wafer_quota`는 성격이 다르다.
 
-- `general_chat`: 자유 대화 중심
+- `start_chat`: 자유 대화 중심
 - `chart_maker`: 산출물 생성 중심
 - `ppt_maker`: 장기적 iterative workflow
 - `at_wafer_quota`: 조회 + 분기 + 신청
@@ -176,7 +176,7 @@ api/
       routing.py
       prompts.py
 
-    general_chat/
+    start_chat/
       __init__.py
       graph.py
       state.py
@@ -318,7 +318,7 @@ shared sub-workflow 집합이다.
 
 각 업무 workflow는 필요 시 `common`으로 handoff 했다가 원래 workflow로 복귀할 수 있다.
 
-### 4.4 `api/workflows/general_chat/`
+### 4.4 `api/workflows/start_chat/`
 
 자유 대화와 일반 질의응답을 담당한다.
 
@@ -395,7 +395,7 @@ recipe creation / request workflow다.
 예:
 
 - `ppt_maker/rag/`: 사용자가 준 문서, 템플릿, 과거 deck에서 문맥 추출
-- `general_chat/rag/`: 일반 사내 지식 검색
+- `start_chat/rag/`: 일반 사내 지식 검색
 - `at_wafer_quota/agent/`: quota 확인 후 필요한 시스템 조회/도구 호출 loop
 
 원칙:
@@ -571,7 +571,7 @@ at_wafer_quota.fetch_quota
 - `api/workflows/models.py`
 - `api/workflows/state_service.py`
 - `api/workflows/common/`
-- `api/workflows/general_chat/`
+- `api/workflows/start_chat/`
 - `api/llm/`
 - `api/mcp/`
 
@@ -688,7 +688,7 @@ def clear_state(user_id: str) -> None:
 이번 구조의 핵심은 다음이다.
 
 - top-level workflow는 업무 단위로 나눈다
-- `general_chat`, `chart_maker`, `ppt_maker`, `at_wafer_quota`, `recipe_requests`, `common`을 기준으로 간다
+- `start_chat`, `chart_maker`, `ppt_maker`, `at_wafer_quota`, `recipe_requests`, `common`을 기준으로 간다
 - RAG와 agent는 각 workflow 내부 서브폴더로 둔다
 - `common`은 shared sub-workflow 집합으로 사용한다
 - Cube는 thin transport 계층으로 유지한다

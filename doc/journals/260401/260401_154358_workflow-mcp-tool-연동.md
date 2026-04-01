@@ -35,7 +35,7 @@
   - 통합: `handle_message()` 경유 전체 동작 확인
 
 ### 워크플로 ↔ 일반 대화 분류 논의
-- `general_chat`이 프론트 도어 역할 — classify 노드에서 의도 분석 후 적절한 워크플로로 handoff
+- `start_chat`이 프론트 도어 역할 — classify 노드에서 의도 분석 후 적절한 워크플로로 handoff
 - 일반 대화는 도구 없이 LLM 직접 응답, 특정 요청(차트/PPT/번역 등)은 전용 워크플로로 진입
 
 ---
@@ -63,7 +63,7 @@
 
 ## 3. 다음 단계
 
-- **`general_chat` classify 노드 구현**: 사용자 메시지 의도 분석 → 일반 대화 vs 워크플로 handoff 분기
+- **`start_chat` classify 노드 구현**: 사용자 메시지 의도 분석 → 일반 대화 vs 워크플로 handoff 분기
 - **오케스트레이터 handoff 처리**: `action="handoff"` 시 다른 워크플로로 전환하는 로직 (`run_graph` 확장)
 - **실제 번역 도구**: `_translate` 스텁을 LLM 또는 번역 API 호출로 교체
 - **기존 워크플로 노드에 도구 호출 추가**: chart_maker, ppt_maker 등에 실제 MCP 도구 연결
