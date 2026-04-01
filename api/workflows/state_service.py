@@ -3,19 +3,65 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
+from dataclasses import fields
 from pathlib import Path
 
 from api.config import WORKFLOW_STATE_DIR
 from api.workflows.models import WorkflowState
 
 _STATE_CLASSES: dict[str, type[WorkflowState]] = {}
+_BASE_FIELD_NAMES = {field.name for field in fields(WorkflowState)}
 
 
 def register_state_class(workflow_id: str, cls: type[WorkflowState]) -> None:
     """워크플로별 상태 클래스를 등록한다."""
 
     _STATE_CLASSES[workflow_id] = cls
+
+
+def get_state_class(workflow_id: str) -> type[WorkflowState]:
+    """workflow_id에 해당하는 상태 클래스를 반환한다."""
+
+    if workflow_id in _STATE_CLASSES:
+        return _STATE_CLASSES[workflow_id]
+
+    try:
+        from api.workflows.registry import get_workflow
+
+        return get_workflow(workflow_id).get("state_cls", WorkflowState)
+    except KeyError:
+        return WorkflowState
+
+
+def _serialize_state(state: WorkflowState) -> dict[str, object]:
+    """상태 객체를 JSON 저장용 payload로 변환한다."""
+
+    payload = dict(vars(state))
+    payload["data"] = dict(getattr(state, "data", {}) or {})
+    payload["stack"] = list(getattr(state, "stack", []) or [])
+
+    for key, value in payload.items():
+        if key not in _BASE_FIELD_NAMES:
+            payload["data"].setdefault(key, value)
+
+    return payload
+
+
+def build_state(payload: dict[str, object]) -> WorkflowState:
+    """저장 payload를 현재 workflow_id에 맞는 상태 객체로 복원한다."""
+
+    workflow_id = str(payload.get("workflow_id", ""))
+    cls = get_state_class(workflow_id)
+    data = dict(payload.get("data", {}) or {})
+
+    state_kwargs = {}
+    for field in fields(cls):
+        if field.name in payload:
+            state_kwargs[field.name] = payload[field.name]
+        elif field.name not in _BASE_FIELD_NAMES and field.name in data:
+            state_kwargs[field.name] = data[field.name]
+
+    return cls(**state_kwargs)
 
 
 def _build_state_path(user_id: str) -> Path:
@@ -33,8 +79,7 @@ def load_state(user_id: str) -> WorkflowState | None:
         return None
 
     payload = json.loads(state_path.read_text(encoding="utf-8"))
-    cls = _STATE_CLASSES.get(payload.get("workflow_id", ""), WorkflowState)
-    return cls(**payload)
+    return build_state(payload)
 
 
 def save_state(state: WorkflowState) -> WorkflowState:
@@ -43,7 +88,7 @@ def save_state(state: WorkflowState) -> WorkflowState:
     WORKFLOW_STATE_DIR.mkdir(parents=True, exist_ok=True)
     state_path = _build_state_path(state.user_id)
     state_path.write_text(
-        json.dumps(asdict(state), ensure_ascii=False, indent=2, default=str),
+        json.dumps(_serialize_state(state), ensure_ascii=False, indent=2, default=str),
         encoding="utf-8",
     )
     return state

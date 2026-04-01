@@ -4,11 +4,17 @@ from collections.abc import Callable
 from typing import Any
 
 from api.workflows.at_wafer_quota.graph import build_graph as build_at_wafer_quota_graph
+from api.workflows.at_wafer_quota.state import AtWaferQuotaWorkflowState
 from api.workflows.chart_maker.graph import build_graph as build_chart_maker_graph
+from api.workflows.chart_maker.state import ChartMakerWorkflowState
 from api.workflows.common.graph import build_graph as build_common_graph
+from api.workflows.models import WorkflowState
 from api.workflows.start_chat.graph import build_graph as build_start_chat_graph
+from api.workflows.start_chat.state import StartChatWorkflowState
 from api.workflows.ppt_maker.graph import build_graph as build_ppt_maker_graph
+from api.workflows.ppt_maker.state import PptMakerWorkflowState
 from api.workflows.recipe_requests.graph import build_graph as build_recipe_requests_graph
+from api.workflows.recipe_requests.state import RecipeRequestsWorkflowState
 from api.workflows.sample.graph import build_graph as build_sample_graph
 
 WorkflowDefinition = dict[str, Any]
@@ -19,36 +25,43 @@ _WORKFLOWS: dict[str, WorkflowDefinition] = {
         "workflow_id": "common",
         "entry_node_id": "entry",
         "build_graph": build_common_graph,
+        "state_cls": WorkflowState,
     },
     "start_chat": {
         "workflow_id": "start_chat",
         "entry_node_id": "entry",
         "build_graph": build_start_chat_graph,
+        "state_cls": StartChatWorkflowState,
     },
     "chart_maker": {
         "workflow_id": "chart_maker",
         "entry_node_id": "entry",
         "build_graph": build_chart_maker_graph,
+        "state_cls": ChartMakerWorkflowState,
     },
     "ppt_maker": {
         "workflow_id": "ppt_maker",
         "entry_node_id": "entry",
         "build_graph": build_ppt_maker_graph,
+        "state_cls": PptMakerWorkflowState,
     },
     "at_wafer_quota": {
         "workflow_id": "at_wafer_quota",
         "entry_node_id": "entry",
         "build_graph": build_at_wafer_quota_graph,
+        "state_cls": AtWaferQuotaWorkflowState,
     },
     "recipe_requests": {
         "workflow_id": "recipe_requests",
         "entry_node_id": "entry",
         "build_graph": build_recipe_requests_graph,
+        "state_cls": RecipeRequestsWorkflowState,
     },
     "sample": {
         "workflow_id": "sample",
         "entry_node_id": "entry",
         "build_graph": build_sample_graph,
+        "state_cls": WorkflowState,
     },
 }
 

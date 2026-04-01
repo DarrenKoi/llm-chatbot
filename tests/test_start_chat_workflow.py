@@ -11,6 +11,7 @@ import pytest
 
 from api.workflows.models import NodeResult, WorkflowState
 from api.workflows.orchestrator import run_graph, _handle_handoff
+from api.workflows.chart_maker.graph import build_graph as build_chart_maker_graph
 from api.workflows.start_chat.graph import build_graph
 from api.workflows.start_chat.state import StartChatWorkflowState
 
@@ -158,9 +159,9 @@ def test_handoff_completes_and_returns_to_parent():
         reply = _handle_handoff(state, handoff_result, "테스트")
 
     assert reply == "완료!"
-    # 복귀: start_chat으로 돌아왔어야 함
+    # 복귀: 다음 사용자 턴을 받을 수 있도록 start_chat entry로 초기화되어야 함
     assert state.workflow_id == "start_chat"
-    assert state.node_id == "classify"
+    assert state.node_id == "entry"
     assert state.status == "active"
     assert len(state.stack) == 0
 
@@ -174,6 +175,34 @@ def test_handoff_without_target_returns_empty():
     reply = _handle_handoff(state, result, "테스트")
 
     assert reply == ""
+
+
+def test_handed_off_workflow_uses_target_state_and_returns_to_start_chat():
+    """handoff된 워크플로가 전용 상태를 유지하고 종료 후 start_chat으로 복귀한다."""
+
+    state = _make_state(detected_intent="chart_maker")
+
+    first_reply = run_graph(build_graph(), state, "차트 만들어줘")
+
+    assert first_reply == ""
+    assert state.workflow_id == "chart_maker"
+    assert state.node_id == "collect_requirements"
+    assert len(state.stack) == 1
+
+    second_reply = run_graph(build_chart_maker_graph(), state, "line")
+
+    assert second_reply == ""
+    assert state.workflow_id == "chart_maker"
+    assert state.node_id == "build_spec"
+    assert getattr(state, "chart_type") == "line"
+
+    final_reply = run_graph(build_chart_maker_graph(), state, "계속")
+
+    assert final_reply == "차트 명세 생성 스켈레톤입니다."
+    assert state.workflow_id == "start_chat"
+    assert state.node_id == "entry"
+    assert state.status == "active"
+    assert state.stack == []
 
 
 # ── handle_message 통합 테스트 ─────────────────────────────────
@@ -201,3 +230,45 @@ def test_handle_message_uses_start_chat_as_default():
     mock_save.assert_called_once()
     saved_state = mock_save.call_args[0][0]
     assert saved_state.workflow_id == "start_chat"
+
+
+def test_handle_message_restarts_completed_start_chat_session():
+    """완료된 start_chat 상태는 다음 턴 전에 entry부터 다시 시작해야 한다."""
+
+    from api.cube.models import CubeIncomingMessage
+    from api.workflows.orchestrator import handle_message
+
+    completed_state = StartChatWorkflowState(
+        user_id="test_restart",
+        workflow_id="start_chat",
+        node_id="generate_reply",
+        status="completed",
+        detected_intent="chart_maker",
+        retrieved_contexts=["stale"],
+        agent_plan=["old-plan"],
+        data={
+            "detected_intent": "chart_maker",
+            "retrieved_contexts": ["stale"],
+            "agent_plan": ["old-plan"],
+        },
+    )
+    incoming = CubeIncomingMessage(
+        user_id="test_restart",
+        user_name="tester",
+        channel_id="c1",
+        message_id="m2",
+        message="후속 질문",
+    )
+
+    with patch("api.workflows.orchestrator.load_state", return_value=completed_state), \
+         patch("api.workflows.orchestrator.save_state") as mock_save:
+        reply = handle_message(incoming)
+
+    assert "후속 질문" in reply
+    mock_save.assert_called_once()
+    saved_state = mock_save.call_args[0][0]
+    assert saved_state.workflow_id == "start_chat"
+    assert saved_state.status == "completed"
+    assert saved_state.data["detected_intent"] == "start_chat"
+    assert saved_state.data["latest_user_message"] == "후속 질문"
+    assert saved_state.stack == []

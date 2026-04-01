@@ -5,7 +5,7 @@ import logging
 from api.cube.models import CubeIncomingMessage
 from api.workflows.models import NodeResult, WorkflowState
 from api.workflows.registry import get_workflow
-from api.workflows.state_service import load_state, save_state
+from api.workflows.state_service import build_state, load_state, save_state
 
 log = logging.getLogger(__name__)
 
@@ -14,10 +14,88 @@ DEFAULT_ENTRY_NODE_ID = "entry"
 MAX_RESUME_STEPS = 20
 
 
+def _replace_state(target: WorkflowState, source: WorkflowState) -> WorkflowState:
+    """기존 상태 객체를 새 payload로 동기화한다."""
+
+    vars(target).clear()
+    vars(target).update(vars(source))
+    return target
+
+
+def _coerce_state(
+    state: WorkflowState,
+    *,
+    workflow_id: str | None = None,
+    node_id: str | None = None,
+    status: str | None = None,
+    data: dict | None = None,
+) -> WorkflowState:
+    """현재 상태를 특정 워크플로 payload로 정규화한다."""
+
+    payload = dict(vars(state))
+    payload["workflow_id"] = workflow_id or state.workflow_id
+
+    if node_id is not None:
+        payload["node_id"] = node_id
+    if status is not None:
+        payload["status"] = status
+    if data is not None:
+        payload["data"] = data
+
+    return build_state(payload)
+
+
+def _reset_start_chat_state(user_id: str) -> WorkflowState:
+    """새 사용자 턴을 위한 start_chat 상태를 재구성한다."""
+
+    return build_state({
+        "user_id": user_id,
+        "workflow_id": DEFAULT_WORKFLOW_ID,
+        "node_id": DEFAULT_ENTRY_NODE_ID,
+        "status": "active",
+        "data": {},
+        "stack": [],
+    })
+
+
+def _restore_parent_workflow(state: WorkflowState) -> None:
+    """자식 워크플로 종료 후 부모 워크플로 준비 상태로 복귀한다."""
+
+    if not state.stack:
+        return
+
+    return_point = state.stack.pop()
+    parent_workflow_id = return_point["workflow_id"]
+
+    if parent_workflow_id == DEFAULT_WORKFLOW_ID:
+        restored_state = _reset_start_chat_state(state.user_id)
+        restored_state.stack = list(state.stack)
+    else:
+        restored_state = _coerce_state(
+            state,
+            workflow_id=parent_workflow_id,
+            node_id=return_point["node_id"],
+            status="active",
+        )
+
+    _replace_state(state, restored_state)
+
+
+def _should_restore_parent(result: NodeResult) -> bool:
+    """현재 결과가 handoff된 자식 워크플로의 종료 지점인지 판단한다."""
+
+    if result.action == "complete":
+        return True
+
+    return result.action == "reply" and result.next_node_id in {None, "done"}
+
+
 def _apply_result(state: WorkflowState, result: NodeResult) -> None:
     """NodeResult를 WorkflowState에 반영한다."""
 
-    state.data.update(result.data_updates)
+    for key, value in result.data_updates.items():
+        state.data[key] = value
+        setattr(state, key, value)
 
     if result.next_node_id:
         state.node_id = result.next_node_id
@@ -46,20 +124,17 @@ def _handle_handoff(state: WorkflowState, result: NodeResult, user_message: str)
 
     # 대상 워크플로로 전환
     target_def = get_workflow(target_workflow_id)
-    state.workflow_id = target_workflow_id
-    state.node_id = target_def["entry_node_id"]
-    state.status = "active"
+    target_state = _coerce_state(
+        state,
+        workflow_id=target_workflow_id,
+        node_id=target_def["entry_node_id"],
+        status="active",
+    )
+    _replace_state(state, target_state)
 
     # 대상 워크플로 그래프 실행
     target_graph = target_def["build_graph"]()
     reply = run_graph(target_graph, state, user_message)
-
-    # 대상 워크플로가 완료되면 스택에서 복귀
-    if state.status == "completed" and state.stack:
-        return_point = state.stack.pop()
-        state.workflow_id = return_point["workflow_id"]
-        state.node_id = return_point["node_id"]
-        state.status = "active"
 
     return reply
 
@@ -74,6 +149,7 @@ def run_graph(graph: dict, state: WorkflowState, user_message: str) -> str:
 
     nodes = graph["nodes"]
     reply = ""
+    last_result: NodeResult | None = None
 
     for step in range(MAX_RESUME_STEPS):
         node_fn = nodes.get(state.node_id)
@@ -87,6 +163,7 @@ def run_graph(graph: dict, state: WorkflowState, user_message: str) -> str:
         )
 
         result: NodeResult = node_fn(state, user_message)
+        last_result = result
         _apply_result(state, result)
 
         if result.reply:
@@ -103,6 +180,9 @@ def run_graph(graph: dict, state: WorkflowState, user_message: str) -> str:
     else:
         log.warning("MAX_RESUME_STEPS(%d) 도달 — 루프를 중단합니다.", MAX_RESUME_STEPS)
 
+    if last_result and state.stack and _should_restore_parent(last_result):
+        _restore_parent_workflow(state)
+
     return reply
 
 
@@ -114,12 +194,14 @@ def handle_message(incoming: CubeIncomingMessage, attempt: int = 0) -> str:
 
     del attempt
 
-    state = load_state(incoming.user_id) or WorkflowState(
-        user_id=incoming.user_id,
-        workflow_id=DEFAULT_WORKFLOW_ID,
-        node_id=DEFAULT_ENTRY_NODE_ID,
-        data={},
-    )
+    loaded_state = load_state(incoming.user_id)
+    if loaded_state is None:
+        state = _reset_start_chat_state(incoming.user_id)
+    else:
+        state = _coerce_state(loaded_state)
+        if state.workflow_id == DEFAULT_WORKFLOW_ID and state.status == "completed":
+            state = _reset_start_chat_state(incoming.user_id)
+
     state.data["latest_user_message"] = incoming.message
 
     workflow_def = get_workflow(state.workflow_id)
