@@ -1,14 +1,28 @@
 import logging
 
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify, render_template, send_file
 
-from api.file_delivery import save_uploaded_file, get_file_variant
+from api.file_delivery import get_file_metadata, get_file_variant, list_files_for_user, save_uploaded_file
 from api.file_delivery.file_delivery_service import _IMAGE_EXTENSIONS, _extract_extension
 from api.utils.logger import log_activity
 
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("file_delivery", __name__)
+
+
+def _resolve_request_user_id() -> str:
+    explicit_user_id = request.form.get("user_id", "").strip()
+    if explicit_user_id:
+        return explicit_user_id
+    return request.cookies.get("LASTUSER", "").strip()
+
+
+@bp.route("/file-delivery", methods=["GET"])
+def file_delivery_page():
+    user_id = request.cookies.get("LASTUSER", "").strip()
+    recent_files = list_files_for_user(user_id=user_id, limit=20) if user_id else []
+    return render_template("file_delivery.html", user_id=user_id, recent_files=recent_files)
 
 
 @bp.route("/api/v1/file-delivery/upload", methods=["POST"])
@@ -19,7 +33,7 @@ def upload_file_delivery_file():
         return jsonify({"error": "No file provided"}), 400
 
     file = request.files["file"]
-    user_id = request.form.get("user_id", "")
+    user_id = _resolve_request_user_id()
     title = request.form.get("title", "")
     try:
         stored = save_uploaded_file(file, user_id=user_id, title=title)
@@ -43,6 +57,7 @@ def upload_file_delivery_file():
             "file_id": stored["file_id"],
             "file_url": stored["file_url"],
             "stored_filename": stored["stored_filename"],
+            "user_id": stored["user_id"],
             "content_type": stored["content_type"],
             "size_bytes": stored["size_bytes"],
         }
@@ -75,15 +90,23 @@ def get_file_delivery_file(file_id: str):
         return jsonify({"error": "File not found"}), 404
 
     file_path, content_type = result
-    response = send_file(file_path, mimetype=content_type)
-    response.headers["Cache-Control"] = "public, max-age=86400"
+    metadata = get_file_metadata(file_id) or {}
 
-    # 비이미지 파일은 다운로드로 제공
     try:
         ext = _extract_extension(file_path.name)
     except ValueError:
         ext = ""
+
     if ext not in _IMAGE_EXTENSIONS:
-        response.headers["Content-Disposition"] = f"attachment; filename={file_path.name}"
+        response = send_file(
+            file_path,
+            mimetype=content_type,
+            as_attachment=True,
+            download_name=metadata.get("original_filename") or file_path.name,
+        )
+    else:
+        response = send_file(file_path, mimetype=content_type)
+
+    response.headers["Cache-Control"] = "public, max-age=86400"
 
     return response

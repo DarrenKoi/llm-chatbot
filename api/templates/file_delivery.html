@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>File Delivery</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+
+    body {
+      min-height: 100vh;
+      font-family: "Avenir Next", "Segoe UI", "Apple SD Gothic Neo", sans-serif;
+      color: #1c231f;
+      background:
+        radial-gradient(circle at top left, rgba(216, 245, 234, 0.7), transparent 30%),
+        linear-gradient(135deg, #eef4eb, #dde9dc 55%, #d7e5de);
+      padding: 2rem 1rem 3rem;
+    }
+
+    .shell {
+      width: 100%;
+      max-width: 920px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.9fr);
+      margin-bottom: 1.2rem;
+    }
+
+    .panel {
+      border-radius: 1.4rem;
+      padding: 1.4rem;
+      background: rgba(250, 253, 249, 0.88);
+      border: 1px solid rgba(26, 41, 34, 0.08);
+      box-shadow: 0 16px 50px rgba(28, 35, 31, 0.08);
+      backdrop-filter: blur(8px);
+    }
+
+    .hero-main {
+      background:
+        linear-gradient(145deg, rgba(250, 252, 247, 0.95), rgba(226, 240, 232, 0.88)),
+        rgba(255, 255, 255, 0.9);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.28rem 0.7rem;
+      border-radius: 999px;
+      background: rgba(11, 103, 77, 0.1);
+      color: #0b674d;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      margin-bottom: 0.9rem;
+    }
+
+    h1 {
+      font-size: clamp(2rem, 3.6vw, 3.2rem);
+      line-height: 1;
+      letter-spacing: -0.04em;
+      margin-bottom: 0.75rem;
+    }
+
+    .lead {
+      color: #506059;
+      font-size: 1rem;
+      line-height: 1.6;
+      max-width: 44rem;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+      margin-top: 1.2rem;
+    }
+
+    .hero-metric {
+      padding: 0.9rem 1rem;
+      border-radius: 1rem;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(28, 35, 31, 0.08);
+    }
+
+    .hero-metric strong {
+      display: block;
+      font-size: 0.8rem;
+      color: #6b7a73;
+      margin-bottom: 0.35rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .hero-metric span {
+      display: block;
+      font-size: 1rem;
+      font-weight: 700;
+      word-break: break-word;
+    }
+
+    .stack {
+      display: grid;
+      gap: 1rem;
+    }
+
+    h2 {
+      font-size: 1rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .helper {
+      color: #5d6e66;
+      font-size: 0.92rem;
+      line-height: 1.6;
+      margin-bottom: 1rem;
+    }
+
+    .field {
+      display: grid;
+      gap: 0.45rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .field label {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: #3d4a44;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .field input {
+      width: 100%;
+      border: 1px solid rgba(28, 35, 31, 0.12);
+      border-radius: 0.9rem;
+      padding: 0.85rem 0.95rem;
+      font: inherit;
+      background: rgba(255, 255, 255, 0.82);
+    }
+
+    .field input[readonly] {
+      color: #5f6d66;
+      background: rgba(241, 244, 241, 0.9);
+    }
+
+    .actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 1rem;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 0.85rem 1.2rem;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 120ms ease, opacity 120ms ease;
+    }
+
+    button:hover { transform: translateY(-1px); }
+    button:disabled { opacity: 0.55; cursor: wait; transform: none; }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0f6f54, #0a8f69);
+      color: #fff;
+      box-shadow: 0 14px 26px rgba(10, 111, 84, 0.22);
+    }
+
+    .btn-secondary {
+      background: rgba(20, 34, 28, 0.08);
+      color: #24312b;
+    }
+
+    .result {
+      display: none;
+      margin-top: 1rem;
+      padding: 1rem;
+      border-radius: 1rem;
+      background: rgba(14, 117, 82, 0.08);
+      border: 1px solid rgba(14, 117, 82, 0.18);
+    }
+
+    .result.visible { display: block; }
+
+    .status {
+      min-height: 1.3rem;
+      margin-top: 0.85rem;
+      color: #53625b;
+      font-size: 0.92rem;
+    }
+
+    .status.error { color: #9b3a2f; }
+
+    .result-link {
+      margin-top: 0.65rem;
+      display: block;
+      word-break: break-all;
+      color: #0d6a50;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .table {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .file-card {
+      padding: 1rem;
+      border-radius: 1rem;
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid rgba(28, 35, 31, 0.08);
+    }
+
+    .file-name {
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+      word-break: break-word;
+    }
+
+    .file-meta {
+      font-size: 0.88rem;
+      color: #60716a;
+      margin-bottom: 0.55rem;
+    }
+
+    .file-url {
+      color: #0d6a50;
+      font-size: 0.9rem;
+      word-break: break-all;
+      text-decoration: none;
+    }
+
+    .empty {
+      color: #60716a;
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 760px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <section class="hero">
+      <div class="panel hero-main">
+        <div class="eyebrow">Internal File Delivery</div>
+        <h1>Upload once, reuse the URL in Cube.</h1>
+        <p class="lead">
+          사내망 전용 파일 전달 페이지입니다. 업로드한 파일은 한 달 동안 유지되며,
+          생성된 URL을 Cube 메시지나 내부 업무 흐름에서 그대로 사용할 수 있습니다.
+        </p>
+        <div class="hero-grid">
+          <div class="hero-metric">
+            <strong>Current User</strong>
+            <span id="hero-user">{{ user_id or "LASTUSER 없음" }}</span>
+          </div>
+          <div class="hero-metric">
+            <strong>Retention</strong>
+            <span>30일 후 자동 삭제</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Upload</h2>
+        <p class="helper">
+          브라우저 쿠키의 <code>LASTUSER</code> 값을 기본 사용자 ID로 사용합니다.
+          필요하면 제목만 입력하고 파일을 업로드하면 됩니다.
+        </p>
+        <form id="upload-form">
+          <div class="field">
+            <label for="user-id">User ID</label>
+            <input id="user-id" name="user_id" type="text" value="{{ user_id }}" readonly>
+          </div>
+          <div class="field">
+            <label for="title">Title</label>
+            <input id="title" name="title" type="text" placeholder="예: wafer-weekly-report">
+          </div>
+          <div class="field">
+            <label for="file">File</label>
+            <input id="file" name="file" type="file" required>
+          </div>
+          <div class="actions">
+            <button id="submit-button" class="btn-primary" type="submit">Upload And Get URL</button>
+            <button id="copy-button" class="btn-secondary" type="button" disabled>Copy URL</button>
+          </div>
+          <div id="status" class="status"></div>
+          <div id="result" class="result" aria-live="polite">
+            <strong id="result-title">업로드 완료</strong>
+            <a id="result-link" class="result-link" href="#" target="_blank" rel="noreferrer"></a>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>Recent Files</h2>
+      <p class="helper">현재 사용자 기준 최근 업로드 파일입니다.</p>
+      {% if recent_files %}
+      <div id="recent-files" class="table">
+        {% for file in recent_files %}
+        <div class="file-card">
+          <div class="file-name">{{ file.original_filename or file.stored_filename }}</div>
+          <div class="file-meta">
+            {{ file.created_at or "" }} · {{ file.size_bytes or 0 }} bytes
+          </div>
+          <a class="file-url" href="{{ file.file_url }}" target="_blank" rel="noreferrer">{{ file.file_url }}</a>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p id="recent-empty" class="empty">표시할 업로드 이력이 없습니다.</p>
+      <div id="recent-files" class="table" hidden></div>
+      {% endif %}
+    </section>
+  </div>
+
+  <script>
+    function getCookie(name) {
+      const prefix = name + "=";
+      return document.cookie
+        .split(";")
+        .map((item) => item.trim())
+        .find((item) => item.startsWith(prefix))
+        ?.slice(prefix.length) || "";
+    }
+
+    const userIdInput = document.getElementById("user-id");
+    const heroUser = document.getElementById("hero-user");
+    const statusElement = document.getElementById("status");
+    const resultElement = document.getElementById("result");
+    const resultTitle = document.getElementById("result-title");
+    const resultLink = document.getElementById("result-link");
+    const copyButton = document.getElementById("copy-button");
+    const recentFiles = document.getElementById("recent-files");
+    const recentEmpty = document.getElementById("recent-empty");
+
+    const cookieUser = getCookie("LASTUSER");
+    if (cookieUser) {
+      userIdInput.value = cookieUser;
+      heroUser.textContent = cookieUser;
+    }
+
+    function setStatus(message, isError) {
+      statusElement.textContent = message;
+      statusElement.classList.toggle("error", Boolean(isError));
+    }
+
+    function appendRecentFile(item) {
+      if (recentEmpty) {
+        recentEmpty.hidden = true;
+      }
+      recentFiles.hidden = false;
+
+      const wrapper = document.createElement("div");
+      wrapper.className = "file-card";
+      wrapper.innerHTML = `
+        <div class="file-name"></div>
+        <div class="file-meta"></div>
+        <a class="file-url" target="_blank" rel="noreferrer"></a>
+      `;
+
+      wrapper.querySelector(".file-name").textContent = item.original_filename || item.stored_filename;
+      wrapper.querySelector(".file-meta").textContent = `${item.size_bytes} bytes`;
+      const link = wrapper.querySelector(".file-url");
+      link.href = item.file_url;
+      link.textContent = item.file_url;
+
+      recentFiles.prepend(wrapper);
+    }
+
+    document.getElementById("upload-form").addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const form = event.currentTarget;
+      const submitButton = document.getElementById("submit-button");
+      submitButton.disabled = true;
+      copyButton.disabled = true;
+      setStatus("업로드 중입니다...", false);
+
+      const formData = new FormData(form);
+      if (!formData.get("user_id") && cookieUser) {
+        formData.set("user_id", cookieUser);
+      }
+
+      try {
+        const response = await fetch("/api/v1/file-delivery/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || "업로드에 실패했습니다.");
+        }
+
+        resultTitle.textContent = payload.stored_filename;
+        resultLink.href = payload.file_url;
+        resultLink.textContent = payload.file_url;
+        resultElement.classList.add("visible");
+        copyButton.disabled = false;
+        setStatus("URL 생성이 완료되었습니다.", false);
+        appendRecentFile(payload);
+      } catch (error) {
+        setStatus(error.message || "업로드에 실패했습니다.", true);
+      } finally {
+        submitButton.disabled = false;
+      }
+    });
+
+    copyButton.addEventListener("click", async () => {
+      if (!resultLink.href) {
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(resultLink.href);
+        setStatus("URL이 클립보드에 복사되었습니다.", false);
+      } catch (_error) {
+        setStatus("클립보드 복사에 실패했습니다.", true);
+      }
+    });
+  </script>
+</body>
+</html>

@@ -190,3 +190,68 @@ def test_file_delivery_upload_uses_user_id_and_title_in_stored_filename(client, 
     payload = upload.get_json()
     assert "user.alpha-corp" in payload["stored_filename"]
     assert payload["stored_filename"].endswith(".png")
+
+
+def test_file_delivery_upload_uses_lastuser_cookie_for_storage_path(client, tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "FILE_DELIVERY_STORAGE_DIR", tmp_path / "file_delivery")
+    monkeypatch.setattr(config, "FILE_DELIVERY_REDIS_URL", "")
+    file_delivery_service._metadata_backend = None
+
+    client.set_cookie("LASTUSER", "cube.user")
+
+    png_bytes = (
+        b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+        b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\rIDATx\x9cc`\x00\x00"
+        b"\x00\x02\x00\x01\xe5'\xd4\xa2\x00\x00\x00\x00IEND\xaeB`\x82"
+    )
+
+    upload = client.post(
+        "/api/v1/file-delivery/upload",
+        data={"file": (BytesIO(png_bytes), "cookie.png")},
+        content_type="multipart/form-data",
+    )
+
+    assert upload.status_code == 201
+    payload = upload.get_json()
+    metadata = file_delivery_service.get_file_metadata(payload["file_id"])
+
+    assert payload["user_id"] == "cube.user"
+    assert metadata is not None
+    assert metadata["user_id"] == "cube.user"
+    assert "/original/cube.user/" in metadata["file_path"]
+
+
+def test_file_delivery_list_files_for_user_returns_recent_items(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "FILE_DELIVERY_STORAGE_DIR", tmp_path / "file_delivery")
+    monkeypatch.setattr(config, "FILE_DELIVERY_REDIS_URL", "")
+    monkeypatch.setattr(config, "FILE_DELIVERY_ALLOWED_EXTENSIONS", ("png", "jpg", "jpeg", "gif", "webp", "xlsx", "pptx", "docx"))
+    file_delivery_service._metadata_backend = None
+
+    first = file_delivery_service.save_file_bytes(
+        data=b"first",
+        extension="docx",
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        original_filename="first.docx",
+        user_id="cube.user",
+        title="first",
+    )
+    second = file_delivery_service.save_file_bytes(
+        data=b"second",
+        extension="docx",
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        original_filename="second.docx",
+        user_id="cube.user",
+        title="second",
+    )
+    file_delivery_service.save_file_bytes(
+        data=b"other",
+        extension="docx",
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        original_filename="other.docx",
+        user_id="other.user",
+        title="other",
+    )
+
+    files = file_delivery_service.list_files_for_user("cube.user", limit=10)
+
+    assert [item["file_id"] for item in files] == [second["file_id"], first["file_id"]]

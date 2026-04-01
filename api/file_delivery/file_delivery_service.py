@@ -42,6 +42,10 @@ def _build_file_url(file_id: str) -> str:
     return f"{config.FILE_DELIVERY_BASE_URL.rstrip('/')}/{file_id}"
 
 
+def _user_storage_key(user_id: str) -> str:
+    return _sanitize_filename_component(user_id, fallback="anonymous", max_length=64)
+
+
 def _original_dir() -> Path:
     return Path(config.FILE_DELIVERY_STORAGE_DIR) / "original"
 
@@ -140,6 +144,16 @@ def _load_metadata(file_id: str) -> dict | None:
     return _get_metadata_backend().get(file_id)
 
 
+def get_file_metadata(file_id: str) -> dict | None:
+    metadata = _load_metadata(file_id)
+    if metadata is None:
+        return None
+
+    copied = dict(metadata)
+    copied["file_url"] = _build_file_url(file_id)
+    return copied
+
+
 def _sanitize_filename_component(value: str, *, fallback: str, max_length: int = 48) -> str:
     normalized = _FILENAME_SAFE_CHARS.sub("-", value.strip())
     normalized = normalized.strip("._-")
@@ -207,7 +221,8 @@ def save_file_bytes(
     _assert_storage_limit(len(data))
 
     date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    storage_dir = _original_dir() / date_str
+    user_storage_key = _user_storage_key(user_id)
+    storage_dir = _original_dir() / user_storage_key / date_str
     storage_dir.mkdir(parents=True, exist_ok=True)
 
     file_id = uuid.uuid4().hex
@@ -231,11 +246,31 @@ def save_file_bytes(
         "original_filename": original_filename,
         "stored_filename": filename,
         "user_id": user_id,
+        "user_storage_key": user_storage_key,
         "title": title,
     }
     _save_metadata(file_id, metadata)
     metadata["file_url"] = _build_file_url(file_id)
     return metadata
+
+
+def list_files_for_user(user_id: str, limit: int = 20) -> list[dict]:
+    normalized_user_id = user_id.strip()
+    if not normalized_user_id:
+        return []
+
+    items: list[dict] = []
+    for file_id in _get_metadata_backend().list_ids():
+        metadata = _load_metadata(file_id)
+        if not metadata or metadata.get("user_id", "").strip() != normalized_user_id:
+            continue
+
+        copied = dict(metadata)
+        copied["file_url"] = _build_file_url(file_id)
+        items.append(copied)
+
+    items.sort(key=lambda item: item.get("created_at", ""), reverse=True)
+    return items[:limit]
 
 
 def get_file(file_id: str) -> tuple[Path, str] | None:
