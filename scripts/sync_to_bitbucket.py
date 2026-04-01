@@ -67,17 +67,6 @@ def should_exclude(path: Path) -> bool:
     return False
 
 
-def clean_destination(dst: Path) -> None:
-    """대상 디렉토리를 정리한다 (.git 폴더 보존)."""
-    for item in dst.iterdir():
-        if item.name == ".git":
-            continue
-        if item.is_dir():
-            shutil.rmtree(item)
-        else:
-            item.unlink()
-
-
 def copy_entry(src: Path, dst: Path, entry: str, dry_run: bool) -> int:
     """단일 항목을 복사하고 복사된 파일 수를 반환한다."""
     src_path = src / entry.rstrip("/")
@@ -146,12 +135,7 @@ def main():
     print(f"모드: {'미리보기 (dry-run)' if args.dry_run else '실제 복사'}")
     print()
 
-    # 대상 정리
-    if not args.dry_run:
-        print("기존 파일 정리 중... (.git 보존)")
-        clean_destination(dst)
-
-    # 파일 복사
+    # 파일 복사 (기존 파일 덮어쓰기, 수동 추가 파일은 유지)
     total = 0
     for entry in INCLUDE:
         total += copy_entry(PROJECT_ROOT, dst, entry, args.dry_run)
