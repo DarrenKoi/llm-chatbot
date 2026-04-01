@@ -28,9 +28,15 @@
 ## uWSGI 재시작 정책
 - `wsgi.ini`에서 `reload-mercy=0`, `worker-reload-mercy=0`으로 설정해 `touch-reload` 시 실행 중 스케줄러 잡을 즉시 종료하고 빠르게 재시작한다.
 
-## CDN 규칙
-- CDN 업로드/조회 엔드포인트:
-  - `POST /api/v1/cdn/upload` (multipart/form-data)
-  - `GET /cdn/images/<image_id>`
-- CDN 메타데이터 저장은 `CDN_REDIS_URL`을 사용한다(현재 `10.156.133.126:10121`).
-- Linux 배포 기본 PVC 루트는 `/project/workSpace/pvc/download`이고, 기본 CDN 저장 경로는 `/project/workSpace/pvc/download/cdn/images`이다.
+## File Delivery 규칙
+- 파일 전달 업로드/조회 엔드포인트:
+  - `POST /api/v1/file-delivery/upload` (multipart/form-data)
+  - `GET /file-delivery/files/<file_id>`
+- 파일 전달 메타데이터 저장은 `FILE_DELIVERY_REDIS_URL`을 사용한다.
+- 파일은 사용자별 폴더 전략을 고려하되, 외부 노출 식별자는 내부 경로가 아닌 `file_id` 기준으로 유지한다.
+- 파일 보관 기간 기본값은 30일이며, 스케줄러가 만료 파일을 정리한다.
+
+## 네트워크 제약
+- 이 서비스와 Cube 연동은 사내망 전용이다.
+- 외부 인터넷에서는 웹앱과 Cube 서비스에 접근할 수 없도록 방화벽으로 차단된 환경을 전제로 설계한다.
+- 운영 접근 프로토콜은 HTTPS가 아니라 HTTP만 허용되는 환경을 전제로 한다.
