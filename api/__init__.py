@@ -9,6 +9,7 @@ from api import config
 from api.blueprint_loader import discover_blueprints
 from api.conversation_service import get_recent_messages
 from api.cube.payload import extract_user_id
+from api.monitoring_service import get_monitoring_snapshot
 from api.utils.logger import log_activity, setup_logging
 from api.scheduled_tasks import start_scheduler
 
@@ -25,6 +26,11 @@ def create_application() -> Flask:
     def main() -> str:
         conversation = get_recent_messages(limit=50)
         return render_template("main.html", conversation=conversation)
+
+    @app.route("/monitor", methods=["GET"])
+    def monitor() -> str:
+        snapshot = get_monitoring_snapshot()
+        return render_template("monitor.html", snapshot=snapshot)
 
     for blueprint in discover_blueprints():
         app.register_blueprint(blueprint)

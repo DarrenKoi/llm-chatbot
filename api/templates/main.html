@@ -135,6 +135,12 @@
       text-align: center;
     }
 
+    footer a {
+      color: #085746;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
     @media (max-width: 480px) {
       .metrics { grid-template-columns: 1fr; }
     }
@@ -184,7 +190,10 @@
       {% endif %}
     </div>
 
-    <footer>Signal Room &mdash; Cube Chatbot Server for OSS Agent</footer>
+    <footer>
+      Signal Room &mdash; Cube Chatbot Server for OSS Agent
+      · <a href="/monitor">DB Monitor</a>
+    </footer>
   </div>
 </body>
 </html>

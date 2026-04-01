@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="30">
+  <title>DB Monitor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+
+    :root {
+      --bg-top: #f6efe4;
+      --bg-bottom: #e5efe8;
+      --card-bg: rgba(255, 252, 247, 0.88);
+      --line: rgba(23, 39, 31, 0.08);
+      --text: #17271f;
+      --muted: #5c6b62;
+      --ok-bg: rgba(41, 121, 90, 0.14);
+      --ok-text: #1b6245;
+      --warn-bg: rgba(194, 130, 46, 0.18);
+      --warn-text: #8a5b19;
+      --error-bg: rgba(186, 69, 59, 0.16);
+      --error-text: #8e2f28;
+      --disabled-bg: rgba(97, 108, 102, 0.14);
+      --disabled-text: #4f5d55;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: "Avenir Next", "Segoe UI", "Apple SD Gothic Neo", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(10, 116, 100, 0.10), transparent 30%),
+        linear-gradient(140deg, var(--bg-top), var(--bg-bottom));
+      padding: 2.5rem 1rem 3rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 980px;
+      margin: 0 auto;
+    }
+
+    .hero {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: flex-start;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero h1 {
+      font-size: clamp(1.8rem, 4vw, 2.6rem);
+      margin-bottom: 0.5rem;
+    }
+
+    .hero p {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .actions {
+      display: flex;
+      gap: 0.75rem;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      text-decoration: none;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      border-radius: 999px;
+      padding: 0.7rem 1rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+    }
+
+    .checked-at {
+      font-size: 0.88rem;
+      color: var(--muted);
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .summary-card, .table-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      border-radius: 1.3rem;
+      box-shadow: 0 16px 36px rgba(34, 45, 40, 0.08);
+      backdrop-filter: blur(8px);
+    }
+
+    .summary-card {
+      padding: 1.1rem 1.15rem;
+    }
+
+    .summary-label {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 0.45rem;
+    }
+
+    .summary-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+    }
+
+    .table-card {
+      overflow: hidden;
+    }
+
+    .table-header,
+    .table-row {
+      display: grid;
+      grid-template-columns: 1.4fr 0.8fr 0.8fr 1.1fr 2fr;
+      gap: 1rem;
+      padding: 1rem 1.2rem;
+      align-items: start;
+    }
+
+    .table-header {
+      font-size: 0.78rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .table-row {
+      border-bottom: 1px solid var(--line);
+    }
+
+    .table-row:last-child {
+      border-bottom: none;
+    }
+
+    .entry-name {
+      font-weight: 700;
+      margin-bottom: 0.2rem;
+    }
+
+    .entry-backend {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 6.6rem;
+      padding: 0.35rem 0.7rem;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .badge-ok { background: var(--ok-bg); color: var(--ok-text); }
+    .badge-warning { background: var(--warn-bg); color: var(--warn-text); }
+    .badge-error { background: var(--error-bg); color: var(--error-text); }
+    .badge-disabled { background: var(--disabled-bg); color: var(--disabled-text); }
+
+    .target,
+    .detail {
+      color: var(--muted);
+      line-height: 1.5;
+      word-break: break-word;
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 900px) {
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .table-header {
+        display: none;
+      }
+
+      .table-row {
+        grid-template-columns: 1fr;
+        gap: 0.7rem;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .hero {
+        flex-direction: column;
+      }
+
+      .actions {
+        justify-content: flex-start;
+      }
+
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="hero">
+      <div>
+        <h1>DB Monitor</h1>
+        <p>이 페이지는 현재 앱에서 사용하는 MongoDB / Redis 연결 상태를 30초마다 다시 확인합니다.</p>
+      </div>
+      <div class="actions">
+        <span class="checked-at">마지막 확인: {{ snapshot.checked_at }}</span>
+        <a class="link-btn" href="/">메인 페이지</a>
+        <a class="link-btn" href="/monitor">새로고침</a>
+      </div>
+    </section>
+
+    <section class="summary-grid">
+      <div class="summary-card">
+        <div class="summary-label">Healthy</div>
+        <div class="summary-value">{{ snapshot.summary.healthy }}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Warnings</div>
+        <div class="summary-value">{{ snapshot.summary.warnings }}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Errors</div>
+        <div class="summary-value">{{ snapshot.summary.errors }}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Disabled</div>
+        <div class="summary-value">{{ snapshot.summary.disabled }}</div>
+      </div>
+    </section>
+
+    <section class="table-card">
+      <div class="table-header">
+        <div>Service</div>
+        <div>Backend</div>
+        <div>Status</div>
+        <div>Target</div>
+        <div>Detail</div>
+      </div>
+      {% for entry in snapshot.entries %}
+      <div class="table-row">
+        <div>
+          <div class="entry-name">{{ entry.name }}</div>
+          <div class="entry-backend">앱 연결 대상</div>
+        </div>
+        <div>{{ entry.backend }}</div>
+        <div>
+          <span class="badge badge-{{ entry.tone }}">{{ entry.status }}</span>
+        </div>
+        <div class="target">{{ entry.target }}</div>
+        <div class="detail">{{ entry.detail }}</div>
+      </div>
+      {% endfor %}
+    </section>
+  </div>
+</body>
+</html>
