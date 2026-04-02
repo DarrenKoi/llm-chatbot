@@ -64,7 +64,11 @@ def _get_scheduler_redis_client():
     try:
         import redis
 
-        _redis_client = redis.from_url(config.SCHEDULER_REDIS_URL)
+        _redis_client = redis.from_url(
+            config.SCHEDULER_REDIS_URL,
+            socket_connect_timeout=5,
+            socket_timeout=5,
+        )
         return _redis_client
     except Exception:
         logger.exception("Failed to initialize scheduler Redis client. Scheduler jobs will be skipped.")
@@ -144,6 +148,7 @@ class _RedisDistributedLock:
     def _renew_loop(self) -> None:
         while not self._renew_stop_event.wait(self._renew_interval_seconds):
             try:
+                # Older redis-py versions don't accept replace_ttl.
                 try:
                     renewed = self._lock.extend(self._ttl_seconds, replace_ttl=True)
                 except TypeError:
@@ -167,19 +172,8 @@ def _invoke_job(job_func: Callable, lock_lease: SchedulerJobLockLease) -> None:
 
     if "lock_lease" in signature.parameters:
         job_func(lock_lease=lock_lease)
-        return
-
-    accepts_positional_arg = any(
-        parameter.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
-        for parameter in signature.parameters.values()
-    )
-    accepts_varargs = any(parameter.kind == inspect.Parameter.VAR_POSITIONAL for parameter in signature.parameters.values())
-
-    if accepts_positional_arg or accepts_varargs:
-        job_func(lock_lease)
-        return
-
-    job_func()
+    else:
+        job_func()
 
 
 def run_locked_job(job_id: str, job_func: Callable[[], None]) -> None:

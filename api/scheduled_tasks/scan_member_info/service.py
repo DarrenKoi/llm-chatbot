@@ -51,7 +51,7 @@ def _get_backend():
     try:
         import redis
 
-        _backend = redis.from_url(redis_url)
+        _backend = redis.from_url(redis_url, socket_connect_timeout=5, socket_timeout=5)
         return _backend
     except Exception:
         logger.exception("Failed to initialize hynix member info state backend. Falling back to in-memory state.")

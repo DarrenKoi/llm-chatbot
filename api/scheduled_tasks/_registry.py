@@ -118,12 +118,6 @@ def _scan_package(scheduler, package) -> None:
 
 
 def _register_task_package(scheduler, package_path: str) -> None:
-    try:
-        pkg = importlib.import_module(package_path)
-    except Exception:
-        logger.exception("Failed to import task package: %s", package_path)
-        return
-
     task_mod_name = f"{package_path}.task"
     try:
         mod = importlib.import_module(task_mod_name)

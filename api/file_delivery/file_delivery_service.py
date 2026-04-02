@@ -133,7 +133,7 @@ def _get_metadata_backend():
         try:
             import redis
 
-            client = redis.from_url(config.FILE_DELIVERY_REDIS_URL)
+            client = redis.from_url(config.FILE_DELIVERY_REDIS_URL, socket_connect_timeout=5, socket_timeout=5)
             client.ping()
             _metadata_backend = _RedisMetadataBackend(client)
             return _metadata_backend
