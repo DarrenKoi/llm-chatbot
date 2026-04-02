@@ -95,17 +95,26 @@ def test_classify_returns_resume_for_casual():
     assert result.next_node_id == "retrieve_context"
 
 
-@pytest.mark.parametrize("intent", ["chart_maker", "ppt_maker", "at_wafer_quota", "recipe_requests"])
-def test_classify_handoff_targets(intent):
-    """등록된 모든 워크플로 의도에 대해 handoff가 동작한다."""
+@pytest.mark.parametrize(
+    ("message", "expected_workflow_id"),
+    [
+        ("차트 만들어줘", "chart_maker"),
+        ("PPT 초안 만들어줘", "ppt_maker"),
+        ("웨이퍼 쿼터 알려줘", "at_wafer_quota"),
+        ("레시피 요청서 작성해줘", "recipe_requests"),
+    ],
+)
+def test_classify_handoff_targets(message, expected_workflow_id):
+    """등록된 업무 요청 메시지에 대해 handoff가 동작한다."""
 
     from api.workflows.start_chat.nodes import classify_intent_node
 
-    state = _make_state(detected_intent=intent)
-    result = classify_intent_node(state, "테스트")
+    state = _make_state()
+    result = classify_intent_node(state, message)
 
     assert result.action == "handoff"
-    assert result.next_workflow_id == intent
+    assert result.next_workflow_id == expected_workflow_id
+    assert state.detected_intent == expected_workflow_id
 
 
 # ── 오케스트레이터 handoff 테스트 ──────────────────────────────
@@ -230,6 +239,33 @@ def test_handle_message_uses_start_chat_as_default():
     mock_save.assert_called_once()
     saved_state = mock_save.call_args[0][0]
     assert saved_state.workflow_id == "start_chat"
+
+
+def test_handle_message_routes_chart_request_from_user_message():
+    """실제 사용자 메시지에서 차트 워크플로 handoff가 결정된다."""
+
+    from api.cube.models import CubeIncomingMessage
+    from api.workflows.orchestrator import handle_message
+
+    incoming = CubeIncomingMessage(
+        user_id="test_handoff",
+        user_name="tester",
+        channel_id="c1",
+        message_id="m_chart",
+        message="차트 만들어줘",
+    )
+
+    with patch("api.workflows.orchestrator.load_state", return_value=None), \
+         patch("api.workflows.orchestrator.save_state") as mock_save:
+        reply = handle_message(incoming)
+
+    assert reply == "[chart_maker] 처리 완료."
+    saved_state = mock_save.call_args[0][0]
+    assert saved_state.workflow_id == "chart_maker"
+    assert saved_state.node_id == "collect_requirements"
+    assert saved_state.status == "waiting_user_input"
+    assert saved_state.data["detected_intent"] == "chart_maker"
+    assert saved_state.stack == [{"workflow_id": "start_chat", "node_id": "classify"}]
 
 
 def test_handle_message_restarts_completed_start_chat_session():

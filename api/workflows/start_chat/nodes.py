@@ -4,7 +4,7 @@ from api.workflows.start_chat.agent.executor import execute_start_chat_plan
 from api.workflows.start_chat.agent.planner import plan_start_chat_response
 from api.workflows.start_chat.rag.context_builder import build_start_chat_context
 from api.workflows.start_chat.rag.retriever import retrieve_start_chat_documents
-from api.workflows.start_chat.routing import determine_handoff_workflow
+from api.workflows.start_chat.routing import detect_intent, determine_handoff_workflow
 from api.workflows.start_chat.state import StartChatWorkflowState
 from api.workflows.models import NodeResult
 
@@ -19,8 +19,8 @@ def entry_node(state: StartChatWorkflowState, user_message: str) -> NodeResult:
 def classify_intent_node(state: StartChatWorkflowState, user_message: str) -> NodeResult:
     """사용자 의도를 분류하고 일반 대화 또는 전문 워크플로로 분기한다."""
 
-    del user_message
-    intent = getattr(state, "detected_intent", state.data.get("detected_intent", "start_chat"))
+    intent = detect_intent(state, user_message)
+    state.detected_intent = intent
 
     handoff_target = determine_handoff_workflow(state)
     if handoff_target:
