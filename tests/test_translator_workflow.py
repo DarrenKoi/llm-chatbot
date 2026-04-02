@@ -1,4 +1,4 @@
-"""샘플 번역 워크플로 end-to-end 테스트."""
+"""번역 서비스 워크플로 end-to-end 테스트."""
 
 from unittest.mock import patch
 
@@ -6,9 +6,9 @@ import pytest
 
 from api.mcp import local_tools, registry as mcp_registry
 from api.workflows.orchestrator import run_graph
-from api.workflows.sample.graph import build_graph
-from api.workflows.sample.state import SampleWorkflowState
-from api.workflows.sample.tools import register_sample_tools
+from api.workflows.translator.graph import build_graph
+from api.workflows.translator.state import TranslatorWorkflowState
+from api.workflows.translator.tools import register_translator_tools
 
 
 @pytest.fixture(autouse=True)
@@ -19,7 +19,7 @@ def _clean_mcp():
     mcp_registry._TOOLS.clear()
     local_tools.clear_handlers()
 
-    register_sample_tools()
+    register_translator_tools()
 
     yield
 
@@ -28,10 +28,10 @@ def _clean_mcp():
     local_tools.clear_handlers()
 
 
-def _make_state(node_id: str = "entry") -> SampleWorkflowState:
-    return SampleWorkflowState(
+def _make_state(node_id: str = "entry") -> TranslatorWorkflowState:
+    return TranslatorWorkflowState(
         user_id="test_user",
-        workflow_id="sample",
+        workflow_id="translator",
         node_id=node_id,
         data={},
     )
@@ -70,7 +70,7 @@ def test_translate_tool_korean_to_japanese():
     assert result.output["pronunciation_ko"] == "곤니치와"
 
 
-def test_sample_workflow_completes_when_target_language_is_explicit():
+def test_translator_workflow_completes_when_target_language_is_explicit():
     """목표 언어가 명시되면 바로 번역 완료까지 진행한다."""
 
     state = _make_state()
@@ -84,7 +84,7 @@ def test_sample_workflow_completes_when_target_language_is_explicit():
     assert state.data["pronunciation_ko"] == "곤니치와"
 
 
-def test_sample_workflow_completes_for_english_request():
+def test_translator_workflow_completes_for_english_request():
     """영문 요청도 목표 언어를 올바르게 파싱해 완료한다."""
 
     state = _make_state()
@@ -98,7 +98,7 @@ def test_sample_workflow_completes_for_english_request():
     assert state.data["pronunciation_ko"] == "곤니치와"
 
 
-def test_sample_workflow_waits_for_target_language_when_missing():
+def test_translator_workflow_waits_for_target_language_when_missing():
     """목표 언어가 없으면 재질문하고 waiting 상태로 멈춘다."""
 
     state = _make_state()
@@ -111,7 +111,7 @@ def test_sample_workflow_waits_for_target_language_when_missing():
     assert state.data["last_asked_slot"] == "target_language"
 
 
-def test_sample_workflow_resumes_after_follow_up_answer():
+def test_translator_workflow_resumes_after_follow_up_answer():
     """재질문 후 다음 사용자 턴에서 목표 언어를 받으면 이어서 완료한다."""
 
     state = _make_state()
@@ -129,7 +129,7 @@ def test_sample_workflow_resumes_after_follow_up_answer():
     assert state.data["translated"] == "Hello"
 
 
-def test_handle_message_with_sample_workflow_waits_for_clarification():
+def test_handle_message_with_translator_workflow_waits_for_clarification():
     """handle_message 경유 시에도 재질문 응답과 waiting 상태가 저장된다."""
 
     from api.cube.models import CubeIncomingMessage
@@ -145,7 +145,7 @@ def test_handle_message_with_sample_workflow_waits_for_clarification():
 
     with patch("api.workflows.orchestrator.load_state", return_value=None), \
          patch("api.workflows.orchestrator.save_state") as mock_save, \
-         patch("api.workflows.orchestrator.DEFAULT_WORKFLOW_ID", "sample"):
+         patch("api.workflows.orchestrator.DEFAULT_WORKFLOW_ID", "translator"):
 
         reply = handle_message(incoming)
 
@@ -157,15 +157,15 @@ def test_handle_message_with_sample_workflow_waits_for_clarification():
     assert saved_state.data["source_text"] == "감사합니다"
 
 
-def test_handle_message_with_sample_workflow_resumes_saved_state():
-    """저장된 sample 상태가 다음 턴에서 이어서 완료된다."""
+def test_handle_message_with_translator_workflow_resumes_saved_state():
+    """저장된 translator 상태가 다음 턴에서 이어서 완료된다."""
 
     from api.cube.models import CubeIncomingMessage
     from api.workflows.orchestrator import handle_message
 
-    waiting_state = SampleWorkflowState(
+    waiting_state = TranslatorWorkflowState(
         user_id="test_resume",
-        workflow_id="sample",
+        workflow_id="translator",
         node_id="collect_target_language",
         status="waiting_user_input",
         source_text="감사합니다",
@@ -184,7 +184,7 @@ def test_handle_message_with_sample_workflow_resumes_saved_state():
 
     with patch("api.workflows.orchestrator.load_state", return_value=waiting_state), \
          patch("api.workflows.orchestrator.save_state") as mock_save, \
-         patch("api.workflows.orchestrator.DEFAULT_WORKFLOW_ID", "sample"):
+         patch("api.workflows.orchestrator.DEFAULT_WORKFLOW_ID", "translator"):
 
         reply = handle_message(incoming)
 

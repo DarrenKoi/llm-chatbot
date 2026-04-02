@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 
-def test_main_page_renders_sample_template(client):
+def test_main_page_renders_main_template(client):
     response = client.get("/")
 
     assert response.status_code == 200
@@ -33,9 +33,9 @@ def test_file_delivery_page_renders_upload_ui_for_cookie_user(mock_list_files_fo
 
 
 def test_workflow_graph_page_uses_wide_layout(client):
-    response = client.get("/workflows/sample")
+    response = client.get("/workflows/translator")
 
     assert response.status_code == 200
-    assert b"Workflow: sample" in response.data
+    assert b"Workflow: translator" in response.data
     assert b"width: min(80vw, 1500px);" in response.data
     assert b"height: min(78vh, 920px) !important;" in response.data

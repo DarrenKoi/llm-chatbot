@@ -1,4 +1,4 @@
-"""샘플 번역 워크플로 노드.
+"""번역 서비스 워크플로 노드.
 
 누락된 정보가 있으면 사용자에게 다시 질문하고, 충분한 정보가 모이면
 MCP 번역 도구를 호출한다.
@@ -10,7 +10,7 @@ import re
 from api.mcp.executor import execute_tool_call
 from api.mcp.models import MCPToolCall
 from api.workflows.models import NodeResult
-from api.workflows.sample.state import SampleWorkflowState
+from api.workflows.translator.state import TranslatorWorkflowState
 
 log = logging.getLogger(__name__)
 
@@ -29,25 +29,25 @@ _LANGUAGE_LABELS = {
 _QUOTED_TEXT_PATTERN = re.compile(r"""["']([^"']+)["']""")
 
 
-def entry_node(state: SampleWorkflowState, user_message: str) -> NodeResult:
+def entry_node(state: TranslatorWorkflowState, user_message: str) -> NodeResult:
     """초기 번역 요청에서 문장과 목표 언어를 최대한 추출한다."""
 
     return _resolve_translation_request(state=state, user_message=user_message)
 
 
-def collect_source_text_node(state: SampleWorkflowState, user_message: str) -> NodeResult:
+def collect_source_text_node(state: TranslatorWorkflowState, user_message: str) -> NodeResult:
     """번역할 원문을 다시 수집한다."""
 
     return _resolve_translation_request(state=state, user_message=user_message)
 
 
-def collect_target_language_node(state: SampleWorkflowState, user_message: str) -> NodeResult:
+def collect_target_language_node(state: TranslatorWorkflowState, user_message: str) -> NodeResult:
     """목표 언어를 다시 수집한다."""
 
     return _resolve_translation_request(state=state, user_message=user_message)
 
 
-def translate_node(state: SampleWorkflowState, user_message: str) -> NodeResult:
+def translate_node(state: TranslatorWorkflowState, user_message: str) -> NodeResult:
     """MCP translate 도구를 호출해 결과를 반환한다."""
 
     del user_message
@@ -55,7 +55,7 @@ def translate_node(state: SampleWorkflowState, user_message: str) -> NodeResult:
     source_text = state.source_text or state.data.get("source_text", "")
     target_language = state.target_language or state.data.get("target_language", "")
 
-    log.info("[sample] translate 도구 호출: text=%s target_language=%s", source_text, target_language)
+    log.info("[translator] translate 도구 호출: text=%s target_language=%s", source_text, target_language)
     result = execute_tool_call(
         MCPToolCall(
             tool_id="translate",
@@ -65,7 +65,7 @@ def translate_node(state: SampleWorkflowState, user_message: str) -> NodeResult:
             },
         )
     )
-    log.info("[sample] translate 도구 결과: %s", result)
+    log.info("[translator] translate 도구 결과: %s", result)
 
     translated = result.output.get("result", "") if isinstance(result.output, dict) else ""
     source_language = ""
@@ -93,7 +93,7 @@ def translate_node(state: SampleWorkflowState, user_message: str) -> NodeResult:
     )
 
 
-def _resolve_translation_request(state: SampleWorkflowState, user_message: str) -> NodeResult:
+def _resolve_translation_request(state: TranslatorWorkflowState, user_message: str) -> NodeResult:
     source_text = state.source_text or state.data.get("source_text", "")
     target_language = state.target_language or state.data.get("target_language", "")
     last_asked_slot = state.last_asked_slot or state.data.get("last_asked_slot", "")

@@ -1,4 +1,4 @@
-"""샘플 번역 워크플로에서 사용하는 MCP 도구를 등록한다."""
+"""번역 서비스 워크플로에서 사용하는 MCP 도구를 등록한다."""
 
 import re
 
@@ -111,15 +111,15 @@ def _get_korean_pronunciation(*, text: str, language: str) -> str:
     return _JAPANESE_PRONUNCIATIONS_KO.get(text.strip(), "")
 
 
-def register_sample_tools() -> None:
-    """샘플 MCP 서버·도구·핸들러를 등록한다."""
+def register_translator_tools() -> None:
+    """번역 서비스용 MCP 서버·도구·핸들러를 등록한다."""
 
-    server = MCPServerConfig(server_id="sample_local", endpoint="local://sample")
+    server = MCPServerConfig(server_id="translator_local", endpoint="local://translator")
     register_server(server)
 
     register_tool(MCPTool(
         tool_id="translate",
-        server_id="sample_local",
+        server_id="translator_local",
         description="한국어/영어/일본어 사이의 번역을 수행한다.",
         input_schema={
             "type": "object",
