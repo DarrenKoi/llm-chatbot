@@ -1,5 +1,6 @@
 import time
 import uuid
+from pathlib import Path
 
 from flask import Flask
 from flask import g, request
@@ -20,7 +21,8 @@ def create_application() -> Flask:
     if config.APP_START_SCHEDULER:
         start_scheduler()
 
-    app = Flask(__name__)
+    template_directory = Path(__file__).resolve().parent / "html_templates"
+    app = Flask(__name__, template_folder=str(template_directory))
 
     @app.route("/", methods=["GET"])
     def main() -> str:

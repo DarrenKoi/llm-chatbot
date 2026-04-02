@@ -17,7 +17,7 @@ api/
 ├── llm/
 ├── mcp/
 ├── scheduled_tasks/
-├── templates/
+├── html_templates/
 ├── utils/
 └── workflows/
 ```
@@ -93,7 +93,7 @@ MCP 서버/도구 관련 코드가 모여 있다.
 - `tasks/`: 일반 스케줄 작업 모음
 - `scan_member_info/`: 회원 정보 스캔 배치 작업
 
-### `api/templates/`
+### `api/html_templates/`
 
 Flask 렌더링용 HTML 템플릿이다.
 
