@@ -14,9 +14,10 @@
 - Tool calling 및 응답 생성은 별도 저장소에서 처리한다.
 
 ## Redis 사용 규칙
-- 대화 이력 저장(`api/conversation_service.py`)은 `REDIS_URL`(primary) -> `REDIS_FALLBACK_URL`(secondary) 순으로 연결을 시도한다.
-- 둘 다 실패하면 in-memory 백엔드로 폴백한다.
-- 현재 기본 우선 Redis는 `10.156.133.126:10121`이다.
+- Redis 기반 기능은 기본적으로 `REDIS_URL` 단일 설정을 사용한다.
+- Cube 큐는 항상 `REDIS_URL`을 사용한다.
+- `SCHEDULER_REDIS_URL`, `FILE_DELIVERY_REDIS_URL`이 비어 있으면 `REDIS_URL`을 기본값으로 사용한다.
+- 현재 기본 Redis는 `10.156.133.126:10121`이다.
 
 ## 스케줄러 락 규칙
 - 스케줄러 잡 실행(`api/utils/scheduler.py`)은 Redis 분산 락을 사용한다.

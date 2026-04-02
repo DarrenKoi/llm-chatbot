@@ -79,9 +79,9 @@ def _check_mongo_conversation_store() -> MonitorEntry:
 def _check_cube_queue_redis() -> MonitorEntry:
     return _check_redis_component(
         name="Cube Queue",
-        redis_url=config.CUBE_QUEUE_REDIS_URL,
+        redis_url=config.REDIS_URL,
         allow_fallback=False,
-        empty_detail="CUBE_QUEUE_REDIS_URL 이 없어 비동기 Cube 큐를 사용할 수 없습니다.",
+        empty_detail="REDIS_URL 이 없어 비동기 Cube 큐를 사용할 수 없습니다.",
     )
 
 

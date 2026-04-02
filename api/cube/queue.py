@@ -42,7 +42,7 @@ def _get_backend() -> "_RedisCubeQueueBackend":
 
     redis_url = config.CUBE_QUEUE_REDIS_URL
     if not redis_url:
-        raise CubeQueueError("CUBE_QUEUE_REDIS_URL is not configured.")
+        raise CubeQueueError("REDIS_URL is not configured.")
 
     try:
         import redis
