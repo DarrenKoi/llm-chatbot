@@ -15,6 +15,9 @@ from api.workflows.chart_maker.graph import build_graph as build_chart_maker_gra
 from api.workflows.start_chat.graph import build_graph
 from api.workflows.start_chat.state import StartChatWorkflowState
 
+_LLM_MOCK_TARGET = "api.workflows.start_chat.agent.executor.generate_reply"
+_HISTORY_MOCK_TARGET = "api.workflows.start_chat.agent.executor.get_history"
+
 
 def _make_state(
     *,
@@ -27,6 +30,14 @@ def _make_state(
         node_id=node_id,
         detected_intent=detected_intent,
         data={},
+    )
+
+
+def _mock_llm_and_history(llm_reply="mock LLM 응답"):
+    """LLM과 대화 이력 mock을 함께 적용하는 컨텍스트 매니저를 반환한다."""
+    return (
+        patch(_LLM_MOCK_TARGET, return_value=llm_reply),
+        patch(_HISTORY_MOCK_TARGET, return_value=[]),
     )
 
 
@@ -50,22 +61,27 @@ def test_start_chat_casual_follows_linear_flow():
         wrapped[name] = _wrap(fn, name)
     graph["nodes"] = wrapped
 
-    reply = run_graph(graph, state, "안녕하세요")
+    mock_llm, mock_history = _mock_llm_and_history()
+    with mock_llm, mock_history:
+        reply = run_graph(graph, state, "안녕하세요")
 
     assert visited == ["entry", "classify", "retrieve_context", "plan_response", "generate_reply"]
-    assert reply
+    assert reply == "mock LLM 응답"
     assert state.status == "completed"
 
 
 def test_start_chat_casual_generates_reply():
-    """casual 의도 시 응답이 사용자 메시지를 포함한다."""
+    """casual 의도 시 LLM이 호출되어 응답을 생성한다."""
 
     state = _make_state()
     graph = build_graph()
 
-    reply = run_graph(graph, state, "오늘 뭐 해?")
+    mock_llm, mock_history = _mock_llm_and_history("오늘 좋은 하루 되세요!")
+    with mock_llm as m_llm, mock_history:
+        reply = run_graph(graph, state, "오늘 뭐 해?")
 
-    assert "오늘 뭐 해?" in reply
+    assert reply == "오늘 좋은 하루 되세요!"
+    m_llm.assert_called_once()
     assert state.status == "completed"
 
 
@@ -230,12 +246,14 @@ def test_handle_message_uses_start_chat_as_default():
         message="안녕",
     )
 
+    mock_llm, mock_history = _mock_llm_and_history("안녕하세요!")
     with patch("api.workflows.orchestrator.load_state", return_value=None), \
-         patch("api.workflows.orchestrator.save_state") as mock_save:
+         patch("api.workflows.orchestrator.save_state") as mock_save, \
+         mock_llm, mock_history:
 
         reply = handle_message(incoming)
 
-    assert reply
+    assert reply == "안녕하세요!"
     mock_save.assert_called_once()
     saved_state = mock_save.call_args[0][0]
     assert saved_state.workflow_id == "start_chat"
@@ -296,11 +314,13 @@ def test_handle_message_restarts_completed_start_chat_session():
         message="후속 질문",
     )
 
+    mock_llm, mock_history = _mock_llm_and_history("후속 답변입니다")
     with patch("api.workflows.orchestrator.load_state", return_value=completed_state), \
-         patch("api.workflows.orchestrator.save_state") as mock_save:
+         patch("api.workflows.orchestrator.save_state") as mock_save, \
+         mock_llm, mock_history:
         reply = handle_message(incoming)
 
-    assert "후속 질문" in reply
+    assert reply == "후속 답변입니다"
     mock_save.assert_called_once()
     saved_state = mock_save.call_args[0][0]
     assert saved_state.workflow_id == "start_chat"
