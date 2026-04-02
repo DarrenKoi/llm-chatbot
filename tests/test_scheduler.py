@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
 from types import SimpleNamespace
+import time
 import uuid
 
 from api import config
@@ -9,8 +10,9 @@ import api.scheduled_tasks as scheduler_pkg
 
 
 class _FakeRedis:
-    def __init__(self):
+    def __init__(self, *, extend_results: list[bool | Exception] | None = None):
         self.store: dict[str, str] = {}
+        self.extend_results = list(extend_results or [])
 
     def set(self, key, value, nx=False, ex=None):
         if nx and key in self.store:
@@ -48,6 +50,11 @@ class _FakeRedisLock:
         current = self._client.store.get(self._key)
         if self._token is None or current != self._token:
             return False
+        if self._client.extend_results:
+            result = self._client.extend_results.pop(0)
+            if isinstance(result, Exception):
+                raise result
+            return result
         return True
 
 
@@ -86,6 +93,27 @@ def test_run_locked_job_skips_without_redis(monkeypatch):
     lock_mod.run_locked_job("job_c", lambda: called.append("run"))
 
     assert called == []
+
+
+def test_run_locked_job_aborts_when_lock_is_lost(monkeypatch):
+    fake_redis = _FakeRedis(extend_results=[True, False])
+    steps: list[str] = []
+
+    monkeypatch.setattr(config, "SCHEDULER_LOCK_PREFIX", "scheduler:sknn_v3")
+    monkeypatch.setattr(config, "SCHEDULER_LOCK_TTL_SECONDS", 60)
+    monkeypatch.setattr(config, "SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS", 0.01)
+    monkeypatch.setattr(lock_mod, "_get_scheduler_redis_client", lambda: fake_redis)
+
+    def _job(lock_lease) -> None:
+        for _ in range(100):
+            time.sleep(0.01)
+            lock_lease.ensure_held()
+            steps.append("tick")
+
+    lock_mod.run_locked_job("job_loss", _job)
+
+    assert 0 < len(steps) < 100
+    assert fake_redis.get("scheduler:sknn_v3:job_loss") is None
 
 
 def test_start_scheduler_uses_strict_job_defaults(monkeypatch):

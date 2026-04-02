@@ -5,7 +5,7 @@ from pathlib import Path
 
 from api import config
 from api.file_delivery import delete_file, get_expired_file_ids
-from api.scheduled_tasks._lock import run_locked_job
+from api.scheduled_tasks._lock import SchedulerJobLockLease, run_locked_job
 
 logger = logging.getLogger(__name__)
 
@@ -24,14 +24,18 @@ def _extract_log_date(log_file: Path) -> date | None:
         return None
 
 
-def _cleanup_uwsgi_logs(*, today: date | None = None) -> None:
+def _cleanup_uwsgi_logs(lock_lease: SchedulerJobLockLease | None = None, *, today: date | None = None) -> None:
     """Delete uWSGI daemonize log files older than 1 week by filename date."""
     log_dir = Path(config.LOG_DIR)
     reference_day = today or date.today()
     cutoff_date = reference_day - timedelta(days=UWSGI_LOG_MAX_AGE_DAYS)
 
     for pattern in ("uwsgi-*.log", "uwsi-*.log"):
+        if lock_lease is not None:
+            lock_lease.ensure_held()
         for log_file in log_dir.glob(pattern):
+            if lock_lease is not None:
+                lock_lease.ensure_held()
             log_date = _extract_log_date(log_file)
             if log_date is None:
                 continue
@@ -40,11 +44,15 @@ def _cleanup_uwsgi_logs(*, today: date | None = None) -> None:
                 logger.info("Deleted old uWSGI log: %s", log_file.name)
 
 
-def _cleanup_expired_file_delivery_files() -> None:
+def _cleanup_expired_file_delivery_files(lock_lease: SchedulerJobLockLease | None = None) -> None:
+    if lock_lease is not None:
+        lock_lease.ensure_held()
     expired_file_ids = get_expired_file_ids()
     deleted_count = 0
 
     for file_id in expired_file_ids:
+        if lock_lease is not None:
+            lock_lease.ensure_held()
         if delete_file(file_id):
             deleted_count += 1
 

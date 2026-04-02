@@ -1,4 +1,5 @@
 import logging
+import inspect
 import threading
 from typing import Callable
 
@@ -7,6 +8,43 @@ from api import config
 logger = logging.getLogger(__name__)
 
 _redis_client = None
+
+
+class SchedulerLockLost(RuntimeError):
+    """Raised when a scheduled job can no longer prove lock ownership."""
+
+
+class SchedulerJobLockLease:
+    def __init__(self, key: str):
+        self._key = key
+        self._lost_event = threading.Event()
+        self._loss_reason: str | None = None
+        self._state_lock = threading.Lock()
+
+    @property
+    def key(self) -> str:
+        return self._key
+
+    @property
+    def loss_reason(self) -> str | None:
+        return self._loss_reason
+
+    def is_held(self) -> bool:
+        return not self._lost_event.is_set()
+
+    def mark_lost(self, reason: str) -> None:
+        with self._state_lock:
+            if self._loss_reason is not None:
+                return
+            self._loss_reason = reason
+            self._lost_event.set()
+
+    def ensure_held(self) -> None:
+        if self.is_held():
+            return
+
+        detail = self._loss_reason or "scheduler lock ownership could not be verified"
+        raise SchedulerLockLost(f"Lost scheduler lock '{self._key}': {detail}")
 
 
 def _scheduler_lock_key(job_id: str) -> str:
@@ -41,12 +79,17 @@ class _RedisDistributedLock:
         self._renew_interval_seconds = renew_interval_seconds
         self._renew_thread: threading.Thread | None = None
         self._renew_stop_event = threading.Event()
+        self._lease = SchedulerJobLockLease(key)
         self._lock = self._client.lock(
             name=self._key,
             timeout=self._ttl_seconds,
             blocking=False,
             thread_local=False,
         )
+
+    @property
+    def lease(self) -> SchedulerJobLockLease:
+        return self._lease
 
     def acquire(self) -> bool:
         try:
@@ -66,7 +109,16 @@ class _RedisDistributedLock:
         try:
             self._lock.release()
         except Exception:
-            logger.exception("Failed to release scheduler lock: %s", self._key)
+            if self._lease.is_held():
+                logger.exception("Failed to release scheduler lock: %s", self._key)
+                return
+
+            logger.warning(
+                "Scheduler lock was already lost before release: %s (%s)",
+                self._key,
+                self._lease.loss_reason,
+                exc_info=True,
+            )
 
     def _start_renewal(self) -> None:
         if self._renew_interval_seconds <= 0:
@@ -97,11 +149,37 @@ class _RedisDistributedLock:
                 except TypeError:
                     renewed = self._lock.extend(self._ttl_seconds)
                 if not renewed:
+                    self._lease.mark_lost("lock renewal returned false")
                     logger.warning("Scheduler lock lost while renewing: %s", self._key)
                     return
             except Exception:
+                self._lease.mark_lost("lock renewal raised an exception")
                 logger.exception("Failed to renew scheduler lock: %s", self._key)
                 return
+
+
+def _invoke_job(job_func: Callable, lock_lease: SchedulerJobLockLease) -> None:
+    try:
+        signature = inspect.signature(job_func)
+    except (TypeError, ValueError):
+        job_func()
+        return
+
+    if "lock_lease" in signature.parameters:
+        job_func(lock_lease=lock_lease)
+        return
+
+    accepts_positional_arg = any(
+        parameter.kind in (inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD)
+        for parameter in signature.parameters.values()
+    )
+    accepts_varargs = any(parameter.kind == inspect.Parameter.VAR_POSITIONAL for parameter in signature.parameters.values())
+
+    if accepts_positional_arg or accepts_varargs:
+        job_func(lock_lease)
+        return
+
+    job_func()
 
 
 def run_locked_job(job_id: str, job_func: Callable[[], None]) -> None:
@@ -121,6 +199,9 @@ def run_locked_job(job_id: str, job_func: Callable[[], None]) -> None:
         return
 
     try:
-        job_func()
+        lock.lease.ensure_held()
+        _invoke_job(job_func, lock.lease)
+    except SchedulerLockLost as exc:
+        logger.warning("Aborting scheduler job '%s': %s", job_id, exc)
     finally:
         lock.release()

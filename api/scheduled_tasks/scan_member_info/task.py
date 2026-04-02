@@ -2,8 +2,8 @@ import logging
 from datetime import datetime, timezone
 
 from api import config
+from api.scheduled_tasks._lock import SchedulerJobLockLease, run_locked_job
 from api.scheduled_tasks.scan_member_info import get_next_hynix_member_info_batch, mark_hynix_member_info_completed
-from api.scheduled_tasks._lock import run_locked_job
 
 logger = logging.getLogger(__name__)
 
@@ -12,13 +12,21 @@ def _get_total_hynix_member_count() -> int:
     return max(0, config.SCAN_MEMBER_INFO_DUMMY_TOTAL_COUNT)
 
 
-def _load_hynix_member_batch(*, offset: int, limit: int, total_count: int) -> list[dict]:
+def _load_hynix_member_batch(
+    lock_lease: SchedulerJobLockLease | None = None,
+    *,
+    offset: int,
+    limit: int,
+    total_count: int,
+) -> list[dict]:
     if total_count <= 0 or limit <= 0:
         return []
 
     upper_bound = min(offset + limit, total_count)
     members: list[dict] = []
     for index in range(offset, upper_bound):
+        if lock_lease is not None:
+            lock_lease.ensure_held()
         member_no = index + 1
         members.append(
             {
@@ -39,7 +47,10 @@ def _parse_hynix_member_info(member: dict) -> None:
     )
 
 
-def hynix_member_info_batch_job() -> None:
+def hynix_member_info_batch_job(lock_lease: SchedulerJobLockLease | None = None) -> None:
+    if lock_lease is not None:
+        lock_lease.ensure_held()
+
     if not config.SCAN_MEMBER_INFO_ENABLED:
         logger.info("Skipping hynix member info batch: SCAN_MEMBER_INFO_ENABLED is disabled.")
         return
@@ -58,11 +69,15 @@ def hynix_member_info_batch_job() -> None:
         total_count=total_count,
         batch_size=config.SCAN_MEMBER_INFO_BATCH_SIZE,
     )
-    members = _load_hynix_member_batch(offset=batch.offset, limit=batch.limit, total_count=total_count)
+    members = _load_hynix_member_batch(lock_lease, offset=batch.offset, limit=batch.limit, total_count=total_count)
 
     for member in members:
+        if lock_lease is not None:
+            lock_lease.ensure_held()
         _parse_hynix_member_info(member)
 
+    if lock_lease is not None:
+        lock_lease.ensure_held()
     state = mark_hynix_member_info_completed(
         total_count=total_count,
         processed_count=len(members),
