@@ -50,3 +50,10 @@
 - 이 서비스와 Cube 연동은 사내망 전용이다.
 - 외부 인터넷에서는 웹앱과 Cube 서비스에 접근할 수 없도록 방화벽으로 차단된 환경을 전제로 설계한다.
 - 운영 접근 프로토콜은 HTTPS가 아니라 HTTP만 허용되는 환경을 전제로 한다.
+
+## 로컬 Workflow 개발 규칙
+- 로컬 개발 전용 UI와 실행기는 루트 `devtools/workflow_runner/`에 둔다.
+- 로컬 초안 workflow는 `devtools/workflows/<workflow_id>/`에 작성하고, 패키지 구조와 계약은 `api/workflows/<workflow_id>/`와 동일하게 유지한다.
+- 운영 반영 대상 workflow의 단일 기준 경로는 `api/workflows/`다.
+- 로컬 개발 transcript/history는 production과 공유하지 않고 브라우저 로컬 저장소 기준으로 분리한다.
+- 로컬 개발 workflow를 운영으로 올릴 때는 copy가 아니라 promotion(move 기준) 절차를 사용한다.
