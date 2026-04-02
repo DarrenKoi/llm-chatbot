@@ -429,8 +429,24 @@ def build_graph() -> dict[str, object]:
         "edges": [
             ("entry", "collect_request", "입력 없음"),
         ],
-    }
+}
 ```
+
+## 실전 샘플 참고
+
+실제 동작하는 샘플이 필요하면 아래 구현을 그대로 열어보면 된다.
+
+- `api/workflows/travel_planner/`
+- `tests/test_travel_planner_workflow.py`
+
+이 샘플은 아래 흐름을 모두 포함한다.
+
+- 첫 턴에서 목적지, 일정, 여행 스타일 추출
+- 정보가 부족할 때 `wait`로 재질문
+- 스타일만 있으면 목적지 후보 추천
+- 목적지가 정해지면 방문 장소 추천으로 `complete`
+
+즉, 동료가 새 workflow를 만들 때 가장 자주 필요한 "상태 필드 정의 -> node 분기 -> handoff 키워드 -> multi-turn 테스트"를 한 번에 참고할 수 있다.
 
 ## 자주 생기는 실수
 

@@ -25,14 +25,31 @@ def test_build_messages_includes_system_prompt_and_history(monkeypatch):
 
 def test_get_system_prompt_returns_default_prompt(monkeypatch):
     monkeypatch.setattr(config, "LLM_SYSTEM_PROMPT_OVERRIDE", "")
+    monkeypatch.setattr("api.llm.prompt.system._build_time_context", lambda now=None: "현재 시각 문맥")
 
-    assert get_system_prompt() == DEFAULT_SYSTEM_PROMPT
+    assert get_system_prompt() == f"{DEFAULT_SYSTEM_PROMPT}\n\n현재 시각 문맥"
 
 
 def test_get_system_prompt_uses_override(monkeypatch):
     monkeypatch.setattr(config, "LLM_SYSTEM_PROMPT_OVERRIDE", "custom prompt")
+    monkeypatch.setattr("api.llm.prompt.system._build_time_context", lambda now=None: "현재 시각 문맥")
 
-    assert get_system_prompt() == "custom prompt"
+    assert get_system_prompt() == "custom prompt\n\n현재 시각 문맥"
+
+
+def test_build_time_context_uses_korean_local_time(monkeypatch):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from api.llm.prompt.system import _build_time_context
+
+    monkeypatch.setattr(config, "LLM_TIMEZONE", "Asia/Seoul")
+
+    context = _build_time_context(datetime(2026, 4, 2, 9, 30, 15, tzinfo=ZoneInfo("UTC")))
+
+    assert "2026-04-02 18:30:15" in context
+    assert "Asia/Seoul" in context
+    assert "UTC+09:00" in context
 
 
 def test_extract_reply_text_supports_string_and_list_content():
