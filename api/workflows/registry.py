@@ -16,6 +16,7 @@ from api.workflows.ppt_maker.state import PptMakerWorkflowState
 from api.workflows.recipe_requests.graph import build_graph as build_recipe_requests_graph
 from api.workflows.recipe_requests.state import RecipeRequestsWorkflowState
 from api.workflows.sample.graph import build_graph as build_sample_graph
+from api.workflows.sample.state import SampleWorkflowState
 
 WorkflowDefinition = dict[str, Any]
 WorkflowBuilder = Callable[[], WorkflowDefinition]
@@ -61,7 +62,7 @@ _WORKFLOWS: dict[str, WorkflowDefinition] = {
         "workflow_id": "sample",
         "entry_node_id": "entry",
         "build_graph": build_sample_graph,
-        "state_cls": WorkflowState,
+        "state_cls": SampleWorkflowState,
     },
 }
 

@@ -8,8 +8,8 @@ from api.cube.client import CubeClientError, send_multimessage
 from api.cube.models import CubeAcceptedMessage, CubeHandledMessage, CubeIncomingMessage, CubeQueuedMessage
 from api.cube.payload import extract_cube_request_fields
 from api.cube.queue import CubeQueueError, enqueue_incoming_message
-from api.llm import LLMServiceError, generate_reply
 from api.utils.logger import log_activity
+from api.workflows.orchestrator import handle_message as handle_workflow_message
 
 logger = logging.getLogger(__name__)
 
@@ -196,8 +196,8 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
             )
 
     try:
-        llm_reply = generate_reply(history=history, user_message=incoming.message)
-    except LLMServiceError as exc:
+        llm_reply = handle_workflow_message(incoming, attempt=attempt)
+    except Exception as exc:
         log_activity(
             "cube_reply_failed",
             level="ERROR",
@@ -209,7 +209,7 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
             error=str(exc),
             queue_attempt=attempt,
         )
-        raise CubeUpstreamError("LLM reply generation failed.") from exc
+        raise CubeUpstreamError("Workflow reply generation failed.") from exc
 
     append_message(incoming.user_id, {"role": "assistant", "content": llm_reply})
     log_activity(

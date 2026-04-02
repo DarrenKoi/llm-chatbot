@@ -114,13 +114,13 @@ def test_accept_cube_empty_event_is_ignored(mock_enqueue):
 
 @patch("api.cube.service.log_request")
 @patch("api.cube.service.send_multimessage")
-@patch("api.cube.service.generate_reply", return_value="nice to meet you")
+@patch("api.cube.service.handle_workflow_message", return_value="nice to meet you")
 @patch("api.cube.service.append_message")
 @patch("api.cube.service.get_history", return_value=[{"role": "assistant", "content": "previous"}])
 def test_handle_cube_message_success(
     mock_get_history,
     mock_append_message,
-    mock_generate_reply,
+    mock_handle_workflow_message,
     mock_send_multimessage,
     mock_log_request,
 ):
@@ -146,10 +146,11 @@ def test_handle_cube_message_success(
     assert result.user_message == "hello"
     assert result.llm_reply == "nice to meet you"
     mock_get_history.assert_called_once_with("u1")
-    mock_generate_reply.assert_called_once_with(
-        history=[{"role": "assistant", "content": "previous"}],
-        user_message="hello",
-    )
+    assert mock_handle_workflow_message.call_count == 1
+    incoming = mock_handle_workflow_message.call_args.kwargs["incoming"]
+    assert incoming.user_id == "u1"
+    assert incoming.message == "hello"
+    assert mock_handle_workflow_message.call_args.kwargs["attempt"] == 0
     assert mock_append_message.call_args_list == [
         call("u1", {"role": "user", "content": "hello"}),
         call("u1", {"role": "assistant", "content": "nice to meet you"}),
@@ -167,11 +168,11 @@ def test_handle_cube_message_success(
 
 
 @patch("api.cube.service.send_multimessage")
-@patch("api.cube.service.generate_reply")
+@patch("api.cube.service.handle_workflow_message")
 @patch("api.cube.service.append_message")
 def test_handle_cube_message_raises_when_message_missing(
     mock_append_message,
-    mock_generate_reply,
+    mock_handle_workflow_message,
     mock_send_multimessage,
 ):
     with pytest.raises(CubePayloadError, match="No message provided"):
@@ -192,25 +193,23 @@ def test_handle_cube_message_raises_when_message_missing(
         )
 
     mock_append_message.assert_not_called()
-    mock_generate_reply.assert_not_called()
+    mock_handle_workflow_message.assert_not_called()
     mock_send_multimessage.assert_not_called()
 
 
 @patch("api.cube.service.send_multimessage")
-@patch("api.cube.service.generate_reply")
+@patch("api.cube.service.handle_workflow_message")
 @patch("api.cube.service.append_message")
 @patch("api.cube.service.get_history", return_value=[])
 def test_handle_cube_message_raises_when_llm_fails(
     mock_get_history,
     mock_append_message,
-    mock_generate_reply,
+    mock_handle_workflow_message,
     mock_send_multimessage,
 ):
-    from api.llm import LLMServiceError
+    mock_handle_workflow_message.side_effect = RuntimeError("workflow failed")
 
-    mock_generate_reply.side_effect = LLMServiceError("connection refused")
-
-    with pytest.raises(CubeUpstreamError, match="LLM reply generation failed."):
+    with pytest.raises(CubeUpstreamError, match="Workflow reply generation failed."):
         handle_cube_message(
             {
                 "richnotificationmessage": {
