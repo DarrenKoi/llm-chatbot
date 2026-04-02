@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Workflow 추가 가이드 시각 자료</title>
+  <style>
+    :root {
+      --bg: #f5efe4;
+      --bg-strong: #eadfcb;
+      --ink: #1f252d;
+      --muted: #57606a;
+      --panel: rgba(255, 252, 247, 0.86);
+      --line: rgba(31, 37, 45, 0.12);
+      --accent: #17624a;
+      --accent-soft: #d7ebdf;
+      --warm: #b55d33;
+      --warm-soft: #f5ddcf;
+      --shadow: 0 20px 50px rgba(31, 37, 45, 0.08);
+      --radius: 24px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(23, 98, 74, 0.18), transparent 32%),
+        radial-gradient(circle at top right, rgba(181, 93, 51, 0.16), transparent 28%),
+        linear-gradient(180deg, #fbf7ef 0%, var(--bg) 100%);
+    }
+
+    .page {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 32px 0 56px;
+    }
+
+    .hero {
+      padding: 36px;
+      border-radius: 32px;
+      background:
+        linear-gradient(135deg, rgba(255, 252, 247, 0.9), rgba(234, 223, 203, 0.92)),
+        var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: auto -60px -90px auto;
+      width: 240px;
+      height: 240px;
+      border-radius: 50%;
+      background: rgba(23, 98, 74, 0.08);
+    }
+
+    .eyebrow {
+      display: inline-block;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3, p {
+      margin: 0;
+    }
+
+    h1 {
+      margin-top: 18px;
+      font-size: clamp(32px, 5vw, 56px);
+      line-height: 1.04;
+      letter-spacing: -0.03em;
+      max-width: 760px;
+    }
+
+    .hero p {
+      margin-top: 16px;
+      max-width: 760px;
+      font-size: 17px;
+      line-height: 1.65;
+      color: var(--muted);
+    }
+
+    .hero-grid,
+    .section-grid,
+    .file-grid,
+    .compare-grid,
+    .sample-grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero-grid {
+      margin-top: 28px;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+
+    .stat,
+    .panel,
+    .callout,
+    .chat,
+    .step {
+      border-radius: var(--radius);
+      border: 1px solid var(--line);
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .stat {
+      padding: 20px;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 28px;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    section {
+      margin-top: 26px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+
+    .section-head h2 {
+      font-size: clamp(24px, 3vw, 34px);
+      letter-spacing: -0.02em;
+    }
+
+    .section-head p {
+      color: var(--muted);
+      max-width: 680px;
+      line-height: 1.55;
+      font-size: 15px;
+    }
+
+    .panel {
+      padding: 24px;
+    }
+
+    .flow-track {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      align-items: stretch;
+    }
+
+    .flow-node {
+      padding: 18px;
+      border-radius: 22px;
+      background: #fffdf8;
+      border: 1px solid var(--line);
+      position: relative;
+      min-height: 120px;
+    }
+
+    .flow-node .tag {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--warm);
+      background: var(--warm-soft);
+      border-radius: 999px;
+      padding: 6px 10px;
+      margin-bottom: 12px;
+    }
+
+    .flow-node h3 {
+      font-size: 18px;
+      margin-bottom: 8px;
+    }
+
+    .flow-node p {
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 14px;
+    }
+
+    .flow-node::after {
+      content: "->";
+      position: absolute;
+      right: -14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--warm);
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .flow-node:last-child::after {
+      display: none;
+    }
+
+    .compare-grid {
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    .callout {
+      padding: 24px;
+    }
+
+    .callout.good {
+      background: linear-gradient(180deg, rgba(215, 235, 223, 0.72), rgba(255, 252, 247, 0.92));
+    }
+
+    .callout.careful {
+      background: linear-gradient(180deg, rgba(245, 221, 207, 0.72), rgba(255, 252, 247, 0.92));
+    }
+
+    .callout h3 {
+      margin-bottom: 12px;
+      font-size: 20px;
+    }
+
+    .callout ul,
+    .panel ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .file-grid {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      margin-top: 18px;
+    }
+
+    .file-card {
+      padding: 18px;
+      border-radius: 20px;
+      background: #fffdf8;
+      border: 1px solid var(--line);
+    }
+
+    .file-card code,
+    .sample-card code {
+      display: inline-block;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px;
+      color: var(--accent);
+      background: var(--accent-soft);
+      padding: 5px 8px;
+      border-radius: 10px;
+      margin-bottom: 12px;
+    }
+
+    .file-card h3,
+    .sample-card h3 {
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+
+    .file-card p,
+    .sample-card p,
+    .chat p,
+    .step p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .sample-grid {
+      grid-template-columns: 1.1fr 0.9fr;
+      align-items: start;
+    }
+
+    .sample-column {
+      display: grid;
+      gap: 18px;
+    }
+
+    .sample-card {
+      padding: 22px;
+      border-radius: 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+    }
+
+    .timeline {
+      display: grid;
+      gap: 14px;
+    }
+
+    .step {
+      padding: 18px;
+      position: relative;
+      background: linear-gradient(180deg, rgba(255, 252, 247, 0.96), rgba(250, 244, 234, 0.96));
+    }
+
+    .step strong {
+      display: inline-block;
+      margin-bottom: 8px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .chat-stack {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .chat {
+      padding: 16px 18px;
+    }
+
+    .chat.user {
+      background: rgba(23, 98, 74, 0.09);
+    }
+
+    .chat.system {
+      background: rgba(181, 93, 51, 0.08);
+    }
+
+    .chat label {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .legend {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      margin-top: 18px;
+    }
+
+    .legend-item {
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: #fffdf8;
+      border: 1px solid var(--line);
+    }
+
+    .legend-item strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .legend-item p {
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .footer {
+      margin-top: 28px;
+      padding: 24px;
+      border-radius: 26px;
+      background: linear-gradient(135deg, rgba(23, 98, 74, 0.1), rgba(255, 252, 247, 0.96));
+      border: 1px solid var(--line);
+      box-shadow: var(--shadow);
+    }
+
+    .footer p {
+      color: var(--muted);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    @media (max-width: 860px) {
+      .sample-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .section-head {
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 720px) {
+      .page {
+        width: min(100vw - 18px, 1180px);
+        padding-top: 18px;
+      }
+
+      .hero,
+      .panel,
+      .callout,
+      .sample-card,
+      .footer {
+        padding: 20px;
+      }
+
+      .flow-node::after {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="hero">
+      <span class="eyebrow">Workflow Visual Guide</span>
+      <h1>새 workflow 추가를 한 장으로 이해하는 시각 가이드</h1>
+      <p>
+        Markdown 문서만으로 따라가기 어렵다면 이 HTML을 먼저 보면 된다.
+        핵심은 "어디에 파일을 추가하는지", "대화가 어떻게 흘러가는지",
+        "샘플 workflow가 어떤 구조로 구현되는지"를 시각적으로 한 번에 잡아주는 것이다.
+      </p>
+      <div class="hero-grid">
+        <div class="stat">
+          <strong>4</strong>
+          <span>기본 파일만으로도 새 workflow를 시작할 수 있다. `__init__.py`, `state.py`, `nodes.py`, `graph.py`.</span>
+        </div>
+        <div class="stat">
+          <strong>1</strong>
+          <span>등록 파일을 따로 고치지 않는다. `api/workflows/&lt;workflow_id&gt;/` 패키지만 추가하면 registry가 자동 탐색한다.</span>
+        </div>
+        <div class="stat">
+          <strong>3</strong>
+          <span>가장 먼저 고정해야 할 흐름은 `resume`, `wait`, `complete`다. 여기에 handoff를 필요할 때만 얹는다.</span>
+        </div>
+      </div>
+    </header>
+
+    <section>
+      <div class="section-head">
+        <h2>1. 실행 흐름 한눈에 보기</h2>
+        <p>새 workflow는 공통 엔진을 바꾸는 작업이 아니라, 기존 파이프라인 끝에 새 패키지를 붙이는 작업이다.</p>
+      </div>
+      <div class="panel">
+        <div class="flow-track">
+          <article class="flow-node">
+            <span class="tag">Input</span>
+            <h3>Cube Message</h3>
+            <p>사용자 메시지가 `api/cube/router.py`를 통해 큐에 들어간다.</p>
+          </article>
+          <article class="flow-node">
+            <span class="tag">Infra</span>
+            <h3>Queue / Worker</h3>
+            <p>worker가 메시지를 꺼내고 오케스트레이터에 넘긴다.</p>
+          </article>
+          <article class="flow-node">
+            <span class="tag">Core</span>
+            <h3>Orchestrator</h3>
+            <p>`run_graph()`가 현재 `node_id`를 기준으로 node를 실행한다.</p>
+          </article>
+          <article class="flow-node">
+            <span class="tag">Feature</span>
+            <h3>Workflow Package</h3>
+            <p>`api/workflows/&lt;workflow_id&gt;/`의 node들이 실제 업무 로직을 처리한다.</p>
+          </article>
+          <article class="flow-node">
+            <span class="tag">Contract</span>
+            <h3>NodeResult</h3>
+            <p>`resume`, `wait`, `handoff`, `complete`에 따라 다음 상태와 응답이 결정된다.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>2. 무엇을 만들고 무엇은 건드리지 않는가</h2>
+        <p>동료가 가장 자주 헷갈리는 지점이다. 기본 원칙은 새 패키지를 추가하고, 공통 엔진 파일은 웬만하면 건드리지 않는 것이다.</p>
+      </div>
+      <div class="compare-grid">
+        <article class="callout good">
+          <h3>보통 여기만 추가하면 된다</h3>
+          <ul>
+            <li>`api/workflows/travel_planner/` 같은 새 패키지</li>
+            <li>workflow 전용 상태 dataclass</li>
+            <li>node 함수와 graph 정의</li>
+            <li>workflow 테스트 파일</li>
+            <li>필요하면 `handoff_keywords`</li>
+          </ul>
+        </article>
+        <article class="callout careful">
+          <h3>추가 작업만 할 때는 피하는 편이 안전하다</h3>
+          <ul>
+            <li>`api/workflows/registry.py` 수동 수정</li>
+            <li>`api/workflows/orchestrator.py` 구조 변경</li>
+            <li>`api/workflows/start_chat/` 분류 규칙 변경</li>
+            <li>기존 workflow 패키지 내부 직접 수정</li>
+            <li>공통 상태 저장 규약 변경</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>3. 최소 패키지 구조</h2>
+        <p>새 workflow를 만들 때는 파일 수를 늘리기보다 역할을 분명히 나누는 것이 더 중요하다.</p>
+      </div>
+      <div class="panel">
+        <div class="file-grid">
+          <article class="file-card">
+            <code>__init__.py</code>
+            <h3>등록 정의</h3>
+            <p>`get_workflow_definition()`에서 `workflow_id`, `entry_node_id`, `build_graph`, `state_cls`, `handoff_keywords`를 노출한다.</p>
+          </article>
+          <article class="file-card">
+            <code>state.py</code>
+            <h3>상태 필드</h3>
+            <p>`WorkflowState`를 상속해 턴 간에 유지할 값만 단순 자료형으로 정의한다.</p>
+          </article>
+          <article class="file-card">
+            <code>nodes.py</code>
+            <h3>실제 대화 로직</h3>
+            <p>입력 해석, 재질문, 외부 연동, 완료 응답을 node 함수로 나눈다.</p>
+          </article>
+          <article class="file-card">
+            <code>graph.py</code>
+            <h3>흐름 정의</h3>
+            <p>entry node와 node 맵, 시각화용 edge를 묶어 반환한다.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>4. 실전 샘플: travel_planner</h2>
+        <p>`travel_planner`는 동료가 가장 쉽게 베껴서 새 workflow를 만들 수 있도록 의도적으로 단순한 규칙 기반 예제로 구현했다.</p>
+      </div>
+      <div class="sample-grid">
+        <div class="sample-column">
+          <article class="sample-card">
+            <code>api/workflows/travel_planner/</code>
+            <h3>샘플의 핵심 역할</h3>
+            <p>
+              이 샘플은 목적지 추출, 취향 재질문, 추천 후보 제안, 최종 장소 추천까지 한 사이클을 모두 보여준다.
+              즉, 새 workflow에서 자주 필요한 상태 업데이트와 multi-turn 흐름을 한 번에 확인할 수 있다.
+            </p>
+            <div class="legend">
+              <div class="legend-item">
+                <strong>State fields</strong>
+                <p>`destination`, `travel_style`, `duration_text`, `companion_type`, `suggested_destinations`</p>
+              </div>
+              <div class="legend-item">
+                <strong>Actions used</strong>
+                <p>`wait`로 재질문하고, `resume`으로 다음 node를 이어가며, 마지막에 `complete`로 종료한다.</p>
+              </div>
+              <div class="legend-item">
+                <strong>Handoff</strong>
+                <p>`여행 계획`, `trip plan`, `travel planner` 같은 키워드로 `start_chat`에서 진입 가능하다.</p>
+              </div>
+            </div>
+          </article>
+
+          <article class="sample-card">
+            <code>tests/test_travel_planner_workflow.py</code>
+            <h3>동료가 바로 복제할 수 있는 테스트 패턴</h3>
+            <p>
+              테스트는 "첫 질문", "후보 추천", "충분한 정보가 들어왔을 때 완료", "multi-turn 이어달리기" 네 가지를 고정한다.
+              새 workflow를 만들 때도 이 네 칸을 먼저 채우면 흐름이 흔들리지 않는다.
+            </p>
+          </article>
+        </div>
+
+        <div class="sample-column">
+          <div class="timeline">
+            <article class="step">
+              <strong>Step 1</strong>
+              <h3>사용자 요청이 너무 넓으면 취향부터 묻는다</h3>
+              <p>`entry` node가 목적지와 일정이 비어 있음을 확인하면 `wait`를 반환하고 여행 스타일을 질문한다.</p>
+            </article>
+            <article class="step">
+              <strong>Step 2</strong>
+              <h3>스타일만 있으면 목적지 후보를 추천한다</h3>
+              <p>`recommend_destination` node가 "도시 / 휴양 / 자연 / 먹거리"에 따라 3개 후보를 제안한다.</p>
+            </article>
+            <article class="step">
+              <strong>Step 3</strong>
+              <h3>목적지가 정해지면 일정 정보를 받는다</h3>
+              <p>목적지는 있는데 기간이 없으면 `collect_trip_context`에서 `2박 3일` 같은 입력을 다시 받는다.</p>
+            </article>
+            <article class="step">
+              <strong>Step 4</strong>
+              <h3>방문 장소를 추천하고 종료한다</h3>
+              <p>`build_plan` node가 목적지별 대표 장소 3곳과 간단한 동선 팁을 묶어 `complete`한다.</p>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>5. travel_planner 대화 예시</h2>
+        <p>동료가 가장 이해하기 쉬운 부분은 실제 턴 흐름이다. 아래 예시는 현재 샘플 workflow가 처리하는 대화 패턴을 그대로 옮긴 것이다.</p>
+      </div>
+      <div class="panel">
+        <div class="chat-stack">
+          <article class="chat user">
+            <label>User</label>
+            <p>여행 계획 짜줘</p>
+          </article>
+          <article class="chat system">
+            <label>Workflow</label>
+            <p>여행 계획을 같이 잡아볼게요. 어떤 스타일의 여행을 원하시나요? 예: 도시, 휴양, 자연, 먹거리</p>
+          </article>
+          <article class="chat user">
+            <label>User</label>
+            <p>먹거리 위주로 가고 싶어</p>
+          </article>
+          <article class="chat system">
+            <label>Workflow</label>
+            <p>먹거리 여행으로는 오사카, 타이베이, 부산을 먼저 고려해보세요. 마음에 드는 곳을 하나 골라 말씀해주시면 그 목적지 기준으로 일정과 방문지를 추천해드릴게요.</p>
+          </article>
+          <article class="chat user">
+            <label>User</label>
+            <p>오사카 2박 3일 친구랑 갈래</p>
+          </article>
+          <article class="chat system">
+            <label>Workflow</label>
+            <p>오사카 2박 3일 여행은 먹거리 중심으로 시작하면 좋습니다. 추천 방문지: 도톤보리, 오사카성, 우메다...</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>6. NodeResult를 어떻게 읽으면 되는가</h2>
+        <p>새 workflow가 어렵게 느껴지는 이유는 결국 이 계약이 눈에 잘 안 들어오기 때문이다. 아래 세 가지를 먼저 익히면 된다.</p>
+      </div>
+      <div class="panel">
+        <div class="legend">
+          <div class="legend-item">
+            <strong>`wait`</strong>
+            <p>사용자에게 질문을 던지고 멈춘다. `reply`와 `next_node_id`를 같이 넣는 것이 안전하다.</p>
+          </div>
+          <div class="legend-item">
+            <strong>`resume`</strong>
+            <p>같은 턴 안에서 다음 node를 바로 실행한다. 정보가 충분할 때 내부적으로 흐름을 넘길 때 쓴다.</p>
+          </div>
+          <div class="legend-item">
+            <strong>`complete`</strong>
+            <p>현재 workflow를 끝낸다. handoff된 자식 workflow라면 부모 workflow 복귀 조건이 되기도 한다.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-head">
+        <h2>7. 동료용 실무 체크리스트</h2>
+        <p>이 다섯 줄만 맞추면 새 workflow PR의 대부분이 정리된다.</p>
+      </div>
+      <div class="panel">
+        <ul>
+          <li>패키지명과 `workflow_id`가 일치하는지 확인한다.</li>
+          <li>상태 필드는 JSON 직렬화 가능한 기본형만 둔다.</li>
+          <li>정보가 부족할 때는 `wait + reply + next_node_id`를 같이 준다.</li>
+          <li>`handoff_keywords`는 넓지 않게, 실제 사용자 표현 위주로 넣는다.</li>
+          <li>최소한 기본 흐름과 multi-turn 테스트는 함께 추가한다.</li>
+        </ul>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>
+        추천 사용 순서: 먼저 이 HTML로 큰 그림을 이해하고, 그다음 `doc/guideline/workflow_추가_가이드.md`에서 규칙을 확인하고,
+        마지막으로 `api/workflows/travel_planner/`와 `tests/test_travel_planner_workflow.py`를 열어 실제 구현을 따라가면 된다.
+      </p>
+    </footer>
+  </main>
+</body>
+</html>
