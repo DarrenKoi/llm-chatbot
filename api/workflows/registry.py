@@ -1,76 +1,175 @@
-"""등록된 워크플로 그래프와 엔트리포인트를 조회한다."""
+"""워크플로 패키지를 동적으로 발견하고 정의를 조회한다."""
 
-from collections.abc import Callable
+from __future__ import annotations
+
+import logging
+import pkgutil
+from collections.abc import Callable, Iterable
+from importlib import import_module
+from pathlib import Path
+from types import ModuleType
 from typing import Any
 
-from api.workflows.at_wafer_quota.graph import build_graph as build_at_wafer_quota_graph
-from api.workflows.at_wafer_quota.state import AtWaferQuotaWorkflowState
-from api.workflows.chart_maker.graph import build_graph as build_chart_maker_graph
-from api.workflows.chart_maker.state import ChartMakerWorkflowState
-from api.workflows.common.graph import build_graph as build_common_graph
 from api.workflows.models import WorkflowState
-from api.workflows.start_chat.graph import build_graph as build_start_chat_graph
-from api.workflows.start_chat.state import StartChatWorkflowState
-from api.workflows.ppt_maker.graph import build_graph as build_ppt_maker_graph
-from api.workflows.ppt_maker.state import PptMakerWorkflowState
-from api.workflows.recipe_requests.graph import build_graph as build_recipe_requests_graph
-from api.workflows.recipe_requests.state import RecipeRequestsWorkflowState
-from api.workflows.sample.graph import build_graph as build_sample_graph
-from api.workflows.sample.state import SampleWorkflowState
+
+log = logging.getLogger(__name__)
 
 WorkflowDefinition = dict[str, Any]
 WorkflowBuilder = Callable[[], WorkflowDefinition]
 
-_WORKFLOWS: dict[str, WorkflowDefinition] = {
-    "common": {
-        "workflow_id": "common",
-        "entry_node_id": "entry",
-        "build_graph": build_common_graph,
-        "state_cls": WorkflowState,
-    },
-    "start_chat": {
-        "workflow_id": "start_chat",
-        "entry_node_id": "entry",
-        "build_graph": build_start_chat_graph,
-        "state_cls": StartChatWorkflowState,
-    },
-    "chart_maker": {
-        "workflow_id": "chart_maker",
-        "entry_node_id": "entry",
-        "build_graph": build_chart_maker_graph,
-        "state_cls": ChartMakerWorkflowState,
-    },
-    "ppt_maker": {
-        "workflow_id": "ppt_maker",
-        "entry_node_id": "entry",
-        "build_graph": build_ppt_maker_graph,
-        "state_cls": PptMakerWorkflowState,
-    },
-    "at_wafer_quota": {
-        "workflow_id": "at_wafer_quota",
-        "entry_node_id": "entry",
-        "build_graph": build_at_wafer_quota_graph,
-        "state_cls": AtWaferQuotaWorkflowState,
-    },
-    "recipe_requests": {
-        "workflow_id": "recipe_requests",
-        "entry_node_id": "entry",
-        "build_graph": build_recipe_requests_graph,
-        "state_cls": RecipeRequestsWorkflowState,
-    },
-    "sample": {
-        "workflow_id": "sample",
-        "entry_node_id": "entry",
-        "build_graph": build_sample_graph,
-        "state_cls": SampleWorkflowState,
-    },
-}
+_WORKFLOWS: dict[str, WorkflowDefinition] | None = None
+
+
+def discover_workflows(
+    package_name: str = "api.workflows",
+    package_path: Path | None = None,
+) -> dict[str, WorkflowDefinition]:
+    """워크플로 패키지를 스캔해 정의 목록을 반환한다."""
+
+    package = import_module(package_name)
+    package_paths = _resolve_package_paths(package, package_path)
+    workflows: dict[str, WorkflowDefinition] = {}
+
+    module_infos = sorted(
+        pkgutil.iter_modules(package_paths, package_name + "."),
+        key=lambda item: item.name,
+    )
+
+    for module_info in module_infos:
+        short_name = module_info.name.rsplit(".", 1)[-1]
+        if not module_info.ispkg or short_name.startswith("_"):
+            continue
+
+        module = import_module(module_info.name)
+        definition = _extract_workflow_definition(module, short_name)
+        if definition is None:
+            continue
+
+        workflow_id = definition["workflow_id"]
+        if workflow_id in workflows:
+            raise RuntimeError(f"중복 workflow_id가 발견되었습니다: {workflow_id}")
+        workflows[workflow_id] = definition
+
+    return workflows
+
+
+def load_workflows(
+    *,
+    force_reload: bool = False,
+    package_name: str = "api.workflows",
+    package_path: Path | None = None,
+) -> dict[str, WorkflowDefinition]:
+    """워크플로 정의 캐시를 로드한다."""
+
+    global _WORKFLOWS
+
+    if force_reload or _WORKFLOWS is None:
+        _WORKFLOWS = discover_workflows(package_name=package_name, package_path=package_path)
+
+    return _WORKFLOWS
+
+
+def list_workflow_ids() -> list[str]:
+    """등록된 모든 workflow_id 목록을 반환한다."""
+
+    return sorted(load_workflows().keys())
+
+
+def list_handoff_workflows() -> list[WorkflowDefinition]:
+    """start_chat에서 handoff 가능한 워크플로 정의만 반환한다."""
+
+    return [
+        definition
+        for definition in load_workflows().values()
+        if definition.get("handoff_keywords")
+    ]
 
 
 def get_workflow(workflow_id: str) -> WorkflowDefinition:
     """등록된 workflow graph / entrypoint를 반환한다."""
 
     try:
-        return _WORKFLOWS[workflow_id]
+        return load_workflows()[workflow_id]
     except KeyError as exc:
         raise KeyError(f"등록되지 않은 workflow_id입니다: {workflow_id}") from exc
+
+
+def _resolve_package_paths(package: ModuleType, package_path: Path | None) -> list[str]:
+    if package_path is not None:
+        return [str(package_path.resolve())]
+
+    package_paths = list(getattr(package, "__path__", []))
+    if not package_paths:
+        raise RuntimeError(f"워크플로 패키지 경로를 찾을 수 없습니다: {package.__name__}")
+    return package_paths
+
+
+def _extract_workflow_definition(
+    module: ModuleType,
+    default_workflow_id: str,
+) -> WorkflowDefinition | None:
+    definition_factory = getattr(module, "get_workflow_definition", None)
+    if callable(definition_factory):
+        raw_definition = definition_factory()
+    else:
+        raw_definition = getattr(module, "WORKFLOW_DEFINITION", None)
+
+    if raw_definition is None:
+        log.debug("워크플로 정의 export가 없어 건너뜁니다: %s", module.__name__)
+        return None
+
+    return _normalize_workflow_definition(
+        raw_definition=raw_definition,
+        default_workflow_id=default_workflow_id,
+        module_name=module.__name__,
+    )
+
+
+def _normalize_workflow_definition(
+    *,
+    raw_definition: object,
+    default_workflow_id: str,
+    module_name: str,
+) -> WorkflowDefinition:
+    if not isinstance(raw_definition, dict):
+        raise RuntimeError(f"워크플로 정의는 dict여야 합니다: {module_name}")
+
+    definition = dict(raw_definition)
+    definition["workflow_id"] = str(definition.get("workflow_id") or default_workflow_id)
+
+    build_graph = definition.get("build_graph")
+    if not callable(build_graph):
+        raise RuntimeError(f"워크플로 build_graph가 필요합니다: {module_name}")
+
+    entry_node_id = definition.get("entry_node_id")
+    if not isinstance(entry_node_id, str) or not entry_node_id:
+        raise RuntimeError(f"워크플로 entry_node_id가 필요합니다: {module_name}")
+
+    definition["state_cls"] = _normalize_state_cls(definition.get("state_cls"), module_name)
+    definition["handoff_keywords"] = _normalize_keywords(
+        definition.get("handoff_keywords", ()),
+        module_name=module_name,
+    )
+    return definition
+
+
+def _normalize_state_cls(candidate: object, module_name: str) -> type[WorkflowState]:
+    if candidate is None:
+        return WorkflowState
+    if isinstance(candidate, type) and issubclass(candidate, WorkflowState):
+        return candidate
+    raise RuntimeError(f"워크플로 state_cls는 WorkflowState 하위 클래스여야 합니다: {module_name}")
+
+
+def _normalize_keywords(keywords: object, *, module_name: str) -> tuple[str, ...]:
+    if keywords in (None, ""):
+        return ()
+    if isinstance(keywords, (str, bytes)) or not isinstance(keywords, Iterable):
+        raise RuntimeError(f"handoff_keywords는 문자열 iterable이어야 합니다: {module_name}")
+
+    normalized: list[str] = []
+    for keyword in keywords:
+        value = str(keyword).strip().lower()
+        if value:
+            normalized.append(value)
+    return tuple(normalized)
