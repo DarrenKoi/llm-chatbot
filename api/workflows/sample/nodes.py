@@ -75,17 +75,24 @@ def translate_node(state: SampleWorkflowState, user_message: str) -> NodeResult:
     translated = result.output.get("result", "") if isinstance(result.output, dict) else ""
     source_language = ""
     direction = ""
+    pronunciation_ko = ""
     if isinstance(result.output, dict):
         source_language = result.output.get("source", "")
         direction = f"{source_language}→{result.output.get('target', '')}"
+        pronunciation_ko = result.output.get("pronunciation_ko", "")
+
+    reply = translated
+    if pronunciation_ko:
+        reply = f"{translated}\n(한국어 발음: {pronunciation_ko})"
 
     return NodeResult(
         action="complete",
-        reply=translated,
+        reply=reply,
         data_updates={
             "source_language": source_language,
             "translation_direction": direction,
             "translated": translated,
+            "pronunciation_ko": pronunciation_ko,
             "last_asked_slot": "",
         },
     )

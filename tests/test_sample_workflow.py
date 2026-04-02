@@ -67,6 +67,7 @@ def test_translate_tool_korean_to_japanese():
     assert result.output["source"] == "ko"
     assert result.output["target"] == "ja"
     assert result.output["result"] == "こんにちは"
+    assert result.output["pronunciation_ko"] == "곤니치와"
 
 
 def test_sample_workflow_completes_when_target_language_is_explicit():
@@ -75,11 +76,12 @@ def test_sample_workflow_completes_when_target_language_is_explicit():
     state = _make_state()
     reply = run_graph(build_graph(), state, '"안녕하세요"를 일본어로 번역해줘')
 
-    assert reply == "こんにちは"
+    assert reply == "こんにちは\n(한국어 발음: 곤니치와)"
     assert state.status == "completed"
     assert state.data["source_text"] == "안녕하세요"
     assert state.data["target_language"] == "ja"
     assert state.data["translation_direction"] == "ko→ja"
+    assert state.data["pronunciation_ko"] == "곤니치와"
 
 
 def test_sample_workflow_completes_for_english_request():
@@ -88,11 +90,12 @@ def test_sample_workflow_completes_for_english_request():
     state = _make_state()
     reply = run_graph(build_graph(), state, 'translate "hello" to japanese')
 
-    assert reply == "こんにちは"
+    assert reply == "こんにちは\n(한국어 발음: 곤니치와)"
     assert state.status == "completed"
     assert state.data["source_text"] == "hello"
     assert state.data["target_language"] == "ja"
     assert state.data["translation_direction"] == "en→ja"
+    assert state.data["pronunciation_ko"] == "곤니치와"
 
 
 def test_sample_workflow_waits_for_target_language_when_missing():
@@ -187,7 +190,8 @@ def test_handle_message_with_sample_workflow_resumes_saved_state():
 
     mock_save.assert_called_once()
     saved_state = mock_save.call_args[0][0]
-    assert reply == "ありがとうございます"
+    assert reply == "ありがとうございます\n(한국어 발음: 아리가토고자이마스)"
     assert saved_state.status == "completed"
     assert saved_state.data["target_language"] == "ja"
     assert saved_state.data["translation_direction"] == "ko→ja"
+    assert saved_state.data["pronunciation_ko"] == "아리가토고자이마스"

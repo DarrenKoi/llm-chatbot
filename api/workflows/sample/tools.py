@@ -55,6 +55,10 @@ _TRANSLATIONS: dict[tuple[str, str], dict[str, str]] = {
         "ありがとうございます": "감사합니다",
     },
 }
+_JAPANESE_PRONUNCIATIONS_KO = {
+    "こんにちは": "곤니치와",
+    "ありがとうございます": "아리가토고자이마스",
+}
 
 
 def _normalize_language(language: str) -> str:
@@ -78,7 +82,11 @@ def _translate(text: str, target_language: str) -> dict[str, str]:
         raise ValueError("지원하지 않는 목표 언어입니다.")
 
     if source_language == normalized_target:
-        return {"source": source_language, "target": normalized_target, "result": text}
+        result = {"source": source_language, "target": normalized_target, "result": text}
+        pronunciation_ko = _get_korean_pronunciation(text=text, language=normalized_target)
+        if pronunciation_ko:
+            result["pronunciation_ko"] = pronunciation_ko
+        return result
 
     dictionary = _TRANSLATIONS.get((source_language, normalized_target), {})
     lookup_key = text.strip().lower() if source_language == "en" else text.strip()
@@ -86,11 +94,21 @@ def _translate(text: str, target_language: str) -> dict[str, str]:
     if translated is None:
         translated = f"[Translated to {normalized_target.upper()}] {text.strip()}"
 
-    return {
+    result = {
         "source": source_language,
         "target": normalized_target,
         "result": translated,
     }
+    pronunciation_ko = _get_korean_pronunciation(text=translated, language=normalized_target)
+    if pronunciation_ko:
+        result["pronunciation_ko"] = pronunciation_ko
+    return result
+
+
+def _get_korean_pronunciation(*, text: str, language: str) -> str:
+    if language != "ja":
+        return ""
+    return _JAPANESE_PRONUNCIATIONS_KO.get(text.strip(), "")
 
 
 def register_sample_tools() -> None:
