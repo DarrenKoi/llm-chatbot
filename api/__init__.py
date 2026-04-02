@@ -13,6 +13,7 @@ from api.cube.payload import extract_user_id
 from api.monitoring_service import get_monitoring_snapshot
 from api.utils.logger import log_activity, setup_logging
 from api.scheduled_tasks import start_scheduler
+from api.workflows.graph_visualizer import build_workflow_html, list_workflow_ids
 
 
 def create_application() -> Flask:
@@ -33,6 +34,16 @@ def create_application() -> Flask:
     def monitor() -> str:
         snapshot = get_monitoring_snapshot()
         return render_template("monitor.html", snapshot=snapshot)
+
+    @app.route("/workflows", methods=["GET"])
+    def workflow_list() -> str:
+        ids = list_workflow_ids()
+        links = "".join(f'<li><a href="/workflows/{wid}">{wid}</a></li>' for wid in ids)
+        return f"<h1>Workflows</h1><ul>{links}</ul>"
+
+    @app.route("/workflows/<workflow_id>", methods=["GET"])
+    def workflow_graph(workflow_id: str) -> str:
+        return build_workflow_html(workflow_id)
 
     for blueprint in discover_blueprints():
         app.register_blueprint(blueprint)

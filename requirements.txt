@@ -5,6 +5,7 @@ pymongo
 apscheduler
 pillow
 httpx
+pyvis
 uwsgi
 
 # LangChain / LangGraph stack used by the project architecture

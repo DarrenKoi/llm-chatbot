@@ -16,5 +16,9 @@ def build_graph() -> dict[str, object]:
             "collect_brief": nodes.collect_brief_node,
             "draft_outline": nodes.draft_outline_node,
         },
+        "edges": [
+            ("entry", "collect_brief"),
+            ("collect_brief", "draft_outline"),
+        ],
         "router": routing.route_next_node,
     }

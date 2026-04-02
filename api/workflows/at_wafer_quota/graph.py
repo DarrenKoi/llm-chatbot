@@ -16,5 +16,9 @@ def build_graph() -> dict[str, object]:
             "fetch_quota": nodes.fetch_quota_node,
             "decide_next_action": nodes.decide_next_action_node,
         },
+        "edges": [
+            ("entry", "fetch_quota"),
+            ("fetch_quota", "decide_next_action"),
+        ],
         "router": routing.route_next_node,
     }

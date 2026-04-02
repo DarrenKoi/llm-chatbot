@@ -18,4 +18,12 @@ def build_graph() -> dict[str, object]:
             "collect_target_language": nodes.collect_target_language_node,
             "translate": nodes.translate_node,
         },
+        "edges": [
+            ("entry", "collect_source_text", "원문 없음"),
+            ("entry", "collect_target_language", "언어 없음"),
+            ("entry", "translate", "정보 충분"),
+            ("collect_source_text", "collect_target_language", "언어 없음"),
+            ("collect_source_text", "translate", "정보 충분"),
+            ("collect_target_language", "translate"),
+        ],
     }

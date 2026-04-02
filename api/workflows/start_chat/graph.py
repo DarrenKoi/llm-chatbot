@@ -16,5 +16,12 @@ def build_graph() -> dict[str, object]:
             "plan_response": nodes.plan_response_node,
             "generate_reply": nodes.generate_reply_node,
         },
+        "edges": [
+            ("entry", "classify"),
+            ("classify", "retrieve_context", "일반 대화"),
+            ("classify", None, "handoff"),
+            ("retrieve_context", "plan_response"),
+            ("plan_response", "generate_reply"),
+        ],
         "router": routing.route_next_node,
     }

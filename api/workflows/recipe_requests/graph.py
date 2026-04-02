@@ -16,5 +16,9 @@ def build_graph() -> dict[str, object]:
             "collect_slots": nodes.collect_slots_node,
             "confirm_request": nodes.confirm_request_node,
         },
+        "edges": [
+            ("entry", "collect_slots"),
+            ("collect_slots", "confirm_request"),
+        ],
         "router": routing.route_next_node,
     }

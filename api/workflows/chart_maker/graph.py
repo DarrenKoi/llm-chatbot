@@ -16,5 +16,9 @@ def build_graph() -> dict[str, object]:
             "collect_requirements": nodes.collect_requirements_node,
             "build_spec": nodes.build_spec_node,
         },
+        "edges": [
+            ("entry", "collect_requirements"),
+            ("collect_requirements", "build_spec"),
+        ],
         "router": routing.route_next_node,
     }

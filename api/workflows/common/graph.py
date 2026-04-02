@@ -18,5 +18,11 @@ def build_graph() -> dict[str, object]:
             "collect_attachment": nodes.collect_attachment_node,
             "human_handoff": nodes.human_handoff_node,
         },
+        "edges": [
+            ("entry", "verify_user"),
+            ("verify_user", "confirm"),
+            ("confirm", "collect_attachment"),
+            ("collect_attachment", "human_handoff"),
+        ],
         "router": routing.route_next_node,
     }
