@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Literal
@@ -26,7 +24,6 @@ def get_monitoring_snapshot() -> dict[str, object]:
         _check_cube_queue_redis(),
         _check_scheduler_redis(),
         _check_file_delivery_redis(),
-        _check_scan_member_info_redis(),
     ]
     return {
         "checked_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -113,25 +110,6 @@ def _check_file_delivery_redis() -> MonitorEntry:
         redis_url=config.FILE_DELIVERY_REDIS_URL,
         allow_fallback=True,
         empty_detail="FILE_DELIVERY_REDIS_URL 이 없어 파일 메타데이터는 메모리 백엔드로 동작합니다.",
-    )
-
-
-def _check_scan_member_info_redis() -> MonitorEntry:
-    if not config.SCAN_MEMBER_INFO_ENABLED:
-        return MonitorEntry(
-            name="Member Info Batch",
-            backend="Redis",
-            tone="disabled",
-            status="disabled",
-            target=_mask_url(config.SCAN_MEMBER_INFO_REDIS_URL),
-            detail="SCAN_MEMBER_INFO_ENABLED 가 꺼져 있어 배치 상태 저장소를 사용하지 않습니다.",
-        )
-
-    return _check_redis_component(
-        name="Member Info Batch",
-        redis_url=config.SCAN_MEMBER_INFO_REDIS_URL,
-        allow_fallback=False,
-        empty_detail="SCAN_MEMBER_INFO_REDIS_URL 이 없어 배치 상태를 저장할 수 없습니다.",
     )
 
 

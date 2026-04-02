@@ -141,9 +141,7 @@ def _register_task_package(scheduler, package_path: str) -> None:
         logger.exception("Failed to register scheduler tasks from '%s' via @scheduled_job.", task_mod_name)
 
 
-_TASK_PACKAGES = [
-    "api.scheduled_tasks.scan_member_info",
-]
+_TASK_PACKAGES: list[str] = []
 
 
 def discover_and_register(scheduler) -> None:

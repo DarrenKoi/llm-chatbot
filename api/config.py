@@ -65,22 +65,6 @@ SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS = int(os.environ.get("SCHEDULER_LOCK_RENEW
 SCHEDULER_JOB_MISFIRE_GRACE_SECONDS = int(os.environ.get("SCHEDULER_JOB_MISFIRE_GRACE_SECONDS", 60))
 SCHEDULER_WORKER_IDLE_SECONDS = int(os.environ.get("SCHEDULER_WORKER_IDLE_SECONDS", 60))
 
-# Scan member info batch scheduler
-SCAN_MEMBER_INFO_ENABLED = os.environ.get("SCAN_MEMBER_INFO_ENABLED", "").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
-SCAN_MEMBER_INFO_REDIS_URL = os.environ.get(
-    "SCAN_MEMBER_INFO_REDIS_URL",
-    SCHEDULER_REDIS_URL or REDIS_FALLBACK_URL or REDIS_URL,
-)
-SCAN_MEMBER_INFO_STATE_KEY = os.environ.get("SCAN_MEMBER_INFO_STATE_KEY", "scan_member_info:state")
-SCAN_MEMBER_INFO_BATCH_SIZE = int(os.environ.get("SCAN_MEMBER_INFO_BATCH_SIZE", 500))
-SCAN_MEMBER_INFO_INTERVAL_MINUTES = int(os.environ.get("SCAN_MEMBER_INFO_INTERVAL_MINUTES", 432))
-SCAN_MEMBER_INFO_DUMMY_TOTAL_COUNT = int(os.environ.get("SCAN_MEMBER_INFO_DUMMY_TOTAL_COUNT", 50000))
-
 # Logging
 LOG_DIR = Path(os.environ.get("LOG_DIR", str(BASE_DIR / "logs"))).expanduser()
 LOG_TIMEZONE = os.environ.get("LOG_TIMEZONE", "Asia/Seoul")

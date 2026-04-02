@@ -91,7 +91,6 @@ MCP 서버/도구 관련 코드가 모여 있다.
 - `_registry.py`: 작업 탐색 및 등록
 - `_lock.py`: Redis 기반 분산 락 실행
 - `tasks/`: 일반 스케줄 작업 모음
-- `scan_member_info/`: 회원 정보 스캔 배치 작업
 
 ### `api/html_templates/`
 

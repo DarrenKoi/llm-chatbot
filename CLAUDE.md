@@ -20,7 +20,6 @@ Flask-based Cube integration server with conversation persistence and CDN suppor
 - `api/conversation_service.py` — conversation history storage
 - `api/scheduled_tasks/` — scheduler infrastructure (lock, registry) and task packages
 - `api/scheduled_tasks/tasks/` — auto-discovered simple tasks (cleanup, etc.)
-- `api/scheduled_tasks/scan_member_info/` — hynix member info batch scan (service + task)
 
 ## Dev Environment
 
