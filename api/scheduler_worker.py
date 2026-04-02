@@ -1,4 +1,5 @@
 import argparse
+import os
 import time
 
 from api.utils.logger import log_activity, setup_logging
@@ -12,10 +13,16 @@ def run_scheduler_worker() -> None:
     start_scheduler()
     log_activity(
         "scheduler_worker_started",
+        pid=os.getpid(),
         idle_seconds=IDLE_SECONDS,
     )
 
     while True:
+        log_activity(
+            "scheduler_worker_heartbeat",
+            pid=os.getpid(),
+            idle_seconds=IDLE_SECONDS,
+        )
         time.sleep(IDLE_SECONDS)
 
 

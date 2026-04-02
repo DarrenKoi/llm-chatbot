@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="refresh" content="30">
-  <title>DB Monitor</title>
+  <title>Service Monitor</title>
   <style>
     * { box-sizing: border-box; margin: 0; }
 
@@ -214,8 +214,8 @@
   <div class="container">
     <section class="hero">
       <div>
-        <h1>DB Monitor</h1>
-        <p>이 페이지는 현재 앱에서 사용하는 MongoDB / Redis 연결 상태를 30초마다 다시 확인합니다.</p>
+        <h1>Service Monitor</h1>
+        <p>이 페이지는 MongoDB, Redis, 그리고 dedicated daemon(worker) 상태를 30초마다 다시 확인합니다.</p>
       </div>
       <div class="actions">
         <span class="checked-at">마지막 확인: {{ snapshot.checked_at }}</span>

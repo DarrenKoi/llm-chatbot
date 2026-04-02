@@ -31,6 +31,11 @@
 - `wsgi.ini`에서 `reload-mercy=0`, `worker-reload-mercy=0`으로 설정해 `touch-reload` 시 실행 중 스케줄러 잡을 즉시 종료하고 빠르게 재시작한다.
 - 현재 기본 웹앱 동시성은 `workers=2`, `threads=4`이며, 별도 `cube_worker.py` / `scheduler_worker.py` daemon과 분리해 운영한다.
 
+## 모니터링 규칙
+- `/monitor`는 `REDIS_URL` ping 결과를 `Primary Redis` 항목으로 표시한다.
+- `/monitor`의 daemon 상태는 activity log의 `*_worker_started`, `*_worker_heartbeat` 이벤트 시각으로 판별한다.
+- `cube_worker.py`, `scheduler_worker.py`는 주기적으로 heartbeat 이벤트를 남겨 모니터링 페이지에서 running/stale/not running 상태를 계산할 수 있어야 한다.
+
 ## File Delivery 규칙
 - 파일 전달 업로드/조회 엔드포인트:
   - `POST /api/v1/file-delivery/upload` (multipart/form-data)
