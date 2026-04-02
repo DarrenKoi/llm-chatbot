@@ -129,6 +129,43 @@ def test_translator_workflow_resumes_after_follow_up_answer():
     assert state.data["translated"] == "Hello"
 
 
+def test_translator_workflow_reuses_previous_source_for_language_only_follow_up():
+    """완료 직후 언어만 바꿔 요청하면 직전 원문을 다시 사용한다."""
+
+    state = _make_state()
+    first_reply = run_graph(build_graph(), state, '"안녕하세요"를 일본어로 번역해줘')
+
+    assert first_reply == "こんにちは\n(한국어 발음: 곤니치와)"
+    assert state.status == "completed"
+    assert state.node_id == "entry"
+
+    second_reply = run_graph(build_graph(), state, "이번엔 영어로 번역해줘")
+
+    assert second_reply == "Hello"
+    assert state.status == "completed"
+    assert state.data["source_text"] == "안녕하세요"
+    assert state.data["target_language"] == "en"
+    assert state.data["translation_direction"] == "ko→en"
+
+
+def test_translator_workflow_does_not_reuse_previous_target_for_new_source_text():
+    """완료 후 새 원문만 주어지면 이전 목표 언어를 재사용하지 않는다."""
+
+    state = _make_state()
+    first_reply = run_graph(build_graph(), state, '"안녕하세요"를 일본어로 번역해줘')
+
+    assert first_reply == "こんにちは\n(한국어 발음: 곤니치와)"
+    assert state.status == "completed"
+
+    second_reply = run_graph(build_graph(), state, '"감사합니다" 번역해줘')
+
+    assert "영어 또는 일본어" in second_reply
+    assert state.status == "waiting_user_input"
+    assert state.node_id == "collect_target_language"
+    assert state.data["source_text"] == "감사합니다"
+    assert state.data["target_language"] == ""
+
+
 def test_handle_message_with_translator_workflow_waits_for_clarification():
     """handle_message 경유 시에도 재질문 응답과 waiting 상태가 저장된다."""
 

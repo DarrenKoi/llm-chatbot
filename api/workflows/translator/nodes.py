@@ -27,6 +27,38 @@ _LANGUAGE_LABELS = {
     "ja": "일본어",
 }
 _QUOTED_TEXT_PATTERN = re.compile(r"""["']([^"']+)["']""")
+_FOLLOW_UP_SOURCE_PATTERNS = (
+    r"(?i)\bthis time\b",
+    r"(?i)\bas well\b",
+)
+_FOLLOW_UP_SOURCE_TOKENS = {
+    "again",
+    "also",
+    "aswell",
+    "please",
+    "pls",
+    "plz",
+    "then",
+    "this",
+    "time",
+    "too",
+    "version",
+    "그럼",
+    "그러면",
+    "다시",
+    "도",
+    "또",
+    "또는",
+    "로도",
+    "버전",
+    "부탁드려요",
+    "부탁드립니다",
+    "부탁해",
+    "부탁해요",
+    "이번엔",
+    "이번에는",
+    "정도",
+}
 
 
 def entry_node(state: TranslatorWorkflowState, user_message: str) -> NodeResult:
@@ -83,6 +115,7 @@ def translate_node(state: TranslatorWorkflowState, user_message: str) -> NodeRes
     return NodeResult(
         action="complete",
         reply=reply,
+        next_node_id="entry",
         data_updates={
             "source_language": source_language,
             "translation_direction": direction,
@@ -94,9 +127,11 @@ def translate_node(state: TranslatorWorkflowState, user_message: str) -> NodeRes
 
 
 def _resolve_translation_request(state: TranslatorWorkflowState, user_message: str) -> NodeResult:
-    source_text = state.source_text or state.data.get("source_text", "")
-    target_language = state.target_language or state.data.get("target_language", "")
+    previous_source_text = state.source_text or state.data.get("source_text", "")
+    previous_target_language = state.target_language or state.data.get("target_language", "")
     last_asked_slot = state.last_asked_slot or state.data.get("last_asked_slot", "")
+    source_text = previous_source_text
+    target_language = previous_target_language
 
     parsed_source_text, parsed_target_language = _parse_translation_request(user_message)
 
@@ -106,6 +141,11 @@ def _resolve_translation_request(state: TranslatorWorkflowState, user_message: s
     elif last_asked_slot == "target_language":
         if parsed_target_language:
             target_language = parsed_target_language
+    elif state.status == "completed":
+        source_text = parsed_source_text
+        target_language = parsed_target_language
+        if not source_text and target_language and previous_source_text:
+            source_text = previous_source_text
     else:
         if parsed_source_text:
             source_text = parsed_source_text
@@ -171,7 +211,14 @@ def _extract_source_text(user_message: str, *, target_language: str) -> str:
         cleaned = re.sub(_build_language_alias_pattern(alias), " ", cleaned, flags=re.IGNORECASE)
 
     cleaned = re.sub(r"[?.,!]", " ", cleaned)
+    for pattern in _FOLLOW_UP_SOURCE_PATTERNS:
+        cleaned = re.sub(pattern, " ", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    cleaned = " ".join(
+        token
+        for token in cleaned.split()
+        if token.lower() not in _FOLLOW_UP_SOURCE_TOKENS
+    ).strip()
 
     if target_language:
         label = _LANGUAGE_LABELS.get(target_language, "")
@@ -181,7 +228,7 @@ def _extract_source_text(user_message: str, *, target_language: str) -> str:
     return cleaned
 
 
-_POSTPOSITIONS = r"(?:로|를|은|는|의|에서|에|가|도|와|과)?"
+_POSTPOSITIONS = r"(?:으로(?:도|는|만)?|로(?:도|는|만)?|를|은|는|의|에서|에|가|도|와|과)?"
 
 
 def _build_language_alias_pattern(alias: str) -> str:
