@@ -7,7 +7,7 @@
 - `index.py`: 로컬 개발용 Flask 앱 실행 파일
 - `scheduler_worker.py`: APScheduler 전용 별도 프로세스 진입점
 - `cube_worker.py`: Cube 큐 소비 워커 진입점
-- `wsgi.ini`: uWSGI 실행 설정
+- `wsgi.ini`: uWSGI 실행 설정. `attach-daemon` 으로 `cube_worker.py`, `scheduler_worker.py`를 함께 띄우는 운영 구성을 담는다.
 - `requirements.txt`: Python 의존성 목록
 - `README.md`: 프로젝트 개요와 실행 방법
 

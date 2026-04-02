@@ -96,7 +96,7 @@ def _check_scheduler_redis() -> MonitorEntry:
             tone="disabled",
             status="disabled",
             target=_mask_url(config.SCHEDULER_REDIS_URL),
-            detail="APP_START_SCHEDULER 가 꺼져 있어 스케줄러 락 저장소를 사용하지 않습니다.",
+            detail="웹 앱의 APP_START_SCHEDULER 가 꺼져 있습니다. dedicated scheduler_worker.py 를 별도 프로세스로 실행하는 구성이면 정상입니다.",
         )
 
     return _check_redis_component(

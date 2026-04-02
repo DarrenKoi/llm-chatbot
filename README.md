@@ -38,4 +38,6 @@ SCAN_MEMBER_INFO_INTERVAL_MINUTES=432
 SCAN_MEMBER_INFO_DUMMY_TOTAL_COUNT=50000
 ```
 
+When `wsgi.ini` uses `attach-daemon = python scheduler_worker.py`, keep `APP_START_SCHEDULER=false` so only the dedicated scheduler daemon owns APScheduler. This avoids starting extra schedulers inside each Flask web worker.
+
 `432` minutes is a 30-day cycle target for `50,000 / 500 = 100` runs.
