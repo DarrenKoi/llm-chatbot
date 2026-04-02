@@ -4,8 +4,6 @@
 MCP 번역 도구를 호출한다.
 """
 
-from __future__ import annotations
-
 import logging
 import re
 
@@ -19,13 +17,10 @@ log = logging.getLogger(__name__)
 _LANGUAGE_ALIASES = {
     "english": "en",
     "eng": "en",
-    "en": "en",
     "영어": "en",
     "일본어": "ja",
     "일어": "ja",
     "japanese": "ja",
-    "japan": "ja",
-    "ja": "ja",
 }
 _LANGUAGE_LABELS = {
     "en": "영어",
@@ -101,12 +96,21 @@ def translate_node(state: SampleWorkflowState, user_message: str) -> NodeResult:
 def _resolve_translation_request(state: SampleWorkflowState, user_message: str) -> NodeResult:
     source_text = state.source_text or state.data.get("source_text", "")
     target_language = state.target_language or state.data.get("target_language", "")
+    last_asked_slot = state.last_asked_slot or state.data.get("last_asked_slot", "")
 
     parsed_source_text, parsed_target_language = _parse_translation_request(user_message)
-    if parsed_source_text:
-        source_text = parsed_source_text
-    if parsed_target_language:
-        target_language = parsed_target_language
+
+    if last_asked_slot == "source_text":
+        if parsed_source_text:
+            source_text = parsed_source_text
+    elif last_asked_slot == "target_language":
+        if parsed_target_language:
+            target_language = parsed_target_language
+    else:
+        if parsed_source_text:
+            source_text = parsed_source_text
+        if parsed_target_language:
+            target_language = parsed_target_language
 
     data_updates = {
         "source_text": source_text,
@@ -144,8 +148,9 @@ def _parse_translation_request(user_message: str) -> tuple[str, str]:
 
 
 def _extract_target_language(user_message: str) -> str:
+    stripped = _QUOTED_TEXT_PATTERN.sub("", user_message)
     for alias, language_code in sorted(_LANGUAGE_ALIASES.items(), key=lambda item: len(item[0]), reverse=True):
-        if re.search(_build_language_alias_pattern(alias), user_message, flags=re.IGNORECASE):
+        if re.search(_build_language_alias_pattern(alias), stripped, flags=re.IGNORECASE):
             return language_code
     return ""
 
@@ -176,7 +181,11 @@ def _extract_source_text(user_message: str, *, target_language: str) -> str:
     return cleaned
 
 
+_POSTPOSITIONS = r"(?:로|를|은|는|의|에서|에|가|도|와|과)?"
+
+
 def _build_language_alias_pattern(alias: str) -> str:
     if alias.isascii():
         return rf"\b{re.escape(alias)}\b"
-    return re.escape(alias)
+    escaped = re.escape(alias)
+    return rf"(?<![가-힣]){escaped}{_POSTPOSITIONS}(?![가-힣])"
