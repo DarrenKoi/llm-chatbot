@@ -2,6 +2,7 @@ from unittest.mock import call, patch
 
 import pytest
 
+from api import config
 from api.cube.queue import CubeQueueError
 from api.cube.service import (
     CubePayloadError,
@@ -153,7 +154,12 @@ def test_handle_cube_message_success(
         call("u1", {"role": "user", "content": "hello"}),
         call("u1", {"role": "assistant", "content": "nice to meet you"}),
     ]
-    mock_send_multimessage.assert_called_once_with(
+    assert mock_send_multimessage.call_count == 2
+    mock_send_multimessage.assert_any_call(
+        user_id="u1",
+        reply_message=config.LLM_THINKING_MESSAGE,
+    )
+    mock_send_multimessage.assert_any_call(
         user_id="u1",
         reply_message="nice to meet you",
     )
@@ -223,4 +229,8 @@ def test_handle_cube_message_raises_when_llm_fails(
 
     mock_get_history.assert_called_once_with("u1")
     mock_append_message.assert_called_once_with("u1", {"role": "user", "content": "hello"})
-    mock_send_multimessage.assert_not_called()
+    # thinking message is sent before LLM call, so it should still be called once
+    mock_send_multimessage.assert_called_once_with(
+        user_id="u1",
+        reply_message=config.LLM_THINKING_MESSAGE,
+    )

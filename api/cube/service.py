@@ -2,6 +2,7 @@ import json
 import logging
 from typing import Any
 
+from api import config
 from api.conversation_service import append_message, get_history
 from api.cube.client import CubeClientError, send_multimessage
 from api.cube.models import CubeAcceptedMessage, CubeHandledMessage, CubeIncomingMessage, CubeQueuedMessage
@@ -182,6 +183,17 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
         conversation_length=len(history) + 1,
         queue_attempt=attempt,
     )
+
+    if config.LLM_THINKING_MESSAGE:
+        try:
+            send_multimessage(user_id=incoming.user_id, reply_message=config.LLM_THINKING_MESSAGE)
+        except CubeClientError:
+            log_activity(
+                "cube_thinking_message_failed",
+                level="WARNING",
+                user_id=incoming.user_id,
+                message_id=incoming.message_id,
+            )
 
     try:
         llm_reply = generate_reply(history=history, user_message=incoming.message)

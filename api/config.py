@@ -33,6 +33,7 @@ LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
 LLM_MODEL = os.environ.get("LLM_MODEL", "")
 LLM_SYSTEM_PROMPT_OVERRIDE = os.environ.get("LLM_SYSTEM_PROMPT_OVERRIDE", "")
 LLM_TIMEOUT_SECONDS = int(os.environ.get("LLM_TIMEOUT_SECONDS", 30))
+LLM_THINKING_MESSAGE = os.environ.get("LLM_THINKING_MESSAGE", "잠시만요, 답변을 준비하고 있어요... 🤔")
 
 # Flask
 APP_NAME = os.environ.get("APP_NAME", "llm_chatbot")
