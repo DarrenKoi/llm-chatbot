@@ -35,7 +35,7 @@ LLM_SYSTEM_PROMPT_OVERRIDE = os.environ.get("LLM_SYSTEM_PROMPT_OVERRIDE", "")
 LLM_TIMEZONE = os.environ.get("LLM_TIMEZONE", "Asia/Seoul")
 LLM_TIMEOUT_SECONDS = int(os.environ.get("LLM_TIMEOUT_SECONDS", 30))
 LLM_THINKING_MESSAGE = os.environ.get("LLM_THINKING_MESSAGE", "잠시만요, 답변을 준비하고 있어요... 🤔")
-LLM_THINKING_MESSAGE_DELAY_SECONDS = float(os.environ.get("LLM_THINKING_MESSAGE_DELAY_SECONDS", "1.5"))
+LLM_THINKING_MESSAGE_DELAY_SECONDS = float(os.environ.get("LLM_THINKING_MESSAGE_DELAY_SECONDS", "5"))
 
 # Flask
 APP_NAME = os.environ.get("APP_NAME", "llm_chatbot")
