@@ -86,16 +86,6 @@ def _check_cube_queue_redis() -> MonitorEntry:
 
 
 def _check_scheduler_redis() -> MonitorEntry:
-    if not config.APP_START_SCHEDULER:
-        return MonitorEntry(
-            name="Scheduler Lock",
-            backend="Redis",
-            tone="disabled",
-            status="disabled",
-            target=_mask_url(config.SCHEDULER_REDIS_URL),
-            detail="웹 앱의 APP_START_SCHEDULER 가 꺼져 있습니다. dedicated scheduler_worker.py 를 별도 프로세스로 실행하는 구성이면 정상입니다.",
-        )
-
     return _check_redis_component(
         name="Scheduler Lock",
         redis_url=config.SCHEDULER_REDIS_URL,

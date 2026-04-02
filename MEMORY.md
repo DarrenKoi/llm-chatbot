@@ -25,7 +25,7 @@
 - 락/잡 제어는 `SCHEDULER_LOCK_TTL_SECONDS`, `SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS`, `SCHEDULER_JOB_MISFIRE_GRACE_SECONDS`로 조정한다.
 - 현재 기본 `SCHEDULER_JOB_MISFIRE_GRACE_SECONDS`는 `60`으로, 서버 재기동 후 과거 스케줄 catch-up 실행을 최소화한다.
 - Redis 잠금 백엔드가 없으면 안전을 위해 스케줄러 잡 실행을 스킵한다.
-- 운영에서는 `wsgi.ini`의 `attach-daemon = python scheduler_worker.py`가 APScheduler 전용 프로세스를 담당하므로, 웹 앱 환경 변수 `APP_START_SCHEDULER`는 `false`로 유지한다.
+- 스케줄러는 `wsgi.ini`의 `attach-daemon = python scheduler_worker.py`로 전용 프로세스에서만 실행된다. 웹 앱은 스케줄러를 시작하지 않는다.
 
 ## uWSGI 재시작 정책
 - `wsgi.ini`에서 `reload-mercy=0`, `worker-reload-mercy=0`으로 설정해 `touch-reload` 시 실행 중 스케줄러 잡을 즉시 종료하고 빠르게 재시작한다.

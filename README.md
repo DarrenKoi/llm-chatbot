@@ -22,10 +22,8 @@ The local dev server listens on fixed port `5000`.
 
 ## Dedicated Scheduler Worker
 
-Run APScheduler as a separate process instead of inside the Flask web workers:
+`wsgi.ini` attaches `scheduler_worker.py` as a dedicated daemon (`attach-daemon`). The web app never starts a scheduler — only the daemon process owns APScheduler.
 
 ```bash
 python scheduler_worker.py
 ```
-
-When `wsgi.ini` uses `attach-daemon = python scheduler_worker.py`, keep `APP_START_SCHEDULER=false` so only the dedicated scheduler daemon owns APScheduler. This avoids starting extra schedulers inside each Flask web worker.

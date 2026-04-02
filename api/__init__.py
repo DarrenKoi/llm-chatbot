@@ -12,15 +12,12 @@ from api.conversation_service import get_recent_messages
 from api.cube.payload import extract_user_id
 from api.monitoring_service import get_monitoring_snapshot
 from api.utils.logger import log_activity, setup_logging
-from api.scheduled_tasks import start_scheduler
 from api.workflows.graph_visualizer import build_workflow_html, list_workflow_ids
 
 
 def create_application() -> Flask:
     """Create and configure the Flask application."""
     setup_logging()
-    if config.APP_START_SCHEDULER:
-        start_scheduler()
 
     template_directory = Path(__file__).resolve().parent / "html_templates"
     app = Flask(__name__, template_folder=str(template_directory))

@@ -38,8 +38,6 @@ LLM_THINKING_MESSAGE = os.environ.get("LLM_THINKING_MESSAGE", "잠시만요, 답
 # Flask
 APP_NAME = os.environ.get("APP_NAME", "llm_chatbot")
 APP_ENV = os.environ.get("APP_ENV", os.environ.get("FLASK_ENV", "development"))
-APP_START_SCHEDULER = os.environ.get("APP_START_SCHEDULER", "").strip().lower() in {"1", "true", "yes", "on"}
-
 # MongoDB (conversation storage; empty = in-memory fallback)
 AFM_MONGO_URI = os.environ.get("AFM_MONGO_URI", "")
 AFM_DB_NAME = os.environ.get("AFM_DB_NAME", "itc-afm-data-platform-mongodb")
