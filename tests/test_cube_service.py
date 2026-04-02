@@ -147,7 +147,7 @@ def test_handle_cube_message_success(
     assert result.llm_reply == "nice to meet you"
     mock_get_history.assert_called_once_with("u1")
     assert mock_handle_workflow_message.call_count == 1
-    incoming = mock_handle_workflow_message.call_args.kwargs["incoming"]
+    incoming = mock_handle_workflow_message.call_args.args[0]
     assert incoming.user_id == "u1"
     assert incoming.message == "hello"
     assert mock_handle_workflow_message.call_args.kwargs["attempt"] == 0
