@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="refresh" content="30">
+  <title>Scheduled Tasks</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; }
+
+    :root {
+      --bg-top: #f1efe8;
+      --bg-bottom: #e1ebef;
+      --card-bg: rgba(255, 253, 249, 0.9);
+      --line: rgba(26, 41, 36, 0.08);
+      --text: #172625;
+      --muted: #5f6d69;
+      --ok-bg: rgba(41, 121, 90, 0.14);
+      --ok-text: #1b6245;
+      --warn-bg: rgba(194, 130, 46, 0.18);
+      --warn-text: #8a5b19;
+      --error-bg: rgba(186, 69, 59, 0.16);
+      --error-text: #8e2f28;
+      --disabled-bg: rgba(97, 108, 102, 0.14);
+      --disabled-text: #4f5d55;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: "Avenir Next", "Segoe UI", "Apple SD Gothic Neo", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top left, rgba(26, 124, 104, 0.10), transparent 28%),
+        linear-gradient(145deg, var(--bg-top), var(--bg-bottom));
+      padding: 2.5rem 1rem 3rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1120px;
+      margin: 0 auto;
+    }
+
+    .hero,
+    .summary-grid,
+    .config-grid,
+    .task-list {
+      margin-bottom: 1.25rem;
+    }
+
+    .hero,
+    .summary-card,
+    .config-card,
+    .task-card {
+      background: var(--card-bg);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      border-radius: 1.35rem;
+      box-shadow: 0 16px 36px rgba(34, 45, 40, 0.08);
+      backdrop-filter: blur(8px);
+    }
+
+    .hero {
+      padding: 1.4rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: flex-start;
+    }
+
+    .hero h1 {
+      font-size: clamp(1.85rem, 4vw, 2.7rem);
+      margin-bottom: 0.55rem;
+    }
+
+    .hero p,
+    .config-value,
+    .meta-value,
+    .detail-text,
+    .history-item {
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 0.7rem;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .link-btn,
+    .pill,
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+
+    .link-btn {
+      padding: 0.7rem 1rem;
+      text-decoration: none;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.7);
+      font-size: 0.92rem;
+    }
+
+    .checked-at {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    .summary-grid,
+    .config-grid {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .summary-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .config-grid {
+      grid-template-columns: 1.2fr 1fr;
+    }
+
+    .summary-card,
+    .config-card {
+      padding: 1.15rem 1.2rem;
+    }
+
+    .summary-label,
+    .config-label,
+    .meta-label,
+    .detail-label,
+    .history-label {
+      color: var(--muted);
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .summary-value {
+      font-size: 1.85rem;
+      font-weight: 700;
+      margin-top: 0.35rem;
+    }
+
+    .config-card h2 {
+      font-size: 1.05rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .config-rows,
+    .detail-grid {
+      display: grid;
+      gap: 0.8rem;
+    }
+
+    .config-row,
+    .detail-item {
+      padding-top: 0.8rem;
+      border-top: 1px solid var(--line);
+    }
+
+    .config-row:first-child,
+    .detail-item:first-child {
+      padding-top: 0;
+      border-top: none;
+    }
+
+    .badge {
+      min-width: 7rem;
+      padding: 0.35rem 0.7rem;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+    }
+
+    .badge-ok { background: var(--ok-bg); color: var(--ok-text); }
+    .badge-warning { background: var(--warn-bg); color: var(--warn-text); }
+    .badge-error { background: var(--error-bg); color: var(--error-text); }
+    .badge-disabled { background: var(--disabled-bg); color: var(--disabled-text); }
+
+    .task-list {
+      display: grid;
+      gap: 1rem;
+    }
+
+    .task-card {
+      padding: 1.25rem 1.3rem;
+    }
+
+    .task-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .task-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+    }
+
+    .meta-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.55rem;
+      margin-bottom: 1rem;
+    }
+
+    .pill {
+      padding: 0.45rem 0.75rem;
+      background: rgba(22, 42, 38, 0.05);
+      color: var(--text);
+      font-size: 0.84rem;
+      font-weight: 600;
+    }
+
+    .detail-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      margin-bottom: 1rem;
+    }
+
+    .detail-text {
+      margin-top: 0.35rem;
+      word-break: break-word;
+      font-size: 0.93rem;
+    }
+
+    .history-list {
+      display: grid;
+      gap: 0.55rem;
+      margin-top: 0.7rem;
+    }
+
+    .history-item {
+      padding: 0.75rem 0.85rem;
+      border-radius: 1rem;
+      background: rgba(22, 42, 38, 0.04);
+      font-size: 0.9rem;
+    }
+
+    .history-head {
+      display: flex;
+      gap: 0.6rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 0.3rem;
+    }
+
+    .empty-state {
+      padding: 1.4rem;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    @media (max-width: 980px) {
+      .summary-grid,
+      .config-grid,
+      .detail-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 720px) {
+      .hero,
+      .task-top {
+        flex-direction: column;
+      }
+
+      .hero-actions {
+        justify-content: flex-start;
+      }
+
+      .summary-grid,
+      .config-grid,
+      .detail-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="hero">
+      <div>
+        <h1>Scheduled Tasks</h1>
+        <p>등록된 APScheduler 잡, 전용 scheduler worker heartbeat, Redis 분산 락 상태, 그리고 최근 실행 이력을 한 화면에서 확인합니다.</p>
+      </div>
+      <div class="hero-actions">
+        <span class="checked-at">마지막 확인: {{ snapshot.checked_at }}</span>
+        <span class="badge badge-{{ snapshot.worker.tone }}">{{ snapshot.worker.status }}</span>
+        <a class="link-btn" href="/">메인 페이지</a>
+        <a class="link-btn" href="/monitor">Service Monitor</a>
+        <a class="link-btn" href="/scheduled_tasks">새로고침</a>
+      </div>
+    </section>
+
+    <section class="summary-grid">
+      <div class="summary-card">
+        <div class="summary-label">Configured Jobs</div>
+        <div class="summary-value">{{ snapshot.summary.configured_jobs }}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Running Now</div>
+        <div class="summary-value">{{ snapshot.summary.running_jobs }}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">Recent Failures</div>
+        <div class="summary-value">{{ snapshot.summary.recent_failures }}</div>
+      </div>
+      <div class="summary-card">
+        <div class="summary-label">No History</div>
+        <div class="summary-value">{{ snapshot.summary.no_history }}</div>
+      </div>
+    </section>
+
+    <section class="config-grid">
+      <div class="config-card">
+        <h2>Scheduler Worker</h2>
+        <div class="config-rows">
+          <div class="config-row">
+            <div class="config-label">Target</div>
+            <div class="config-value">{{ snapshot.worker.target }}</div>
+          </div>
+          <div class="config-row">
+            <div class="config-label">Detail</div>
+            <div class="config-value">{{ snapshot.worker.detail }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="config-card">
+        <h2>Scheduler Config</h2>
+        <div class="config-rows">
+          <div class="config-row">
+            <div class="config-label">Redis</div>
+            <div class="config-value">{{ snapshot.config.redis_url }}</div>
+          </div>
+          <div class="config-row">
+            <div class="config-label">Lock Prefix</div>
+            <div class="config-value">{{ snapshot.config.lock_prefix }}</div>
+          </div>
+          <div class="config-row">
+            <div class="config-label">Lock Backend</div>
+            <div class="config-value">
+              <span class="badge badge-{{ snapshot.config.lock_backend.tone }}">{{ snapshot.config.lock_backend.status }}</span>
+              <div class="detail-text">{{ snapshot.config.lock_backend.detail }}</div>
+            </div>
+          </div>
+          <div class="config-row">
+            <div class="config-label">Timing</div>
+            <div class="config-value">
+              lock TTL {{ snapshot.config.lock_ttl_seconds }}s · renew {{ snapshot.config.renew_interval_seconds }}s · misfire {{ snapshot.config.misfire_grace_time_seconds }}s · idle {{ snapshot.config.worker_idle_seconds }}s
+            </div>
+          </div>
+          {% if snapshot.config.inspection_error %}
+          <div class="config-row">
+            <div class="config-label">Inspection Error</div>
+            <div class="config-value">{{ snapshot.config.inspection_error }}</div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    <section class="task-list">
+      {% if snapshot.tasks %}
+        {% for task in snapshot.tasks %}
+        <article class="task-card">
+          <div class="task-top">
+            <div>
+              <div class="task-title">{{ task.id }}</div>
+              <div class="config-value">{{ task.callable }}</div>
+            </div>
+            <span class="badge badge-{{ task.runtime.tone }}">{{ task.runtime.status }}</span>
+          </div>
+
+          <div class="meta-row">
+            <span class="pill">trigger: {{ task.trigger }}</span>
+            <span class="pill">next: {{ task.next_run_at }}</span>
+            <span class="pill">lock: {% if task.uses_distributed_lock %}distributed{% else %}none{% endif %}</span>
+          </div>
+
+          <div class="detail-grid">
+            <div class="detail-item">
+              <div class="detail-label">Runtime</div>
+              <div class="detail-text">{{ task.runtime.detail }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Lock Key</div>
+              <div class="detail-text">{{ task.lock_key }}</div>
+            </div>
+            <div class="detail-item">
+              <div class="detail-label">Last Activity</div>
+              <div class="detail-text">
+                <span class="badge badge-{{ task.last_activity.tone }}">{{ task.last_activity.status }}</span>
+                {{ task.last_activity.occurred_at }}<br>
+                {{ task.last_activity.detail }}
+              </div>
+            </div>
+          </div>
+
+          <div class="history-label">Recent Activity</div>
+          <div class="history-list">
+            {% if task.history %}
+              {% for item in task.history %}
+              <div class="history-item">
+                <div class="history-head">
+                  <span class="badge badge-{{ item.tone }}">{{ item.status }}</span>
+                  <span>{{ item.occurred_at }}</span>
+                </div>
+                <div>{{ item.detail }}</div>
+              </div>
+              {% endfor %}
+            {% else %}
+              <div class="history-item">최근 실행 이력이 아직 없습니다.</div>
+            {% endif %}
+          </div>
+        </article>
+        {% endfor %}
+      {% else %}
+        <div class="task-card empty-state">등록된 scheduler 작업을 찾지 못했습니다.</div>
+      {% endif %}
+    </section>
+  </div>
+</body>
+</html>

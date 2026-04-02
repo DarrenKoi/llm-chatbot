@@ -1,9 +1,11 @@
 import logging
 import inspect
 import threading
+import time
 from typing import Callable
 
 from api import config
+from api.utils.logger import log_activity
 
 logger = logging.getLogger(__name__)
 
@@ -177,9 +179,11 @@ def _invoke_job(job_func: Callable, lock_lease: SchedulerJobLockLease) -> None:
 
 
 def run_locked_job(job_id: str, job_func: Callable[[], None]) -> None:
+    started_at = time.monotonic()
     redis_client = _get_scheduler_redis_client()
     if redis_client is None:
         logger.error("Skipping scheduler job '%s': Redis lock backend unavailable.", job_id)
+        log_activity("scheduled_task_skipped", job_id=job_id, reason="redis_unavailable")
         return
 
     lock = _RedisDistributedLock(
@@ -190,12 +194,39 @@ def run_locked_job(job_id: str, job_func: Callable[[], None]) -> None:
     )
     if not lock.acquire():
         logger.info("Skipping scheduler job '%s': lock already held by another worker.", job_id)
+        log_activity("scheduled_task_skipped", job_id=job_id, reason="lock_held", lock_key=lock.lease.key)
         return
 
     try:
         lock.lease.ensure_held()
+        log_activity("scheduled_task_started", job_id=job_id, lock_key=lock.lease.key)
         _invoke_job(job_func, lock.lease)
     except SchedulerLockLost as exc:
         logger.warning("Aborting scheduler job '%s': %s", job_id, exc)
+        log_activity(
+            "scheduled_task_aborted",
+            job_id=job_id,
+            lock_key=lock.lease.key,
+            reason="lock_lost",
+            error=str(exc),
+            duration_ms=int((time.monotonic() - started_at) * 1000),
+        )
+    except Exception as exc:
+        log_activity(
+            "scheduled_task_failed",
+            level=logging.ERROR,
+            job_id=job_id,
+            lock_key=lock.lease.key,
+            error=str(exc),
+            duration_ms=int((time.monotonic() - started_at) * 1000),
+        )
+        raise
+    else:
+        log_activity(
+            "scheduled_task_completed",
+            job_id=job_id,
+            lock_key=lock.lease.key,
+            duration_ms=int((time.monotonic() - started_at) * 1000),
+        )
     finally:
         lock.release()

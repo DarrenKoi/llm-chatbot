@@ -9,6 +9,7 @@ from api.scheduled_tasks._lock import run_locked_job
 logger = logging.getLogger(__name__)
 
 _TASK_META_ATTR = "__scheduler_task_meta__"
+_RUNTIME_META_ATTR = "__scheduled_task_runtime_meta__"
 
 __all__ = ["discover_and_register", "scheduled_job"]
 
@@ -58,6 +59,15 @@ def _build_job_callable(job_func: Callable[[], None], lock_id: str, use_distribu
     def _locked() -> None:
         run_locked_job(lock_id, job_func)
 
+    setattr(
+        _locked,
+        _RUNTIME_META_ATTR,
+        {
+            "lock_id": lock_id,
+            "source": f"{job_func.__module__}.{job_func.__qualname__}",
+            "use_distributed_lock": use_distributed_lock,
+        },
+    )
     return _locked
 
 

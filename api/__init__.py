@@ -11,6 +11,7 @@ from api.blueprint_loader import discover_blueprints
 from api.conversation_service import get_recent_messages
 from api.cube.payload import extract_user_id
 from api.monitoring_service import get_monitoring_snapshot
+from api.scheduled_tasks.inspection import get_scheduled_tasks_snapshot
 from api.utils.logger import log_activity, setup_logging
 from api.workflows.graph_visualizer import build_workflow_html, list_workflow_ids
 
@@ -31,6 +32,11 @@ def create_application() -> Flask:
     def monitor() -> str:
         snapshot = get_monitoring_snapshot()
         return render_template("monitor.html", snapshot=snapshot)
+
+    @app.route("/scheduled_tasks", methods=["GET"])
+    def scheduled_tasks() -> str:
+        snapshot = get_scheduled_tasks_snapshot()
+        return render_template("scheduled_tasks.html", snapshot=snapshot)
 
     @app.route("/workflows", methods=["GET"])
     def workflow_list() -> str:

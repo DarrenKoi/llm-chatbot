@@ -5,6 +5,7 @@ from pathlib import Path
 
 from api import config
 from api.file_delivery import delete_file, get_expired_file_ids
+from api.scheduled_tasks._registry import _RUNTIME_META_ATTR
 from api.scheduled_tasks._lock import SchedulerJobLockLease, run_locked_job
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,15 @@ def register(scheduler) -> None:
     def _run_uwsgi_cleanup() -> None:
         run_locked_job("cleanup_uwsgi_logs", _cleanup_uwsgi_logs)
 
+    setattr(
+        _run_uwsgi_cleanup,
+        _RUNTIME_META_ATTR,
+        {
+            "lock_id": "cleanup_uwsgi_logs",
+            "source": f"{_cleanup_uwsgi_logs.__module__}.{_cleanup_uwsgi_logs.__qualname__}",
+            "use_distributed_lock": True,
+        },
+    )
     scheduler.add_job(
         _run_uwsgi_cleanup,
         id="cleanup_uwsgi_logs",
@@ -76,6 +86,18 @@ def register(scheduler) -> None:
     def _run_file_delivery_cleanup() -> None:
         run_locked_job("cleanup_file_delivery", _cleanup_expired_file_delivery_files)
 
+    setattr(
+        _run_file_delivery_cleanup,
+        _RUNTIME_META_ATTR,
+        {
+            "lock_id": "cleanup_file_delivery",
+            "source": (
+                f"{_cleanup_expired_file_delivery_files.__module__}."
+                f"{_cleanup_expired_file_delivery_files.__qualname__}"
+            ),
+            "use_distributed_lock": True,
+        },
+    )
     scheduler.add_job(
         _run_file_delivery_cleanup,
         id="cleanup_file_delivery",
