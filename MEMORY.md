@@ -12,6 +12,8 @@
 ## Cube 수신 처리 규칙
 - `api/cube/router.py`는 Cube 웹훅 메시지를 수신해 대화 이력에 사용자 메시지만 저장한다.
 - Tool calling 및 응답 생성은 별도 저장소에서 처리한다.
+- `api/cube/service.py`는 LLM 응답이 `LLM_THINKING_MESSAGE_DELAY_SECONDS`를 초과할 때만 `LLM_THINKING_MESSAGE`를 전송한다.
+- 현재 기본 `LLM_THINKING_MESSAGE_DELAY_SECONDS` 값은 `5`초다.
 
 ## Redis 사용 규칙
 - Redis 기반 기능은 기본적으로 `REDIS_URL` 단일 설정을 사용한다.
