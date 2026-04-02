@@ -137,9 +137,8 @@ def _parse_translation_request(user_message: str) -> tuple[str, str]:
 
 
 def _extract_target_language(user_message: str) -> str:
-    lowered = user_message.lower()
-    for alias, language_code in _LANGUAGE_ALIASES.items():
-        if alias in lowered:
+    for alias, language_code in sorted(_LANGUAGE_ALIASES.items(), key=lambda item: len(item[0]), reverse=True):
+        if re.search(_build_language_alias_pattern(alias), user_message, flags=re.IGNORECASE):
             return language_code
     return ""
 
@@ -157,7 +156,7 @@ def _extract_source_text(user_message: str, *, target_language: str) -> str:
     cleaned = re.sub(r"바꿔(줘|주세요)?", " ", cleaned)
 
     for alias in sorted(_LANGUAGE_ALIASES, key=len, reverse=True):
-        cleaned = re.sub(re.escape(alias), " ", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(_build_language_alias_pattern(alias), " ", cleaned, flags=re.IGNORECASE)
 
     cleaned = re.sub(r"[?.,!]", " ", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
@@ -168,3 +167,9 @@ def _extract_source_text(user_message: str, *, target_language: str) -> str:
             return ""
 
     return cleaned
+
+
+def _build_language_alias_pattern(alias: str) -> str:
+    if alias.isascii():
+        return rf"\b{re.escape(alias)}\b"
+    return re.escape(alias)

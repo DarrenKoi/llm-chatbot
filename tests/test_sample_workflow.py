@@ -82,6 +82,19 @@ def test_sample_workflow_completes_when_target_language_is_explicit():
     assert state.data["translation_direction"] == "ko→ja"
 
 
+def test_sample_workflow_completes_for_english_request():
+    """영문 요청도 목표 언어를 올바르게 파싱해 완료한다."""
+
+    state = _make_state()
+    reply = run_graph(build_graph(), state, 'translate "hello" to japanese')
+
+    assert reply == "こんにちは"
+    assert state.status == "completed"
+    assert state.data["source_text"] == "hello"
+    assert state.data["target_language"] == "ja"
+    assert state.data["translation_direction"] == "en→ja"
+
+
 def test_sample_workflow_waits_for_target_language_when_missing():
     """목표 언어가 없으면 재질문하고 waiting 상태로 멈춘다."""
 
