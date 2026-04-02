@@ -1,7 +1,5 @@
 """워크플로 패키지를 동적으로 발견하고 정의를 조회한다."""
 
-from __future__ import annotations
-
 import logging
 import pkgutil
 from collections.abc import Callable, Iterable

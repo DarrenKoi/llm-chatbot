@@ -1,7 +1,5 @@
 """AT wafer quota 워크플로 패키지."""
 
-from __future__ import annotations
-
 
 def get_workflow_definition() -> dict[str, object]:
     """at_wafer_quota 워크플로 정의를 반환한다."""

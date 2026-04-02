@@ -18,6 +18,7 @@
 - Follow Python conventions: 4-space indentation, `snake_case` for functions/variables, `PascalCase` for classes.
 - Keep route and service function names descriptive (`receive_cube`, `append_messages` style).
 - Prefer explicit type hints in new or changed code.
+- Do not use `from __future__ import annotations`; write annotations directly without that import.
 - Use `pathlib.Path` for file paths when adding/updating path logic.
 - Keep user-facing strings compatible with Korean-language workflows.
 

@@ -1,7 +1,5 @@
 """AT wafer quota 워크플로 노드 스텁을 정의한다."""
 
-from __future__ import annotations
-
 from api.workflows.at_wafer_quota.state import AtWaferQuotaWorkflowState
 from api.workflows.models import NodeResult
 

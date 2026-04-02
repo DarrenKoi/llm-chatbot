@@ -1,7 +1,5 @@
 """프레젠테이션 생성 워크플로 패키지."""
 
-from __future__ import annotations
-
 
 def get_workflow_definition() -> dict[str, object]:
     """ppt_maker 워크플로 정의를 반환한다."""

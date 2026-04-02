@@ -1,7 +1,5 @@
 """워크플로 상태의 저장·조회·삭제 스텁을 제공한다."""
 
-from __future__ import annotations
-
 import json
 from dataclasses import fields
 from pathlib import Path

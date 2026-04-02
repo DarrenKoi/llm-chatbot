@@ -1,7 +1,5 @@
 """차트 생성 워크플로 그래프 스텁을 정의한다."""
 
-from __future__ import annotations
-
 from api.workflows.chart_maker import nodes, routing
 
 

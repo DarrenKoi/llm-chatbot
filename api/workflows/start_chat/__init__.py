@@ -1,7 +1,5 @@
 """시작 대화 워크플로 패키지 — 모든 대화의 진입점."""
 
-from __future__ import annotations
-
 
 def get_workflow_definition() -> dict[str, object]:
     """start_chat 워크플로 정의를 반환한다."""

@@ -1,7 +1,5 @@
 """워크플로 공통 상태와 노드 결과 계약을 정의한다."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Any, Literal
 

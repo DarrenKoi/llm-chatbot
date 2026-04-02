@@ -1,7 +1,5 @@
 """AT wafer quota 워크플로 라우팅 규칙 스텁을 정의한다."""
 
-from __future__ import annotations
-
 from api.workflows.at_wafer_quota.state import AtWaferQuotaWorkflowState
 from api.workflows.models import NodeResult
 

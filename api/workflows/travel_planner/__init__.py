@@ -1,7 +1,5 @@
 """여행 계획 샘플 워크플로 패키지."""
 
-from __future__ import annotations
-
 
 def get_workflow_definition() -> dict[str, object]:
     """travel_planner 워크플로 정의를 반환한다."""

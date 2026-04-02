@@ -1,7 +1,5 @@
 """레시피 요청 워크플로 패키지."""
 
-from __future__ import annotations
-
 
 def get_workflow_definition() -> dict[str, object]:
     """recipe_requests 워크플로 정의를 반환한다."""

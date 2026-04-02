@@ -1,7 +1,5 @@
 """AT wafer quota 워크플로 그래프 스텁을 정의한다."""
 
-from __future__ import annotations
-
 from api.workflows.at_wafer_quota import nodes, routing
 
 

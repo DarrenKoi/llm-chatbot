@@ -1,7 +1,5 @@
 """번역 서비스를 위한 워크플로 패키지."""
 
-from __future__ import annotations
-
 
 def get_workflow_definition() -> dict[str, object]:
     """translator 워크플로 정의를 반환한다."""

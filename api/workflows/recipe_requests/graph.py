@@ -1,7 +1,5 @@
 """레시피 요청 워크플로 그래프 스텁을 정의한다."""
 
-from __future__ import annotations
-
 from api.workflows.recipe_requests import nodes, routing
 
 

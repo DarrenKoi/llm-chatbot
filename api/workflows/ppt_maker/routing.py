@@ -1,7 +1,5 @@
 """프레젠테이션 생성 워크플로 라우팅 규칙 스텁을 정의한다."""
 
-from __future__ import annotations
-
 from api.workflows.models import NodeResult
 from api.workflows.ppt_maker.state import PptMakerWorkflowState
 

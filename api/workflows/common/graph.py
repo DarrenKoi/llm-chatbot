@@ -1,7 +1,5 @@
 """공용 서브워크플로 그래프 스텁을 정의한다."""
 
-from __future__ import annotations
-
 from api.workflows.common import nodes, routing
 
 

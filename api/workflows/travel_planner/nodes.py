@@ -4,8 +4,6 @@
 상태 추출 -> 재질문 -> 추천 -> 완료 흐름을 단순한 규칙 기반으로 구현한다.
 """
 
-from __future__ import annotations
-
 import logging
 import re
 

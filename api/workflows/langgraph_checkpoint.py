@@ -1,7 +1,5 @@
 """LangGraph MongoDB checkpointer helpers bound to AFM Mongo settings."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Any
 
