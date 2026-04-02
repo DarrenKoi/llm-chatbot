@@ -266,6 +266,40 @@ def build_graph() -> dict[str, object]:
 - state에 connection 객체, client 객체, 함수 객체 같은 비직렬화 값을 넣지 않는다.
 - 테스트 없이 workflow만 추가하지 않는다.
 
+## 가급적 건드리지 말아야 할 파일
+
+아래 파일은 workflow를 "추가"하는 작업만 할 때는 수정하지 않는 것을 원칙으로 한다.
+이 파일들은 현재 저장소의 공통 진입점, 자동 탐색, 상태 복원, 전체 오케스트레이션 규약을 잡고 있어서, 개별 업무 workflow를 붙이는 수준의 작업이 여기로 번지면 구조가 빠르게 흔들린다.
+
+- `api/__init__.py`
+- `api/blueprint_loader.py`
+- `api/workflows/registry.py`
+- `api/workflows/orchestrator.py`
+- `api/workflows/state_service.py`
+- 기존 workflow 패키지 전체
+- `api/workflows/start_chat/`
+- `api/workflows/common/`
+
+즉, 새 업무를 붙일 때의 기본 원칙은 다음과 같다.
+
+- 기존 공통 엔진을 고치지 말고 `api/workflows/<new_workflow_id>/`만 추가한다.
+- workflow 등록을 위해 `registry.py`에 수동 코드를 넣지 않는다.
+- handoff를 위해 오케스트레이터 구조를 바꾸지 않는다.
+- 기존 workflow의 node 흐름을 새 업무 때문에 직접 수정하지 않는다.
+
+예외는 아래처럼 명확한 경우만 허용한다.
+
+- 공통 버그를 수정해야 해서 모든 workflow에 영향을 주는 문제를 해결할 때
+- `start_chat`의 분류 정책 자체를 변경해야 할 때
+- 공용 상태 복원/저장 규약을 바꿔야 할 정도의 구조 변경을 팀이 합의했을 때
+- 기존 workflow를 실제로 개선하거나 유지보수하는 명시적 작업을 맡았을 때
+
+예외 작업을 할 때는 아래를 같이 남기는 것을 권장한다.
+
+- 왜 새 workflow 패키지 추가만으로 해결되지 않는지
+- 영향받는 workflow 범위
+- 회귀 테스트 항목
+
 ## 테스트 규칙
 
 새 workflow를 추가하면 최소한 아래를 검증한다.
