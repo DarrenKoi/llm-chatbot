@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 import json
 import logging
 from typing import Any
@@ -130,6 +132,39 @@ def process_queued_message(queued_message: CubeQueuedMessage) -> CubeHandledMess
     return process_incoming_message(queued_message.incoming, attempt=queued_message.attempt)
 
 
+def _send_thinking_message(incoming: CubeIncomingMessage) -> None:
+    if not config.LLM_THINKING_MESSAGE:
+        return
+
+    try:
+        send_multimessage(user_id=incoming.user_id, reply_message=config.LLM_THINKING_MESSAGE)
+    except CubeClientError:
+        log_activity(
+            "cube_thinking_message_failed",
+            level="WARNING",
+            user_id=incoming.user_id,
+            message_id=incoming.message_id,
+        )
+
+
+def _generate_llm_reply(incoming: CubeIncomingMessage, *, attempt: int = 0) -> str:
+    if not config.LLM_THINKING_MESSAGE:
+        return handle_workflow_message(incoming, attempt=attempt)
+
+    delay_seconds = config.LLM_THINKING_MESSAGE_DELAY_SECONDS
+    if delay_seconds <= 0:
+        _send_thinking_message(incoming)
+        return handle_workflow_message(incoming, attempt=attempt)
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(handle_workflow_message, incoming, attempt=attempt)
+        try:
+            return future.result(timeout=delay_seconds)
+        except FutureTimeoutError:
+            _send_thinking_message(incoming)
+            return future.result()
+
+
 def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0) -> CubeHandledMessage:
     if _is_wakeup_message(incoming):
         log_activity(
@@ -184,19 +219,8 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
         queue_attempt=attempt,
     )
 
-    if config.LLM_THINKING_MESSAGE:
-        try:
-            send_multimessage(user_id=incoming.user_id, reply_message=config.LLM_THINKING_MESSAGE)
-        except CubeClientError:
-            log_activity(
-                "cube_thinking_message_failed",
-                level="WARNING",
-                user_id=incoming.user_id,
-                message_id=incoming.message_id,
-            )
-
     try:
-        llm_reply = handle_workflow_message(incoming, attempt=attempt)
+        llm_reply = _generate_llm_reply(incoming, attempt=attempt)
     except Exception as exc:
         log_activity(
             "cube_reply_failed",

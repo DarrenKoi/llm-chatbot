@@ -1,3 +1,4 @@
+import time
 from unittest.mock import call, patch
 
 import pytest
@@ -124,21 +125,22 @@ def test_handle_cube_message_success(
     mock_send_multimessage,
     mock_log_request,
 ):
-    result = handle_cube_message(
-        {
-            "richnotificationmessage": {
-                "header": {
-                    "from": {
-                        "uniquename": "u1",
-                        "messageid": "m1",
-                        "channelid": "c1",
-                        "username": "tester",
-                    }
-                },
-                "process": {"processdata": "hello"},
+    with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 1.0):
+        result = handle_cube_message(
+            {
+                "richnotificationmessage": {
+                    "header": {
+                        "from": {
+                            "uniquename": "u1",
+                            "messageid": "m1",
+                            "channelid": "c1",
+                            "username": "tester",
+                        }
+                    },
+                    "process": {"processdata": "hello"},
+                }
             }
-        }
-    )
+        )
 
     assert result.user_id == "u1"
     assert result.channel_id == "c1"
@@ -155,12 +157,59 @@ def test_handle_cube_message_success(
         call("u1", {"role": "user", "content": "hello"}),
         call("u1", {"role": "assistant", "content": "nice to meet you"}),
     ]
+    mock_send_multimessage.assert_called_once_with(
+        user_id="u1",
+        reply_message="nice to meet you",
+    )
+    assert mock_log_request.call_count == 2
+
+
+@patch("api.cube.service.log_request")
+@patch("api.cube.service.send_multimessage")
+@patch("api.cube.service.append_message")
+@patch("api.cube.service.get_history", return_value=[{"role": "assistant", "content": "previous"}])
+def test_handle_cube_message_sends_thinking_message_only_when_reply_is_slow(
+    mock_get_history,
+    mock_append_message,
+    mock_send_multimessage,
+    mock_log_request,
+):
+    def slow_reply(*args, **kwargs):
+        time.sleep(0.05)
+        return "nice to meet you"
+
+    with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 0.01):
+        with patch("api.cube.service.handle_workflow_message", side_effect=slow_reply) as mock_handle_workflow_message:
+            result = handle_cube_message(
+                {
+                    "richnotificationmessage": {
+                        "header": {
+                            "from": {
+                                "uniquename": "u1",
+                                "messageid": "m1",
+                                "channelid": "c1",
+                                "username": "tester",
+                            }
+                        },
+                        "process": {"processdata": "hello"},
+                    }
+                }
+            )
+
+    assert result.user_id == "u1"
+    assert result.llm_reply == "nice to meet you"
+    mock_get_history.assert_called_once_with("u1")
+    assert mock_handle_workflow_message.call_count == 1
+    assert mock_append_message.call_args_list == [
+        call("u1", {"role": "user", "content": "hello"}),
+        call("u1", {"role": "assistant", "content": "nice to meet you"}),
+    ]
     assert mock_send_multimessage.call_count == 2
-    mock_send_multimessage.assert_any_call(
+    assert mock_send_multimessage.call_args_list[0] == call(
         user_id="u1",
         reply_message=config.LLM_THINKING_MESSAGE,
     )
-    mock_send_multimessage.assert_any_call(
+    assert mock_send_multimessage.call_args_list[1] == call(
         user_id="u1",
         reply_message="nice to meet you",
     )
@@ -209,26 +258,62 @@ def test_handle_cube_message_raises_when_llm_fails(
 ):
     mock_handle_workflow_message.side_effect = RuntimeError("workflow failed")
 
-    with pytest.raises(CubeUpstreamError, match="Workflow reply generation failed."):
-        handle_cube_message(
-            {
-                "richnotificationmessage": {
-                    "header": {
-                        "from": {
-                            "uniquename": "u1",
-                            "messageid": "m1",
-                            "channelid": "c1",
-                            "username": "tester",
-                        }
-                    },
-                    "process": {"processdata": "hello"},
+    with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 1.0):
+        with pytest.raises(CubeUpstreamError, match="Workflow reply generation failed."):
+            handle_cube_message(
+                {
+                    "richnotificationmessage": {
+                        "header": {
+                            "from": {
+                                "uniquename": "u1",
+                                "messageid": "m1",
+                                "channelid": "c1",
+                                "username": "tester",
+                            }
+                        },
+                        "process": {"processdata": "hello"},
+                    }
                 }
-            }
-        )
+            )
 
     mock_get_history.assert_called_once_with("u1")
     mock_append_message.assert_called_once_with("u1", {"role": "user", "content": "hello"})
-    # thinking message is sent before LLM call, so it should still be called once
+    mock_send_multimessage.assert_not_called()
+
+
+@patch("api.cube.service.send_multimessage")
+@patch("api.cube.service.append_message")
+@patch("api.cube.service.get_history", return_value=[])
+def test_handle_cube_message_sends_thinking_message_when_slow_reply_then_fails(
+    mock_get_history,
+    mock_append_message,
+    mock_send_multimessage,
+):
+    def slow_failure(*args, **kwargs):
+        time.sleep(0.05)
+        raise RuntimeError("workflow failed")
+
+    with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 0.01):
+        with patch("api.cube.service.handle_workflow_message", side_effect=slow_failure):
+            with pytest.raises(CubeUpstreamError, match="Workflow reply generation failed."):
+                handle_cube_message(
+                    {
+                        "richnotificationmessage": {
+                            "header": {
+                                "from": {
+                                    "uniquename": "u1",
+                                    "messageid": "m1",
+                                    "channelid": "c1",
+                                    "username": "tester",
+                                }
+                            },
+                            "process": {"processdata": "hello"},
+                        }
+                    }
+                )
+
+    mock_get_history.assert_called_once_with("u1")
+    mock_append_message.assert_called_once_with("u1", {"role": "user", "content": "hello"})
     mock_send_multimessage.assert_called_once_with(
         user_id="u1",
         reply_message=config.LLM_THINKING_MESSAGE,
