@@ -15,6 +15,7 @@ def _resolve_request_user_id() -> str:
 
 
 @bp.route("/file-delivery", methods=["GET"])
+@bp.route("/file_delivery", methods=["GET"])
 def file_delivery_page():
     user_id = request.cookies.get("LASTUSER", "").strip()
     recent_files = list_files_for_user(user_id=user_id, limit=20) if user_id else []
@@ -22,6 +23,7 @@ def file_delivery_page():
 
 
 @bp.route("/api/v1/file-delivery/upload", methods=["POST"])
+@bp.route("/api/v1/file_delivery/upload", methods=["POST"])
 @bp.route("/api/v1/cdn/upload", methods=["POST"])
 def upload_file_delivery_file():
     if "file" not in request.files:
@@ -64,6 +66,7 @@ def upload_file_delivery_file():
 
 
 @bp.route("/file-delivery/files/<file_id>")
+@bp.route("/file_delivery/files/<file_id>")
 @bp.route("/cdn/files/<file_id>")
 def get_file_delivery_file(file_id: str):
     width_arg = request.args.get("w")

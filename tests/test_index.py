@@ -12,6 +12,7 @@ def _set_lastuser_cookie(client, user_id: str = "cube.user") -> None:
 def test_cdn_upload_and_get_image(client, tmp_path, monkeypatch):
     monkeypatch.setattr(config, "FILE_DELIVERY_STORAGE_DIR", tmp_path / "file_delivery")
     monkeypatch.setattr(config, "FILE_DELIVERY_REDIS_URL", "")
+    monkeypatch.setattr(config, "FILE_DELIVERY_BASE_URL", "http://itc-1stop-solution-llm-webapp.aipp02.skhynix.com")
     file_delivery_service._metadata_backend = None
     _set_lastuser_cookie(client)
 
@@ -22,7 +23,7 @@ def test_cdn_upload_and_get_image(client, tmp_path, monkeypatch):
         b"\x00\x02\x00\x01\xe5'\xd4\xa2\x00\x00\x00\x00IEND\xaeB`\x82"
     )
     upload = client.post(
-        "/api/v1/file-delivery/upload",
+        "/api/v1/file_delivery/upload",
         data={"file": (BytesIO(png_bytes), "dot.png")},
         content_type="multipart/form-data",
     )
@@ -30,17 +31,20 @@ def test_cdn_upload_and_get_image(client, tmp_path, monkeypatch):
 
     payload = upload.get_json()
     assert payload["file_id"]
-    assert payload["file_url"].endswith(payload["file_id"])
+    assert (
+        payload["file_url"]
+        == f"http://itc-1stop-solution-llm-webapp.aipp02.skhynix.com/file_delivery/files/{payload['file_id']}"
+    )
     assert payload["stored_filename"].endswith(".png")
 
-    download = client.get(f"/file-delivery/files/{payload['file_id']}")
+    download = client.get(f"/file_delivery/files/{payload['file_id']}")
     assert download.status_code == 200
     assert download.mimetype == "image/png"
     assert download.data == png_bytes
 
 
 def test_cdn_upload_missing_file(client):
-    resp = client.post("/api/v1/file-delivery/upload", data={}, content_type="multipart/form-data")
+    resp = client.post("/api/v1/file_delivery/upload", data={}, content_type="multipart/form-data")
     assert resp.status_code == 400
 
 
@@ -51,7 +55,7 @@ def test_cdn_upload_invalid_extension(client, monkeypatch, tmp_path):
     _set_lastuser_cookie(client)
 
     resp = client.post(
-        "/api/v1/file-delivery/upload",
+        "/api/v1/file_delivery/upload",
         data={"file": (BytesIO(b"hello"), "note.txt")},
         content_type="multipart/form-data",
     )
@@ -73,14 +77,14 @@ def test_cdn_resize_image(client, monkeypatch, tmp_path):
     src.save(src_buffer, format="PNG")
 
     upload = client.post(
-        "/api/v1/file-delivery/upload",
+        "/api/v1/file_delivery/upload",
         data={"file": (BytesIO(src_buffer.getvalue()), "source.png")},
         content_type="multipart/form-data",
     )
     assert upload.status_code == 201
     file_id = upload.get_json()["file_id"]
 
-    resized = client.get(f"/file-delivery/files/{file_id}?w=120")
+    resized = client.get(f"/file_delivery/files/{file_id}?w=120")
     assert resized.status_code == 200
 
     resized_img = image_module.open(BytesIO(resized.data))
@@ -105,14 +109,14 @@ def test_cdn_thumbnail_image(client, monkeypatch, tmp_path):
     src.save(src_buffer, format="PNG")
 
     upload = client.post(
-        "/api/v1/file-delivery/upload",
+        "/api/v1/file_delivery/upload",
         data={"file": (BytesIO(src_buffer.getvalue()), "source.png")},
         content_type="multipart/form-data",
     )
     assert upload.status_code == 201
     file_id = upload.get_json()["file_id"]
 
-    thumb = client.get(f"/file-delivery/files/{file_id}?thumbnail=true")
+    thumb = client.get(f"/file_delivery/files/{file_id}?thumbnail=true")
     assert thumb.status_code == 200
 
     thumb_img = image_module.open(BytesIO(thumb.data))
@@ -133,16 +137,16 @@ def test_cdn_resize_invalid_query(client, monkeypatch, tmp_path):
         b"\x00\x02\x00\x01\xe5'\xd4\xa2\x00\x00\x00\x00IEND\xaeB`\x82"
     )
     upload = client.post(
-        "/api/v1/file-delivery/upload",
+        "/api/v1/file_delivery/upload",
         data={"file": (BytesIO(png_bytes), "dot.png")},
         content_type="multipart/form-data",
     )
     file_id = upload.get_json()["file_id"]
 
-    bad = client.get(f"/file-delivery/files/{file_id}?w=abc")
+    bad = client.get(f"/file_delivery/files/{file_id}?w=abc")
     assert bad.status_code == 400
 
-    bad_mix = client.get(f"/file-delivery/files/{file_id}?thumbnail=true&w=10")
+    bad_mix = client.get(f"/file_delivery/files/{file_id}?thumbnail=true&w=10")
     assert bad_mix.status_code == 400
 
 
@@ -159,7 +163,7 @@ def test_cdn_upload_docx(client, tmp_path, monkeypatch):
 
     docx_bytes = b"PK\x03\x04fake-docx-content-for-testing"
     upload = client.post(
-        "/api/v1/file-delivery/upload",
+        "/api/v1/file_delivery/upload",
         data={"file": (BytesIO(docx_bytes), "report.docx")},
         content_type="multipart/form-data",
     )
@@ -169,7 +173,7 @@ def test_cdn_upload_docx(client, tmp_path, monkeypatch):
     assert payload["file_id"]
     assert payload["file_url"].endswith(payload["file_id"])
 
-    download = client.get(f"/file-delivery/files/{payload['file_id']}")
+    download = client.get(f"/file_delivery/files/{payload['file_id']}")
     assert download.status_code == 200
     assert download.data == docx_bytes
     assert "attachment" in download.headers.get("Content-Disposition", "")
@@ -188,7 +192,7 @@ def test_file_delivery_upload_ignores_form_user_id_and_uses_cookie_user(client, 
     )
 
     upload = client.post(
-        "/api/v1/file-delivery/upload",
+        "/api/v1/file_delivery/upload",
         data={
             "file": (BytesIO(png_bytes), "report.png"),
             "user_id": "user.alpha@corp",
@@ -221,7 +225,7 @@ def test_file_delivery_upload_rejects_missing_lastuser_cookie(client, tmp_path, 
     )
 
     upload = client.post(
-        "/api/v1/file-delivery/upload",
+        "/api/v1/file_delivery/upload",
         data={"file": (BytesIO(png_bytes), "cookie.png")},
         content_type="multipart/form-data",
     )
@@ -244,7 +248,7 @@ def test_file_delivery_upload_uses_lastuser_cookie_for_storage_path(client, tmp_
     )
 
     upload = client.post(
-        "/api/v1/file-delivery/upload",
+        "/api/v1/file_delivery/upload",
         data={"file": (BytesIO(png_bytes), "cookie.png")},
         content_type="multipart/form-data",
     )

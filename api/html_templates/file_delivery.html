@@ -399,7 +399,7 @@
       const formData = new FormData(form);
 
       try {
-        const response = await fetch("/api/v1/file-delivery/upload", {
+        const response = await fetch("/api/v1/file_delivery/upload", {
           method: "POST",
           body: formData,
         });

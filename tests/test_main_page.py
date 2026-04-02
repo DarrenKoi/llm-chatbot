@@ -24,7 +24,7 @@ def test_main_page_renders_recent_conversation(mock_get_recent_messages, client)
 def test_file_delivery_page_renders_upload_ui_for_cookie_user(mock_list_files_for_user, client):
     client.set_cookie("LASTUSER", "cube.user")
 
-    response = client.get("/file-delivery")
+    response = client.get("/file_delivery")
 
     assert response.status_code == 200
     assert b"Upload And Get URL" in response.data
