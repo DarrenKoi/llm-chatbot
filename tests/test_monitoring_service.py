@@ -1,6 +1,104 @@
 from datetime import datetime, timedelta, timezone
 
 from api import monitoring_service
+from api import config
+from api.file_delivery import file_delivery_service
+
+
+class _FakeListRedis:
+    def __init__(self):
+        self._lists: dict[str, list[str]] = {}
+        self.closed = False
+
+    def delete(self, *keys):
+        for key in keys:
+            self._lists.pop(key, None)
+
+    def lpush(self, key, value):
+        self._lists.setdefault(key, []).insert(0, value)
+        return len(self._lists[key])
+
+    def rpoplpush(self, source, destination):
+        items = self._lists.get(source, [])
+        if not items:
+            return None
+        value = items.pop()
+        self._lists.setdefault(destination, []).insert(0, value)
+        return value
+
+    def lrem(self, key, count, value):
+        items = self._lists.get(key, [])
+        removed = 0
+        kept: list[str] = []
+        for item in items:
+            if item == value and (count == 0 or removed < count):
+                removed += 1
+                continue
+            kept.append(item)
+        self._lists[key] = kept
+        return removed
+
+    def close(self):
+        self.closed = True
+
+
+class _FakeLockRedis:
+    def __init__(self):
+        self._store: dict[str, str] = {}
+        self.closed = False
+
+    def lock(self, name, timeout=None, blocking=False, thread_local=False):
+        return _FakeRedisLock(self, name)
+
+    def get(self, key):
+        return self._store.get(key)
+
+    def delete(self, *keys):
+        for key in keys:
+            self._store.pop(key, None)
+
+    def close(self):
+        self.closed = True
+
+
+class _FakeRedisLock:
+    def __init__(self, client: _FakeLockRedis, key: str):
+        self._client = client
+        self._key = key
+        self._token = f"token:{key}"
+
+    def acquire(self, blocking=False):
+        if self._key in self._client._store:
+            return False
+        self._client._store[self._key] = self._token
+        return True
+
+    def release(self):
+        self._client._store.pop(self._key, None)
+
+
+class _FakeMetadataRedis:
+    def __init__(self):
+        self._values: dict[str, str] = {}
+        self._sets: dict[str, set[str]] = {}
+
+    def set(self, key, value, ex=None):
+        self._values[key] = value
+
+    def get(self, key):
+        return self._values.get(key)
+
+    def delete(self, key):
+        self._values.pop(key, None)
+
+    def sadd(self, key, value):
+        self._sets.setdefault(key, set()).add(value)
+
+    def srem(self, key, value):
+        self._sets.setdefault(key, set()).discard(value)
+
+    def smembers(self, key):
+        return set(self._sets.get(key, set()))
 
 
 def test_check_daemon_component_reports_running_for_recent_heartbeat(monkeypatch, tmp_path):
@@ -58,3 +156,61 @@ def test_check_daemon_component_reports_not_running_without_activity(monkeypatch
 
     assert entry.tone == "error"
     assert entry.status == "not running"
+
+
+def test_check_cube_queue_reports_working_for_queue_roundtrip(monkeypatch):
+    fake_redis = _FakeListRedis()
+
+    monkeypatch.setattr(config, "CUBE_QUEUE_REDIS_URL", "redis://queue")
+    monkeypatch.setattr(config, "CUBE_QUEUE_NAME", "cube:incoming")
+    monkeypatch.setattr(config, "CUBE_QUEUE_PROCESSING_NAME", "cube:incoming:processing")
+    monkeypatch.setattr(monitoring_service, "_build_redis_client", lambda _url: fake_redis)
+
+    entry = monitoring_service._check_cube_queue()
+
+    assert entry.tone == "ok"
+    assert entry.status == "working"
+    assert entry.target == "cube:incoming / cube:incoming:processing"
+    assert fake_redis.closed is True
+
+
+def test_check_scheduler_lock_reports_working_for_lock_roundtrip(monkeypatch):
+    fake_redis = _FakeLockRedis()
+
+    monkeypatch.setattr(config, "SCHEDULER_REDIS_URL", "redis://scheduler")
+    monkeypatch.setattr(config, "SCHEDULER_LOCK_PREFIX", "scheduler:sknn_v3")
+    monkeypatch.setattr(config, "SCHEDULER_LOCK_TTL_SECONDS", 60)
+    monkeypatch.setattr(monitoring_service, "_build_redis_client", lambda _url: fake_redis)
+
+    entry = monitoring_service._check_scheduler_lock()
+
+    assert entry.tone == "ok"
+    assert entry.status == "working"
+    assert entry.target == "scheduler:sknn_v3:*"
+    assert fake_redis.closed is True
+
+
+def test_check_file_delivery_metadata_reports_working_for_redis_backend(monkeypatch):
+    backend = file_delivery_service._RedisMetadataBackend(_FakeMetadataRedis())
+
+    monkeypatch.setattr(config, "FILE_DELIVERY_REDIS_URL", "redis://metadata")
+    monkeypatch.setattr(file_delivery_service, "_metadata_backend", backend)
+
+    entry = monitoring_service._check_file_delivery_metadata()
+
+    assert entry.tone == "ok"
+    assert entry.status == "working"
+    assert entry.backend == "Redis"
+
+
+def test_check_file_delivery_metadata_reports_fallback_for_memory_backend(monkeypatch):
+    backend = file_delivery_service._InMemoryMetadataBackend()
+
+    monkeypatch.setattr(config, "FILE_DELIVERY_REDIS_URL", "")
+    monkeypatch.setattr(file_delivery_service, "_metadata_backend", backend)
+
+    entry = monitoring_service._check_file_delivery_metadata()
+
+    assert entry.tone == "warning"
+    assert entry.status == "fallback"
+    assert entry.backend == "Memory"

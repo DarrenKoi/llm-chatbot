@@ -21,12 +21,12 @@ from unittest.mock import patch
                 "detail": "MongoDB ping OK",
             },
             {
-                "name": "Primary Redis",
+                "name": "Cube Queue",
                 "backend": "Redis",
                 "tone": "error",
-                "status": "unreachable",
-                "target": "redis://cache:6379/0",
-                "detail": "Redis ping failed",
+                "status": "failed",
+                "target": "cube:incoming / cube:incoming:processing",
+                "detail": "큐 enqueue/dequeue/ack 검사 실패",
             },
             {
                 "name": "Cube Worker Daemon",
@@ -45,9 +45,9 @@ def test_monitor_page_renders_db_status_table(mock_get_monitoring_snapshot, clie
     assert response.status_code == 200
     assert b"Service Monitor" in response.data
     assert b"Conversation Store" in response.data
-    assert b"Primary Redis" in response.data
+    assert b"Cube Queue" in response.data
     assert b"Cube Worker Daemon" in response.data
     assert b"connected" in response.data
-    assert b"unreachable" in response.data
+    assert b"failed" in response.data
     assert b"running" in response.data
     mock_get_monitoring_snapshot.assert_called_once_with()

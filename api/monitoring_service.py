@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
+from uuid import uuid4
 
 from api import config
 from api.utils.logger.paths import get_theme_log_dir
@@ -27,11 +28,11 @@ class MonitorEntry:
 def get_monitoring_snapshot() -> dict[str, object]:
     entries = [
         _check_mongo_conversation_store(),
-        _check_primary_redis(),
+        _check_cube_queue(),
         _check_cube_worker_daemon(),
-        _check_scheduler_redis(),
+        _check_scheduler_lock(),
         _check_scheduler_worker_daemon(),
-        _check_file_delivery_redis(),
+        _check_file_delivery_metadata(),
     ]
     return {
         "checked_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -84,12 +85,56 @@ def _check_mongo_conversation_store() -> MonitorEntry:
     )
 
 
-def _check_primary_redis() -> MonitorEntry:
-    return _check_redis_component(
-        name="Primary Redis",
-        redis_url=config.REDIS_URL,
-        allow_fallback=False,
-        empty_detail="REDIS_URL 이 없어 Redis 기반 기능을 사용할 수 없습니다.",
+def _check_cube_queue() -> MonitorEntry:
+    target = f"{config.CUBE_QUEUE_NAME} / {config.CUBE_QUEUE_PROCESSING_NAME}"
+    if not config.CUBE_QUEUE_REDIS_URL:
+        return MonitorEntry(
+            name="Cube Queue",
+            backend="Redis",
+            tone="error",
+            status="not configured",
+            target=target,
+            detail="REDIS_URL 이 없어 Cube Queue 를 사용할 수 없습니다.",
+        )
+
+    client = None
+    probe_suffix = uuid4().hex
+    ready_key = f"{config.CUBE_QUEUE_NAME}:monitor:{probe_suffix}"
+    processing_key = f"{config.CUBE_QUEUE_PROCESSING_NAME}:monitor:{probe_suffix}"
+    payload = json.dumps({"probe": probe_suffix}, ensure_ascii=False, separators=(",", ":"))
+
+    try:
+        client = _build_redis_client(config.CUBE_QUEUE_REDIS_URL)
+        client.delete(ready_key, processing_key)
+        client.lpush(ready_key, payload)
+        moved_payload = _decode_redis_value(client.rpoplpush(ready_key, processing_key))
+        removed = client.lrem(processing_key, 1, payload)
+        if moved_payload != payload or removed != 1:
+            raise RuntimeError("ready/processing queue roundtrip 결과가 예상과 다릅니다")
+    except Exception as exc:
+        return MonitorEntry(
+            name="Cube Queue",
+            backend="Redis",
+            tone="error",
+            status="failed",
+            target=target,
+            detail=f"큐 enqueue/dequeue/ack 검사 실패: {exc}.",
+        )
+    finally:
+        if client is not None:
+            try:
+                client.delete(ready_key, processing_key)
+            except Exception:
+                pass
+            _close_redis_client(client)
+
+    return MonitorEntry(
+        name="Cube Queue",
+        backend="Redis",
+        tone="ok",
+        status="working",
+        target=target,
+        detail="큐 enqueue/dequeue/ack roundtrip 이 정상입니다.",
     )
 
 
@@ -101,21 +146,126 @@ def _check_cube_worker_daemon() -> MonitorEntry:
     )
 
 
-def _check_scheduler_redis() -> MonitorEntry:
-    return _check_redis_component(
+def _check_scheduler_lock() -> MonitorEntry:
+    target = f"{config.SCHEDULER_LOCK_PREFIX.strip(':') or 'scheduler:lock'}:*"
+    if not config.SCHEDULER_REDIS_URL:
+        return MonitorEntry(
+            name="Scheduler Lock",
+            backend="Redis Lock",
+            tone="error",
+            status="not configured",
+            target=target,
+            detail="SCHEDULER_REDIS_URL 이 없어 스케줄러 분산 락을 사용할 수 없습니다.",
+        )
+
+    from api.scheduled_tasks import _lock as scheduler_lock
+
+    client = None
+    lock_key = scheduler_lock._scheduler_lock_key(f"monitor:{uuid4().hex}")
+    lock = None
+
+    try:
+        client = _build_redis_client(config.SCHEDULER_REDIS_URL)
+        lock = scheduler_lock._RedisDistributedLock(
+            client=client,
+            key=lock_key,
+            ttl_seconds=max(1, min(config.SCHEDULER_LOCK_TTL_SECONDS, 30)),
+            renew_interval_seconds=0,
+        )
+        if not lock.acquire():
+            raise RuntimeError("lock acquire 가 false 를 반환했습니다")
+        lock.lease.ensure_held()
+        lock.release()
+        if client.get(lock_key) is not None:
+            raise RuntimeError("lock release 후 키가 남아 있습니다")
+    except Exception as exc:
+        return MonitorEntry(
+            name="Scheduler Lock",
+            backend="Redis Lock",
+            tone="error",
+            status="failed",
+            target=target,
+            detail=f"락 acquire/release 검사 실패: {exc}.",
+        )
+    finally:
+        if client is not None:
+            try:
+                client.delete(lock_key)
+            except Exception:
+                pass
+            _close_redis_client(client)
+
+    return MonitorEntry(
         name="Scheduler Lock",
-        redis_url=config.SCHEDULER_REDIS_URL,
-        allow_fallback=False,
-        empty_detail="SCHEDULER_REDIS_URL 이 없어 스케줄러 분산 락을 사용할 수 없습니다.",
+        backend="Redis Lock",
+        tone="ok",
+        status="working",
+        target=target,
+        detail="락 acquire/release 검사가 정상입니다.",
     )
 
 
-def _check_file_delivery_redis() -> MonitorEntry:
-    return _check_redis_component(
+def _check_file_delivery_metadata() -> MonitorEntry:
+    from api.file_delivery import file_delivery_service
+
+    backend = file_delivery_service._get_metadata_backend()
+    probe_file_id = uuid4().hex
+    metadata = {
+        "file_id": probe_file_id,
+        "filename": "monitor-probe.txt",
+        "file_path": "/tmp/monitor-probe.txt",
+        "content_type": "text/plain",
+        "size_bytes": 0,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "original_filename": "monitor-probe.txt",
+        "stored_filename": "monitor-probe.txt",
+        "user_id": "monitor",
+        "user_storage_key": "monitor",
+        "title": "monitor probe",
+    }
+
+    try:
+        backend.set(probe_file_id, metadata)
+        loaded = backend.get(probe_file_id)
+        listed_ids = backend.list_ids()
+        backend.delete(probe_file_id)
+        deleted = backend.get(probe_file_id)
+        if loaded != metadata or probe_file_id not in listed_ids or deleted is not None:
+            raise RuntimeError("metadata roundtrip 결과가 예상과 다릅니다")
+    except Exception as exc:
+        return MonitorEntry(
+            name="File Delivery Metadata",
+            backend="Metadata",
+            tone="error",
+            status="failed",
+            target="metadata store",
+            detail=f"메타데이터 set/get/delete 검사 실패: {exc}.",
+        )
+
+    if isinstance(backend, file_delivery_service._RedisMetadataBackend):
+        return MonitorEntry(
+            name="File Delivery Metadata",
+            backend="Redis",
+            tone="ok",
+            status="working",
+            target="file_delivery:file:* / index",
+            detail="메타데이터 set/get/delete roundtrip 이 정상입니다.",
+        )
+
+    detail = (
+        "FILE_DELIVERY_REDIS_URL 이 없어 메모리 백엔드로 동작 중이며, "
+        "메타데이터 set/get/delete roundtrip 은 정상입니다."
+        if not config.FILE_DELIVERY_REDIS_URL
+        else "Redis 백엔드를 사용할 수 없어 메모리 백엔드로 fallback 되었고, "
+        "메타데이터 set/get/delete roundtrip 은 정상입니다."
+    )
+    return MonitorEntry(
         name="File Delivery Metadata",
-        redis_url=config.FILE_DELIVERY_REDIS_URL,
-        allow_fallback=True,
-        empty_detail="FILE_DELIVERY_REDIS_URL 이 없어 파일 메타데이터는 메모리 백엔드로 동작합니다.",
+        backend="Memory",
+        tone="warning",
+        status="fallback",
+        target="in-memory metadata store",
+        detail=detail,
     )
 
 
@@ -127,57 +277,22 @@ def _check_scheduler_worker_daemon() -> MonitorEntry:
     )
 
 
-def _check_redis_component(
-    *,
-    name: str,
-    redis_url: str,
-    allow_fallback: bool,
-    empty_detail: str,
-) -> MonitorEntry:
-    if not redis_url:
-        return MonitorEntry(
-            name=name,
-            backend="Redis",
-            tone="warning" if allow_fallback else "error",
-            status="fallback" if allow_fallback else "not configured",
-            target="미설정",
-            detail=empty_detail,
-        )
+def _build_redis_client(redis_url: str):
+    import redis
 
-    try:
-        import redis
-
-        client = redis.from_url(redis_url, socket_connect_timeout=2, socket_timeout=2)
-        try:
-            client.ping()
-        finally:
-            close = getattr(client, "close", None)
-            if callable(close):
-                close()
-    except Exception as exc:
-        return MonitorEntry(
-            name=name,
-            backend="Redis",
-            tone="warning" if allow_fallback else "error",
-            status="fallback" if allow_fallback else "unreachable",
-            target=_mask_url(redis_url),
-            detail=_build_redis_failure_detail(name=name, allow_fallback=allow_fallback, exc=exc),
-        )
-
-    return MonitorEntry(
-        name=name,
-        backend="Redis",
-        tone="ok",
-        status="connected",
-        target=_mask_url(redis_url),
-        detail="Redis ping 응답이 정상입니다.",
-    )
+    return redis.from_url(redis_url, socket_connect_timeout=2, socket_timeout=2)
 
 
-def _build_redis_failure_detail(*, name: str, allow_fallback: bool, exc: Exception) -> str:
-    if allow_fallback:
-        return f"{name} Redis ping 실패: {exc}. 앱은 메모리 백엔드로 fallback 됩니다."
-    return f"{name} Redis ping 실패: {exc}."
+def _close_redis_client(client) -> None:
+    close = getattr(client, "close", None)
+    if callable(close):
+        close()
+
+
+def _decode_redis_value(value: bytes | str | None) -> str | None:
+    if isinstance(value, bytes):
+        return value.decode("utf-8")
+    return value
 
 
 def _check_daemon_component(
