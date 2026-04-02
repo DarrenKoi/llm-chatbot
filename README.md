@@ -20,6 +20,11 @@ python index.py
 
 The local dev server listens on fixed port `5000`.
 
+## Docs
+
+- Workflow onboarding guide: `doc/guideline/workflow_추가_가이드.md`
+- Router auto-registration guide: `doc/guideline/router_가이드.md`
+
 ## Dedicated Scheduler Worker
 
 `wsgi.ini` attaches `scheduler_worker.py` as a dedicated daemon (`attach-daemon`). The web app never starts a scheduler — only the daemon process owns APScheduler.
