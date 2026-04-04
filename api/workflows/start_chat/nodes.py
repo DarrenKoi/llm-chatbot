@@ -15,6 +15,9 @@ def entry_node(state: StartChatWorkflowState, user_message: str) -> NodeResult:
 
     del user_message
 
+    if state.profile_loaded:
+        return NodeResult(action="resume", next_node_id="classify")
+
     profile = load_user_profile(state.user_id)
     profile_summary = profile.to_prompt_text() if profile else ""
     profile_source = profile.source if profile else "unavailable"

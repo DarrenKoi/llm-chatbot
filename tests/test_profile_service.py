@@ -1,21 +1,24 @@
+import pytest
 import httpx
 
 from api.profile.models import UserProfile
 from api.profile.service import load_user_profile
 
 
+@pytest.fixture(autouse=True)
+def _reset_redis_singleton(monkeypatch):
+    """테스트 간 Redis 싱글턴을 초기화한다."""
+    monkeypatch.setattr("api.profile.service._redis_client", None)
+
+
 class _FakeRedisClient:
     def __init__(self, payload):
         self._payload = payload
-        self.closed = False
         self.last_key = ""
 
     def hgetall(self, key):
         self.last_key = key
         return self._payload
-
-    def close(self):
-        self.closed = True
 
 
 def test_load_user_profile_uses_custom_provider(monkeypatch):
@@ -96,4 +99,3 @@ def test_load_user_profile_falls_back_to_redis_on_api_timeout(mocker, monkeypatc
         decode_responses=False,
     )
     assert fake_redis.last_key == "user:profile:u1"
-    assert fake_redis.closed is True

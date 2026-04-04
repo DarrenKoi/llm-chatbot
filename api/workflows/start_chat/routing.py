@@ -1,5 +1,6 @@
 """시작 대화 워크플로 라우팅 규칙을 정의한다."""
 
+from api.workflows.models import NodeResult
 from api.workflows.registry import list_handoff_workflows
 from api.workflows.start_chat.state import StartChatWorkflowState
 

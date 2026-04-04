@@ -74,28 +74,40 @@ def _load_from_profile_api(user_id: str) -> UserProfile | None:
     return _coerce_profile(payload, user_id=user_id, default_source="profile_api")
 
 
-def _load_from_redis(user_id: str) -> UserProfile | None:
+_redis_client: redis.Redis | None = None
+
+
+def _get_profile_redis_client() -> redis.Redis | None:
+    global _redis_client
+
+    if _redis_client is not None:
+        return _redis_client
+
     redis_url = config.USER_PROFILE_REDIS_URL.strip()
     if not redis_url:
         return None
 
+    _redis_client = redis.from_url(
+        redis_url,
+        socket_connect_timeout=1,
+        socket_timeout=1,
+        decode_responses=False,
+    )
+    return _redis_client
+
+
+def _load_from_redis(user_id: str) -> UserProfile | None:
+    client = _get_profile_redis_client()
+    if client is None:
+        return None
+
     key = f"{config.USER_PROFILE_REDIS_KEY_PREFIX}:{user_id}"
-    client = None
 
     try:
-        client = redis.from_url(
-            redis_url,
-            socket_connect_timeout=1,
-            socket_timeout=1,
-            decode_responses=False,
-        )
         raw = client.hgetall(key)
     except Exception as exc:
         log.warning("profile_redis_lookup_failed user_id=%s error=%s", user_id, exc)
         return None
-    finally:
-        if client is not None:
-            _close_redis_client(client)
 
     if not raw:
         return None
@@ -157,7 +169,3 @@ def _decode_redis_value(value: bytes | str) -> str:
     return str(value)
 
 
-def _close_redis_client(client: object) -> None:
-    close = getattr(client, "close", None)
-    if callable(close):
-        close()
