@@ -28,4 +28,8 @@ def execute_start_chat_plan(*, user_message: str, state: StartChatWorkflowState)
     else:
         augmented_message = user_message
 
-    return generate_reply(history=history, user_message=augmented_message)
+    return generate_reply(
+        history=history,
+        user_message=augmented_message,
+        user_profile_text=state.profile_summary,
+    )

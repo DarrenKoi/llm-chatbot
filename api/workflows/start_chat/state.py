@@ -12,3 +12,6 @@ class StartChatWorkflowState(WorkflowState):
     detected_intent: str = "start_chat"
     retrieved_contexts: list[str] = field(default_factory=list)
     agent_plan: list[str] = field(default_factory=list)
+    profile_loaded: bool = False
+    profile_source: str = ""
+    profile_summary: str = ""

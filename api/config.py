@@ -47,6 +47,13 @@ AFM_DB_NAME = os.environ.get("AFM_DB_NAME", "itc-afm-data-platform-mongodb")
 # Redis (empty = in-memory fallback)
 REDIS_URL = os.environ.get("REDIS_URL", "")
 
+# User profile
+USER_PROFILE_PROVIDER_CALLABLE = os.environ.get("USER_PROFILE_PROVIDER_CALLABLE", "")
+USER_PROFILE_API_URL = os.environ.get("USER_PROFILE_API_URL", "")
+USER_PROFILE_API_TIMEOUT_SECONDS = float(os.environ.get("USER_PROFILE_API_TIMEOUT_SECONDS", "1.5"))
+USER_PROFILE_REDIS_URL = os.environ.get("USER_PROFILE_REDIS_URL", REDIS_URL)
+USER_PROFILE_REDIS_KEY_PREFIX = os.environ.get("USER_PROFILE_REDIS_KEY_PREFIX", "user:profile")
+
 # Cube queue (shares the primary Redis URL)
 CUBE_QUEUE_REDIS_URL = REDIS_URL
 CUBE_QUEUE_NAME = os.environ.get("CUBE_QUEUE_NAME", "cube:incoming")

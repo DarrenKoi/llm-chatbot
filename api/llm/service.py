@@ -11,7 +11,12 @@ class LLMServiceError(RuntimeError):
     """Raised when the OpenAI-compatible LLM endpoint cannot provide a reply."""
 
 
-def generate_reply(*, history: list[dict[str, Any]], user_message: str) -> str:
+def generate_reply(
+    *,
+    history: list[dict[str, Any]],
+    user_message: str,
+    user_profile_text: str = "",
+) -> str:
     base_url = config.LLM_BASE_URL.rstrip("/")
     if not base_url:
         raise LLMServiceError("LLM_BASE_URL is not configured.")
@@ -20,7 +25,11 @@ def generate_reply(*, history: list[dict[str, Any]], user_message: str) -> str:
 
     payload = {
         "model": config.LLM_MODEL,
-        "messages": _build_messages(history=history, user_message=user_message),
+        "messages": _build_messages(
+            history=history,
+            user_message=user_message,
+            user_profile_text=user_profile_text,
+        ),
     }
     response = _post_json(
         url=f"{base_url}/chat/completions",
@@ -34,9 +43,14 @@ def generate_reply(*, history: list[dict[str, Any]], user_message: str) -> str:
     return reply
 
 
-def _build_messages(*, history: list[dict[str, Any]], user_message: str) -> list[dict[str, str]]:
+def _build_messages(
+    *,
+    history: list[dict[str, Any]],
+    user_message: str,
+    user_profile_text: str = "",
+) -> list[dict[str, str]]:
     messages: list[dict[str, str]] = []
-    system_prompt = get_system_prompt()
+    system_prompt = get_system_prompt(user_profile_text=user_profile_text)
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
 

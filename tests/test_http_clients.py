@@ -22,13 +22,16 @@ def test_generate_reply_uses_httpx_post(mocker, monkeypatch):
     monkeypatch.setattr("api.config.LLM_BASE_URL", "https://llm.example.com/v1")
     monkeypatch.setattr("api.config.LLM_MODEL", "gpt-test")
     monkeypatch.setattr("api.config.LLM_API_KEY", "secret")
-    monkeypatch.setattr("api.llm.service.get_system_prompt", lambda: "system prompt with korean time")
+    monkeypatch.setattr(
+        "api.llm.service.get_system_prompt",
+        lambda user_profile_text="": f"system prompt with korean time::{user_profile_text}",
+    )
     post_mock = mocker.patch(
         "api.llm.service.httpx.post",
         return_value=_response(json_body={"choices": [{"message": {"content": "hello"}}]}),
     )
 
-    reply = generate_reply(history=[], user_message="hi")
+    reply = generate_reply(history=[], user_message="hi", user_profile_text="- 이름: 홍길동")
 
     assert reply == "hello"
     post_mock.assert_called_once_with(
@@ -38,7 +41,7 @@ def test_generate_reply_uses_httpx_post(mocker, monkeypatch):
             "messages": [
                 {
                     "role": "system",
-                    "content": "system prompt with korean time",
+                    "content": "system prompt with korean time::- 이름: 홍길동",
                 },
                 {"role": "user", "content": "hi"},
             ],

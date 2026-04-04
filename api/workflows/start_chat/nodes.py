@@ -1,5 +1,6 @@
 """시작 대화 워크플로 노드를 정의한다."""
 
+from api.profile.service import load_user_profile
 from api.workflows.start_chat.agent.executor import execute_start_chat_plan
 from api.workflows.start_chat.agent.planner import plan_start_chat_response
 from api.workflows.start_chat.rag.context_builder import build_start_chat_context
@@ -10,10 +11,23 @@ from api.workflows.models import NodeResult
 
 
 def entry_node(state: StartChatWorkflowState, user_message: str) -> NodeResult:
-    """시작 대화 워크플로 진입 노드 — classify로 즉시 이동한다."""
+    """시작 대화 워크플로 진입 시 프로필을 1회 로딩한다."""
 
-    del state, user_message
-    return NodeResult(action="resume", next_node_id="classify")
+    del user_message
+
+    profile = load_user_profile(state.user_id)
+    profile_summary = profile.to_prompt_text() if profile else ""
+    profile_source = profile.source if profile else "unavailable"
+
+    return NodeResult(
+        action="resume",
+        next_node_id="classify",
+        data_updates={
+            "profile_loaded": profile is not None,
+            "profile_source": profile_source,
+            "profile_summary": profile_summary,
+        },
+    )
 
 
 def classify_intent_node(state: StartChatWorkflowState, user_message: str) -> NodeResult:

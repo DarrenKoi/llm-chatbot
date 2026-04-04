@@ -9,10 +9,28 @@ DEFAULT_SYSTEM_PROMPT = (
 )
 
 
-def get_system_prompt() -> str:
+def get_system_prompt(*, user_profile_text: str = "") -> str:
     override = config.LLM_SYSTEM_PROMPT_OVERRIDE.strip()
     base_prompt = override if override else DEFAULT_SYSTEM_PROMPT
-    return f"{base_prompt}\n\n{_build_time_context()}"
+    sections = [base_prompt, _build_time_context()]
+
+    profile_context = _build_profile_context(user_profile_text)
+    if profile_context:
+        sections.append(profile_context)
+
+    return "\n\n".join(section for section in sections if section)
+
+
+def _build_profile_context(user_profile_text: str) -> str:
+    profile_text = user_profile_text.strip()
+    if not profile_text:
+        return ""
+
+    return (
+        "[사용자 프로필]\n"
+        f"{profile_text}\n\n"
+        "이 사용자의 소속과 근무 맥락을 고려해 적절한 workflow와 답변 방식을 선택하세요."
+    )
 
 
 def _build_time_context(now: datetime | None = None) -> str:

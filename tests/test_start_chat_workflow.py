@@ -13,6 +13,7 @@ from api.workflows.models import NodeResult, WorkflowState
 from api.workflows.orchestrator import run_graph, _handle_handoff
 from api.workflows.chart_maker.graph import build_graph as build_chart_maker_graph
 from api.workflows.start_chat.graph import build_graph
+from api.workflows.start_chat.nodes import entry_node
 from api.workflows.start_chat.state import StartChatWorkflowState
 
 _LLM_MOCK_TARGET = "api.workflows.start_chat.agent.executor.generate_reply"
@@ -83,6 +84,38 @@ def test_start_chat_casual_generates_reply():
     assert reply == "오늘 좋은 하루 되세요!"
     m_llm.assert_called_once()
     assert state.status == "completed"
+
+
+def test_entry_node_loads_profile_into_state(mocker):
+    state = _make_state()
+    profile = mocker.Mock()
+    profile.source = "profile_api"
+    profile.to_prompt_text.return_value = "- 이름: 홍길동"
+
+    mocker.patch("api.workflows.start_chat.nodes.load_user_profile", return_value=profile)
+
+    result = entry_node(state, "안녕하세요")
+
+    assert result.action == "resume"
+    assert result.next_node_id == "classify"
+    assert result.data_updates == {
+        "profile_loaded": True,
+        "profile_source": "profile_api",
+        "profile_summary": "- 이름: 홍길동",
+    }
+
+
+def test_entry_node_handles_missing_profile(mocker):
+    state = _make_state()
+    mocker.patch("api.workflows.start_chat.nodes.load_user_profile", return_value=None)
+
+    result = entry_node(state, "안녕하세요")
+
+    assert result.data_updates == {
+        "profile_loaded": False,
+        "profile_source": "unavailable",
+        "profile_summary": "",
+    }
 
 
 # ── classify 노드 분기 테스트 ──────────────────────────────────

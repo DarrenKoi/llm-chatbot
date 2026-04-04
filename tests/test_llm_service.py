@@ -4,7 +4,10 @@ from api.llm.service import _build_messages, _extract_reply_text
 
 
 def test_build_messages_includes_system_prompt_and_history(monkeypatch):
-    monkeypatch.setattr("api.llm.service.get_system_prompt", lambda: "system prompt")
+    monkeypatch.setattr(
+        "api.llm.service.get_system_prompt",
+        lambda user_profile_text="": f"system prompt::{user_profile_text}",
+    )
 
     messages = _build_messages(
         history=[
@@ -13,10 +16,11 @@ def test_build_messages_includes_system_prompt_and_history(monkeypatch):
             {"role": "tool", "content": "skip"},
         ],
         user_message="현재 질문",
+        user_profile_text="- 이름: 홍길동",
     )
 
     assert messages == [
-        {"role": "system", "content": "system prompt"},
+        {"role": "system", "content": "system prompt::- 이름: 홍길동"},
         {"role": "assistant", "content": "이전 답변"},
         {"role": "user", "content": "이전 질문"},
         {"role": "user", "content": "현재 질문"},
@@ -35,6 +39,21 @@ def test_get_system_prompt_uses_override(monkeypatch):
     monkeypatch.setattr("api.llm.prompt.system._build_time_context", lambda now=None: "현재 시각 문맥")
 
     assert get_system_prompt() == "custom prompt\n\n현재 시각 문맥"
+
+
+def test_get_system_prompt_appends_profile_context(monkeypatch):
+    monkeypatch.setattr(config, "LLM_SYSTEM_PROMPT_OVERRIDE", "")
+    monkeypatch.setattr("api.llm.prompt.system._build_time_context", lambda now=None: "현재 시각 문맥")
+
+    prompt = get_system_prompt(user_profile_text="- 이름: 홍길동")
+
+    assert prompt == (
+        f"{DEFAULT_SYSTEM_PROMPT}\n\n"
+        "현재 시각 문맥\n\n"
+        "[사용자 프로필]\n"
+        "- 이름: 홍길동\n\n"
+        "이 사용자의 소속과 근무 맥락을 고려해 적절한 workflow와 답변 방식을 선택하세요."
+    )
 
 
 def test_build_time_context_uses_korean_local_time(monkeypatch):
