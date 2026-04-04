@@ -26,6 +26,7 @@ _LANGUAGE_LABELS = {
     "en": "영어",
     "ja": "일본어",
 }
+_LANGUAGE_ALIASES_SORTED = sorted(_LANGUAGE_ALIASES.items(), key=lambda item: len(item[0]), reverse=True)
 _QUOTED_TEXT_PATTERN = re.compile(r"""["']([^"']+)["']""")
 _FOLLOW_UP_SOURCE_PATTERNS = (
     r"(?i)\bthis time\b",
@@ -84,8 +85,8 @@ def translate_node(state: TranslatorWorkflowState, user_message: str) -> NodeRes
 
     del user_message
 
-    source_text = state.source_text or state.data.get("source_text", "")
-    target_language = state.target_language or state.data.get("target_language", "")
+    source_text = state.source_text
+    target_language = state.target_language
 
     log.info("[translator] translate 도구 호출: text=%s target_language=%s", source_text, target_language)
     result = execute_tool_call(
@@ -127,9 +128,9 @@ def translate_node(state: TranslatorWorkflowState, user_message: str) -> NodeRes
 
 
 def _resolve_translation_request(state: TranslatorWorkflowState, user_message: str) -> NodeResult:
-    previous_source_text = state.source_text or state.data.get("source_text", "")
-    previous_target_language = state.target_language or state.data.get("target_language", "")
-    last_asked_slot = state.last_asked_slot or state.data.get("last_asked_slot", "")
+    previous_source_text = state.source_text
+    previous_target_language = state.target_language
+    last_asked_slot = state.last_asked_slot
     source_text = previous_source_text
     target_language = previous_target_language
 
@@ -189,7 +190,7 @@ def _parse_translation_request(user_message: str) -> tuple[str, str]:
 
 def _extract_target_language(user_message: str) -> str:
     stripped = _QUOTED_TEXT_PATTERN.sub("", user_message)
-    for alias, language_code in sorted(_LANGUAGE_ALIASES.items(), key=lambda item: len(item[0]), reverse=True):
+    for alias, language_code in _LANGUAGE_ALIASES_SORTED:
         if re.search(_build_language_alias_pattern(alias), stripped, flags=re.IGNORECASE):
             return language_code
     return ""
@@ -207,7 +208,7 @@ def _extract_source_text(user_message: str, *, target_language: str) -> str:
     cleaned = re.sub(r"번역(해줘|해주세요|해 줘|해 주세요)?", " ", cleaned)
     cleaned = re.sub(r"바꿔(줘|주세요)?", " ", cleaned)
 
-    for alias in sorted(_LANGUAGE_ALIASES, key=len, reverse=True):
+    for alias, _ in _LANGUAGE_ALIASES_SORTED:
         cleaned = re.sub(_build_language_alias_pattern(alias), " ", cleaned, flags=re.IGNORECASE)
 
     cleaned = re.sub(r"[?.,!]", " ", cleaned)

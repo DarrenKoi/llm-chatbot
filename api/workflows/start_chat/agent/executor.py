@@ -19,7 +19,7 @@ def execute_start_chat_plan(*, user_message: str, state: StartChatWorkflowState)
     if history and history[-1].get("role") == "user":
         history = history[:-1]
 
-    contexts = getattr(state, "retrieved_contexts", None) or state.data.get("retrieved_contexts")
+    contexts = state.retrieved_contexts
     if contexts:
         augmented_message = START_CHAT_CONTEXT_TEMPLATE.format(
             contexts="\n".join(contexts),

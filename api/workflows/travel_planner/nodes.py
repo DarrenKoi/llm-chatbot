@@ -94,6 +94,15 @@ _DESTINATION_DEFAULT_STYLE = {
 _DURATION_PATTERN = re.compile(r"(?:(\d+)\s*박\s*(\d+)\s*일)|(\d+)\s*일")
 
 
+def _sorted_aliases(aliases: dict[str, str]) -> list[tuple[str, str]]:
+    return sorted(aliases.items(), key=lambda item: len(item[0]), reverse=True)
+
+
+_DESTINATION_ALIASES_SORTED = _sorted_aliases(_DESTINATION_ALIASES)
+_STYLE_ALIASES_SORTED = _sorted_aliases(_STYLE_ALIASES)
+_COMPANION_ALIASES_SORTED = _sorted_aliases(_COMPANION_ALIASES)
+
+
 def entry_node(state: TravelPlannerState, user_message: str) -> NodeResult:
     """첫 사용자 메시지에서 최대한 많은 여행 정보를 추출한다."""
 
@@ -123,8 +132,8 @@ def recommend_destination_node(state: TravelPlannerState, user_message: str) -> 
 
     del user_message
 
-    style = state.travel_style or state.data.get("travel_style", "")
-    companion = state.companion_type or state.data.get("companion_type", "")
+    style = state.travel_style
+    companion = state.companion_type
     suggestions = _recommend_destinations(style=style)
 
     log.info("[travel_planner] 목적지 후보 추천: style=%s companion=%s suggestions=%s", style, companion, suggestions)
@@ -150,10 +159,10 @@ def build_plan_node(state: TravelPlannerState, user_message: str) -> NodeResult:
 
     del user_message
 
-    destination = state.destination or state.data.get("destination", "")
-    duration_text = state.duration_text or state.data.get("duration_text", "")
-    travel_style = state.travel_style or state.data.get("travel_style", "") or _DESTINATION_DEFAULT_STYLE.get(destination, "도시")
-    companion_type = state.companion_type or state.data.get("companion_type", "")
+    destination = state.destination
+    duration_text = state.duration_text
+    travel_style = state.travel_style or _DESTINATION_DEFAULT_STYLE.get(destination, "도시")
+    companion_type = state.companion_type
 
     recommended_places = _DESTINATION_TO_PLACES.get(destination, [])[:3]
     note = _build_companion_note(companion_type)
@@ -186,10 +195,10 @@ def build_plan_node(state: TravelPlannerState, user_message: str) -> NodeResult:
 
 
 def _resolve_request(state: TravelPlannerState, user_message: str) -> NodeResult:
-    current_destination = state.destination or state.data.get("destination", "")
-    current_style = state.travel_style or state.data.get("travel_style", "")
-    current_duration = state.duration_text or state.data.get("duration_text", "")
-    current_companion = state.companion_type or state.data.get("companion_type", "")
+    current_destination = state.destination
+    current_style = state.travel_style
+    current_duration = state.duration_text
+    current_companion = state.companion_type
 
     parsed_destination, parsed_style, parsed_duration, parsed_companion = _parse_request(user_message)
 
@@ -252,24 +261,18 @@ def _resolve_request(state: TravelPlannerState, user_message: str) -> NodeResult
 
 def _parse_request(user_message: str) -> tuple[str, str, str, str]:
     normalized = user_message.strip()
-    destination = _extract_destination(normalized)
-    travel_style = _extract_travel_style(normalized)
+    destination = _match_alias(normalized, _DESTINATION_ALIASES_SORTED)
+    travel_style = _match_alias(normalized, _STYLE_ALIASES_SORTED)
     duration_text = _extract_duration(normalized)
-    companion_type = _extract_companion_type(normalized)
+    companion_type = _match_alias(normalized, _COMPANION_ALIASES_SORTED)
     return destination, travel_style, duration_text, companion_type
 
 
-def _extract_destination(user_message: str) -> str:
-    lowered = user_message.lower()
-    for alias, canonical in sorted(_DESTINATION_ALIASES.items(), key=lambda item: len(item[0]), reverse=True):
-        if alias.lower() in lowered:
-            return canonical
-    return ""
+def _match_alias(user_message: str, sorted_aliases: list[tuple[str, str]]) -> str:
+    """사전 정렬된 별칭 목록에서 첫 번째 매칭 값을 반환한다."""
 
-
-def _extract_travel_style(user_message: str) -> str:
     lowered = user_message.lower()
-    for alias, canonical in sorted(_STYLE_ALIASES.items(), key=lambda item: len(item[0]), reverse=True):
+    for alias, canonical in sorted_aliases:
         if alias.lower() in lowered:
             return canonical
     return ""
@@ -286,12 +289,6 @@ def _extract_duration(user_message: str) -> str:
     return f"{days_only}일"
 
 
-def _extract_companion_type(user_message: str) -> str:
-    lowered = user_message.lower()
-    for alias, canonical in sorted(_COMPANION_ALIASES.items(), key=lambda item: len(item[0]), reverse=True):
-        if alias.lower() in lowered:
-            return canonical
-    return ""
 
 
 def _recommend_destinations(*, style: str) -> list[str]:

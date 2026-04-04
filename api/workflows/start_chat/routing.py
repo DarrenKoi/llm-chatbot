@@ -1,6 +1,5 @@
 """시작 대화 워크플로 라우팅 규칙을 정의한다."""
 
-from api.workflows.models import NodeResult
 from api.workflows.registry import list_handoff_workflows
 from api.workflows.start_chat.state import StartChatWorkflowState
 
@@ -17,7 +16,7 @@ def detect_intent(state: StartChatWorkflowState, user_message: str) -> str:
 
     normalized = user_message.strip().lower()
     if not normalized:
-        return getattr(state, "detected_intent", state.data.get("detected_intent", "start_chat"))
+        return state.detected_intent
 
     for workflow_def in list_handoff_workflows():
         workflow_id = workflow_def["workflow_id"]
@@ -31,7 +30,7 @@ def detect_intent(state: StartChatWorkflowState, user_message: str) -> str:
 def determine_handoff_workflow(state: StartChatWorkflowState) -> str | None:
     """시작 대화에서 다른 업무 워크플로로 넘길 대상을 판단한다."""
 
-    intent = getattr(state, "detected_intent", state.data.get("detected_intent", ""))
+    intent = state.detected_intent
     handoff_workflow_ids = {
         workflow_def["workflow_id"]
         for workflow_def in list_handoff_workflows()
