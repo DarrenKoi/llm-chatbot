@@ -24,9 +24,13 @@ def create_application() -> Flask:
     app = Flask(__name__, template_folder=str(template_directory))
 
     @app.route("/", methods=["GET"])
-    def main() -> str:
+    def landing_page() -> str:
+        return render_template("landing.html")
+
+    @app.route("/conversation", methods=["GET"])
+    def conversation_page() -> str:
         conversation = get_recent_messages(limit=50)
-        return render_template("main.html", conversation=conversation)
+        return render_template("conversation.html", conversation=conversation)
 
     @app.route("/monitor", methods=["GET"])
     def monitor() -> str:

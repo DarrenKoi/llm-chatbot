@@ -6,12 +6,17 @@ def test_main_page_renders_main_template(client):
 
     assert response.status_code == 200
     assert b"Signal Room" in response.data
-    assert b"Server Status" in response.data
+    assert b"Available Pages" in response.data
+    assert b"/conversation" in response.data
+    assert b"/monitor" in response.data
+    assert b"/scheduled_tasks" in response.data
+    assert b"/file_delivery" in response.data
+    assert b"/workflows" in response.data
 
 
 @patch("api.get_recent_messages", return_value=[{"user_id": "u1", "role": "user", "content": "hello"}])
 def test_main_page_renders_recent_conversation(mock_get_recent_messages, client):
-    response = client.get("/")
+    response = client.get("/conversation")
 
     assert response.status_code == 200
     assert b"Conversation Debug" in response.data

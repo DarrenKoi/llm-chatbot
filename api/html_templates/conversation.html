@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Signal Room</title>
+  <title>Conversation History</title>
   <style>
     * { box-sizing: border-box; margin: 0; }
 
@@ -60,28 +60,6 @@
       font-weight: 700;
       margin-bottom: 1rem;
     }
-
-    .status-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 0.6rem 0;
-      border-bottom: 1px solid rgba(24, 33, 29, 0.08);
-      font-size: 0.95rem;
-    }
-
-    .status-row:last-child { border-bottom: none; }
-
-    .badge {
-      display: inline-block;
-      padding: 0.2rem 0.6rem;
-      border-radius: 999px;
-      font-size: 0.78rem;
-      font-weight: 600;
-    }
-
-    .badge-ok { background: rgba(13, 124, 102, 0.14); color: #085746; }
-    .badge-busy { background: rgba(216, 140, 58, 0.18); color: #8b5a1a; }
 
     .conversation-meta {
       margin-bottom: 1rem;
@@ -140,10 +118,6 @@
       font-weight: 600;
       text-decoration: none;
     }
-
-    @media (max-width: 480px) {
-      .metrics { grid-template-columns: 1fr; }
-    }
   </style>
 </head>
 <body>
@@ -151,25 +125,6 @@
     <div class="brand">
       <span class="brand-mark">S</span>
       <span>Signal Room</span>
-    </div>
-
-    <div class="card">
-      <h2>Server Status</h2>
-      <p style="color:#5d675f; margin-bottom:1rem; font-size:0.92rem;">
-        Cube 챗봇 서버 &mdash; OSS Agent (One Stop Solution) 연동
-      </p>
-      <div class="status-row">
-        <span>Cube Receiver</span>
-        <span class="badge badge-ok">online</span>
-      </div>
-      <div class="status-row">
-        <span>LLM Agent</span>
-        <span class="badge badge-ok">ready</span>
-      </div>
-      <div class="status-row">
-        <span>Conversation Store</span>
-        <span class="badge badge-ok">connected</span>
-      </div>
     </div>
 
     <div class="card">
@@ -191,8 +146,9 @@
     </div>
 
     <footer>
-      Signal Room &mdash; Cube Chatbot Server for OSS Agent
+      <a href="/">Landing Page</a>
       · <a href="/monitor">Service Monitor</a>
+      · <a href="/scheduled_tasks">Scheduled Tasks</a>
     </footer>
   </div>
 </body>
