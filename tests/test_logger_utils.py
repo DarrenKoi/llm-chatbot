@@ -3,7 +3,6 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 
 from api import config
-from api.utils.logger.formatters import LocalTimezoneFormatter
 from api.utils.logger import (
     get_theme_logger,
     get_topic_logger,
@@ -13,6 +12,7 @@ from api.utils.logger import (
     rollover_activity_logs,
     setup_logging,
 )
+from api.utils.logger.formatters import LocalTimezoneFormatter
 from api.workflows.models import WorkflowState
 
 
@@ -26,6 +26,7 @@ def _remove_tagged_handlers(logger: logging.Logger) -> None:
 
 def _reset_logger_state() -> None:
     from api.utils.logger import service as _svc
+
     _svc._setup_done = False
     _remove_tagged_handlers(logging.getLogger())
     _remove_tagged_handlers(logging.getLogger("activity"))
@@ -80,9 +81,7 @@ def test_log_activity_writes_json_line(tmp_path, monkeypatch):
     assert payload["_type"] == "important"
     assert "홍길동" in first_line
     timed_handlers = [
-        handler
-        for handler in logging.getLogger("activity").handlers
-        if isinstance(handler, TimedRotatingFileHandler)
+        handler for handler in logging.getLogger("activity").handlers if isinstance(handler, TimedRotatingFileHandler)
     ]
     assert timed_handlers
     assert timed_handlers[0].backupCount == 7

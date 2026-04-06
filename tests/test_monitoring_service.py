@@ -1,7 +1,6 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from api import monitoring_service
-from api import config
+from api import config, monitoring_service
 from api.file_delivery import file_delivery_service
 
 
@@ -106,7 +105,7 @@ def test_check_daemon_component_reports_running_for_recent_heartbeat(monkeypatch
     log_path.write_text(
         (
             '{"event":"cube_worker_started","timestamp":"2026-04-02T13:00:00+00:00","pid":101}\n'
-            f'{{"event":"cube_worker_heartbeat","timestamp":"{datetime.now(timezone.utc).isoformat()}","pid":101}}\n'
+            f'{{"event":"cube_worker_heartbeat","timestamp":"{datetime.now(UTC).isoformat()}","pid":101}}\n'
         ),
         encoding="utf-8",
     )
@@ -124,7 +123,7 @@ def test_check_daemon_component_reports_running_for_recent_heartbeat(monkeypatch
 
 
 def test_check_daemon_component_reports_stale_for_old_heartbeat(monkeypatch, tmp_path):
-    stale_timestamp = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat()
+    stale_timestamp = (datetime.now(UTC) - timedelta(minutes=10)).isoformat()
     log_path = tmp_path / "activity.jsonl"
     log_path.write_text(
         f'{{"event":"scheduler_worker_heartbeat","timestamp":"{stale_timestamp}","pid":202}}\n',

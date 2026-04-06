@@ -51,7 +51,7 @@ def main() -> None:
     port = int(os.environ.get("DEV_RUNNER_PORT", "5001"))
     app = create_dev_app()
 
-    print(f"=== Dev Workflow Runner ===")
+    print("=== Dev Workflow Runner ===")
     print(f"http://localhost:{port}")
     print(f"State dir: {os.environ.get('WORKFLOW_STATE_DIR')}")
     print()

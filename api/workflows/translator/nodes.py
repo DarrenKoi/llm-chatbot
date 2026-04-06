@@ -215,11 +215,7 @@ def _extract_source_text(user_message: str, *, target_language: str) -> str:
     for pattern in _FOLLOW_UP_SOURCE_PATTERNS:
         cleaned = re.sub(pattern, " ", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    cleaned = " ".join(
-        token
-        for token in cleaned.split()
-        if token.lower() not in _FOLLOW_UP_SOURCE_TOKENS
-    ).strip()
+    cleaned = " ".join(token for token in cleaned.split() if token.lower() not in _FOLLOW_UP_SOURCE_TOKENS).strip()
 
     if target_language:
         label = _LANGUAGE_LABELS.get(target_language, "")

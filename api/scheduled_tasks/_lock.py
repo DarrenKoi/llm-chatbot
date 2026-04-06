@@ -1,8 +1,8 @@
-import logging
 import inspect
+import logging
 import threading
 import time
-from typing import Callable
+from collections.abc import Callable
 
 from api import config
 from api.utils.logger import log_activity

@@ -72,17 +72,20 @@ def test_build_time_context_uses_korean_local_time(monkeypatch):
 
 
 def test_extract_reply_text_supports_string_and_list_content():
-    assert _extract_reply_text(
-        {
-            "choices": [
-                {
-                    "message": {
-                        "content": [
-                            {"type": "text", "text": "안녕"},
-                            {"type": "text", "text": "하세요"},
-                        ]
+    assert (
+        _extract_reply_text(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": [
+                                {"type": "text", "text": "안녕"},
+                                {"type": "text", "text": "하세요"},
+                            ]
+                        }
                     }
-                }
-            ]
-        }
-    ) == "안녕하세요"
+                ]
+            }
+        )
+        == "안녕하세요"
+    )

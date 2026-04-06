@@ -1,6 +1,7 @@
 from io import BytesIO
 
 import pytest
+
 import api.file_delivery.file_delivery_service as file_delivery_service
 from api import config
 
@@ -275,7 +276,11 @@ def test_file_delivery_upload_uses_lastuser_cookie_for_storage_path(client, tmp_
 def test_file_delivery_list_files_for_user_returns_recent_items(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "FILE_DELIVERY_STORAGE_DIR", tmp_path / "file_delivery")
     monkeypatch.setattr(config, "FILE_DELIVERY_REDIS_URL", "")
-    monkeypatch.setattr(config, "FILE_DELIVERY_ALLOWED_EXTENSIONS", ("png", "jpg", "jpeg", "gif", "webp", "xlsx", "pptx", "docx"))
+    monkeypatch.setattr(
+        config,
+        "FILE_DELIVERY_ALLOWED_EXTENSIONS",
+        ("png", "jpg", "jpeg", "gif", "webp", "xlsx", "pptx", "docx"),
+    )
     file_delivery_service._metadata_backend = None
 
     first = file_delivery_service.save_file_bytes(

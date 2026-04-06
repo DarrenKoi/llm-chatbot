@@ -74,7 +74,7 @@ def promote(workflow_id: str) -> None:
         # 검증 실패 시 롤백
         shutil.rmtree(str(target), ignore_errors=True)
         print(f"  import 검증 실패: {exc}")
-        print(f"  promotion을 롤백했습니다. dev 워크플로를 수정 후 다시 시도하세요.")
+        print("  promotion을 롤백했습니다. dev 워크플로를 수정 후 다시 시도하세요.")
         sys.exit(1)
 
     # 5. 검증 통과 후 dev 소스 삭제
@@ -86,9 +86,9 @@ def promote(workflow_id: str) -> None:
 
     print()
     print("다음 단계:")
-    print(f"  1. pytest tests/ -v 로 전체 테스트를 실행하세요.")
+    print("  1. pytest tests/ -v 로 전체 테스트를 실행하세요.")
     print(f"  2. git add api/workflows/{workflow_id}/ 로 변경사항을 스테이징하세요.")
-    print(f"  3. 코드 리뷰 후 배포하세요.")
+    print("  3. 코드 리뷰 후 배포하세요.")
 
 
 def _cleanup_dev_state(workflow_id: str) -> None:

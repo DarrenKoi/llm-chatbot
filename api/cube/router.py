@@ -1,7 +1,10 @@
 from flask import Blueprint, jsonify, request
 
 from api.cube.payload import extract_cube_request_fields as _extract_cube_request_fields
-from api.cube.service import CubeWorkflowError, accept_cube_message, log_request
+from api.cube.service import CubeWorkflowError, accept_cube_message
+from api.cube.service import log_request as log_request
+
+__all__ = ["bp", "receive_cube", "_extract_cube_request_fields", "log_request"]
 
 bp = Blueprint("cube", __name__)
 

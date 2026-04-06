@@ -113,18 +113,20 @@ def register_translator_tools() -> None:
     server = MCPServerConfig(server_id="translator_example_local", endpoint="local://translator_example")
     register_server(server)
 
-    register_tool(MCPTool(
-        tool_id="translate_example",
-        server_id="translator_example_local",
-        description="한국어/영어/일본어 사이의 번역을 수행하는 devtools 예제 도구다.",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "text": {"type": "string"},
-                "target_language": {"type": "string"},
+    register_tool(
+        MCPTool(
+            tool_id="translate_example",
+            server_id="translator_example_local",
+            description="한국어/영어/일본어 사이의 번역을 수행하는 devtools 예제 도구다.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string"},
+                    "target_language": {"type": "string"},
+                },
+                "required": ["text", "target_language"],
             },
-            "required": ["text", "target_language"],
-        },
-    ))
+        )
+    )
 
     register_handler("translate_example", _translate)

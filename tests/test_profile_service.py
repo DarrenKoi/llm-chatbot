@@ -1,5 +1,5 @@
-import pytest
 import httpx
+import pytest
 
 from api.profile.models import UserProfile
 from api.profile.service import load_user_profile
@@ -25,10 +25,12 @@ def test_load_user_profile_uses_custom_provider(monkeypatch):
     monkeypatch.setattr("api.config.USER_PROFILE_PROVIDER_CALLABLE", "custom.profile:load_profile")
     monkeypatch.setattr(
         "api.profile.service._resolve_provider",
-        lambda _path: lambda _user_id: UserProfile(
-            user_id="u1",
-            name="홍길동",
-            source="custom_company",
+        lambda _path: (
+            lambda _user_id: UserProfile(
+                user_id="u1",
+                name="홍길동",
+                source="custom_company",
+            )
         ),
     )
 
@@ -78,10 +80,12 @@ def test_load_user_profile_falls_back_to_redis_on_api_timeout(mocker, monkeypatc
             request=httpx.Request("GET", "https://profile.example.com/users/u1"),
         ),
     )
-    fake_redis = _FakeRedisClient({
-        b"name": b"\xed\x99\x8d\xea\xb8\xb8\xeb\x8f\x99",
-        b"site": b"\xec\x9d\xb4\xec\xb2\x9c",
-    })
+    fake_redis = _FakeRedisClient(
+        {
+            b"name": b"\xed\x99\x8d\xea\xb8\xb8\xeb\x8f\x99",
+            b"site": b"\xec\x9d\xb4\xec\xb2\x9c",
+        }
+    )
     from_url_mock = mocker.patch("api.profile.service.redis.from_url", return_value=fake_redis)
 
     profile = load_user_profile("u1")

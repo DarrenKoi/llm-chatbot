@@ -3,6 +3,7 @@ import logging
 
 import httpx
 import pytest
+
 from api.cube.client import CubeClientError, _send_cube_request, send_multimessage, send_richnotification
 from api.llm.service import LLMServiceError, generate_reply
 

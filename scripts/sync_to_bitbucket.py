@@ -161,7 +161,7 @@ def main():
 
     if not dst.exists():
         print(f"오류: 대상 디렉토리가 존재하지 않습니다: {dst}")
-        print(f"먼저 Bitbucket 저장소를 clone하세요:")
+        print("먼저 Bitbucket 저장소를 clone하세요:")
         print(f"  git clone <bitbucket-url> {dst}")
         sys.exit(1)
 
@@ -201,12 +201,12 @@ def main():
     print(f"\n총 {total}개 파일 {'복사 예정' if args.dry_run else '복사 완료'}")
 
     if not args.dry_run:
-        print(f"\n다음 단계:")
+        print("\n다음 단계:")
         print(f"  cd {dst}")
-        print(f"  git add -A")
-        print(f"  git status")
-        print(f"  git commit -m \"코드 동기화\"")
-        print(f"  git push")
+        print("  git add -A")
+        print("  git status")
+        print('  git commit -m "코드 동기화"')
+        print("  git push")
 
 
 if __name__ == "__main__":

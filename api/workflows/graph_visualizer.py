@@ -4,7 +4,8 @@ import re
 
 from pyvis.network import Network
 
-from api.workflows.registry import get_workflow, list_workflow_ids as list_registered_workflow_ids
+from api.workflows.registry import get_workflow
+from api.workflows.registry import list_workflow_ids as list_registered_workflow_ids
 
 _NODE_COLOR = "#4A90D9"
 _ENTRY_COLOR = "#2ECC71"
@@ -163,11 +164,11 @@ def _apply_workflow_layout(*, html: str, workflow_id: str) -> str:
     return _BODY_GRAPH_PATTERN.sub(
         (
             "<body>"
-            "<div class=\"workflow-shell\">"
-            f"<div class=\"workflow-header\"><h1>Workflow: {workflow_id}</h1>"
+            '<div class="workflow-shell">'
+            f'<div class="workflow-header"><h1>Workflow: {workflow_id}</h1>'
             "<p>그래프를 넓혀서 노드와 흐름을 한눈에 볼 수 있도록 조정했습니다.</p></div>"
-            "<div class=\"card workflow-card\" style=\"width: 100%\">"
-            "<div id=\"mynetwork\" class=\"card-body\"></div>"
+            '<div class="card workflow-card" style="width: 100%">'
+            '<div id="mynetwork" class="card-body"></div>'
             "</div></div>"
         ),
         html,

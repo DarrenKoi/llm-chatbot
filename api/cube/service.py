@@ -1,7 +1,7 @@
-from concurrent.futures import ThreadPoolExecutor
-from concurrent.futures import TimeoutError as FutureTimeoutError
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
 
 from api import config

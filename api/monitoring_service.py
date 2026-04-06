@@ -1,7 +1,7 @@
 import json
 from collections import deque
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit, urlunsplit
@@ -216,7 +216,7 @@ def _check_file_delivery_metadata() -> MonitorEntry:
         "file_path": "/tmp/monitor-probe.txt",
         "content_type": "text/plain",
         "size_bytes": 0,
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "original_filename": "monitor-probe.txt",
         "stored_filename": "monitor-probe.txt",
         "user_id": "monitor",
@@ -324,7 +324,7 @@ def _check_daemon_component(
             detail="activity log의 daemon 타임스탬프를 해석할 수 없습니다.",
         )
 
-    age_seconds = max(0, int((datetime.now(timezone.utc) - latest_timestamp).total_seconds()))
+    age_seconds = max(0, int((datetime.now(UTC) - latest_timestamp).total_seconds()))
     pid = latest_record.get("pid")
     target = latest_event if pid is None else f"{latest_event} (pid={pid})"
     if age_seconds > stale_after_seconds:

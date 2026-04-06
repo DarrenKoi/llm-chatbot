@@ -78,11 +78,7 @@ def list_workflow_ids() -> list[str]:
 def list_handoff_workflows() -> list[WorkflowDefinition]:
     """start_chat에서 handoff 가능한 워크플로 정의만 반환한다."""
 
-    return [
-        definition
-        for definition in load_workflows().values()
-        if definition.get("handoff_keywords")
-    ]
+    return [definition for definition in load_workflows().values() if definition.get("handoff_keywords")]
 
 
 def get_workflow(workflow_id: str) -> WorkflowDefinition:

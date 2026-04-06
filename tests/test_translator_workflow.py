@@ -7,7 +7,8 @@ from unittest.mock import patch
 import pytest
 
 from api import config
-from api.mcp import local_tools, registry as mcp_registry
+from api.mcp import local_tools
+from api.mcp import registry as mcp_registry
 from api.utils.logger import get_workflow_logger
 from api.workflows.orchestrator import run_graph
 from api.workflows.translator.graph import build_graph
@@ -129,7 +130,9 @@ def test_translator_workflow_writes_structured_logs(tmp_path, monkeypatch):
     assert "workflow_step_started" in events
     assert "workflow_step_completed" in events
     assert "workflow_run_finished" in events
-    assert any(payload.get("action") == "complete" for payload in payloads if payload["event"] == "workflow_step_completed")
+    assert any(
+        payload.get("action") == "complete" for payload in payloads if payload["event"] == "workflow_step_completed"
+    )
 
 
 def test_translator_workflow_completes_for_english_request():
@@ -228,10 +231,11 @@ def test_handle_message_with_translator_workflow_waits_for_clarification():
         message='"감사합니다" 번역해줘',
     )
 
-    with patch("api.workflows.orchestrator.load_state", return_value=None), \
-         patch("api.workflows.orchestrator.save_state") as mock_save, \
-         patch("api.workflows.orchestrator.DEFAULT_WORKFLOW_ID", "translator"):
-
+    with (
+        patch("api.workflows.orchestrator.load_state", return_value=None),
+        patch("api.workflows.orchestrator.save_state") as mock_save,
+        patch("api.workflows.orchestrator.DEFAULT_WORKFLOW_ID", "translator"),
+    ):
         reply = handle_message(incoming)
 
     mock_save.assert_called_once()
@@ -267,10 +271,11 @@ def test_handle_message_with_translator_workflow_resumes_saved_state():
         message="일본어",
     )
 
-    with patch("api.workflows.orchestrator.load_state", return_value=waiting_state), \
-         patch("api.workflows.orchestrator.save_state") as mock_save, \
-         patch("api.workflows.orchestrator.DEFAULT_WORKFLOW_ID", "translator"):
-
+    with (
+        patch("api.workflows.orchestrator.load_state", return_value=waiting_state),
+        patch("api.workflows.orchestrator.save_state") as mock_save,
+        patch("api.workflows.orchestrator.DEFAULT_WORKFLOW_ID", "translator"),
+    ):
         reply = handle_message(incoming)
 
     mock_save.assert_called_once()

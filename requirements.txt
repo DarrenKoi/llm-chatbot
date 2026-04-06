@@ -18,3 +18,4 @@ opensearch-py
 # Test dependencies
 pytest
 pytest-mock
+ruff

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from api import config
 from api.scheduled_tasks import inspection
@@ -20,7 +20,7 @@ def test_collect_registered_jobs_lists_cleanup_tasks(monkeypatch):
 
 
 def test_get_scheduled_tasks_snapshot_builds_runtime_and_history(monkeypatch):
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     monkeypatch.setattr(
         inspection,
         "_read_activity_records",

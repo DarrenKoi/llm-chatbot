@@ -3,7 +3,7 @@ import logging
 import re
 import shutil
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
 
@@ -227,7 +227,7 @@ def save_file_bytes(
         raise ValueError(f"File is too large (max {config.FILE_DELIVERY_MAX_UPLOAD_BYTES} bytes)")
     _assert_storage_limit(len(data))
 
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     date_str = now.strftime("%Y-%m-%d")
     user_storage_key = _user_storage_key(user_id)
     storage_dir = _original_dir() / user_storage_key / date_str
@@ -350,7 +350,12 @@ def _image_format_by_extension(extension: str) -> str:
     return mapping.get(extension, "PNG")
 
 
-def _create_variant_bytes(source_file: Path, extension: str, target_width: int | None, target_height: int | None) -> bytes:
+def _create_variant_bytes(
+    source_file: Path,
+    extension: str,
+    target_width: int | None,
+    target_height: int | None,
+) -> bytes:
     try:
         from PIL import Image
     except ImportError as e:
@@ -379,7 +384,7 @@ def get_expired_file_ids(reference_time: datetime | None = None) -> list[str]:
     if retention_days <= 0:
         return []
 
-    now = reference_time or datetime.now(timezone.utc)
+    now = reference_time or datetime.now(UTC)
     cutoff = now - timedelta(days=retention_days)
     expired: list[str] = []
 
@@ -395,7 +400,7 @@ def get_expired_file_ids(reference_time: datetime | None = None) -> list[str]:
         except ValueError:
             continue
         if created_dt.tzinfo is None:
-            created_dt = created_dt.replace(tzinfo=timezone.utc)
+            created_dt = created_dt.replace(tzinfo=UTC)
         if created_dt < cutoff:
             expired.append(file_id)
 

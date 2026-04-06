@@ -60,11 +60,7 @@ def _extract_blueprints(module: ModuleType, module_name: str) -> list[Blueprint]
         if isinstance(candidate, Blueprint):
             return [candidate]
 
-    discovered = [
-        value
-        for value in module.__dict__.values()
-        if isinstance(value, Blueprint)
-    ]
+    discovered = [value for value in module.__dict__.values() if isinstance(value, Blueprint)]
     if discovered:
         return discovered
 

@@ -5,8 +5,8 @@ from pathlib import Path
 
 from api import config
 from api.file_delivery import delete_file, get_expired_file_ids
-from api.scheduled_tasks._registry import _RUNTIME_META_ATTR
 from api.scheduled_tasks._lock import SchedulerJobLockLease, run_locked_job
+from api.scheduled_tasks._registry import _RUNTIME_META_ATTR
 
 logger = logging.getLogger(__name__)
 
@@ -92,8 +92,7 @@ def register(scheduler) -> None:
         {
             "lock_id": "cleanup_file_delivery",
             "source": (
-                f"{_cleanup_expired_file_delivery_files.__module__}."
-                f"{_cleanup_expired_file_delivery_files.__qualname__}"
+                f"{_cleanup_expired_file_delivery_files.__module__}.{_cleanup_expired_file_delivery_files.__qualname__}"
             ),
             "use_distributed_lock": True,
         },

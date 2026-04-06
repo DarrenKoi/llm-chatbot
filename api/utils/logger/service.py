@@ -3,16 +3,15 @@ import sys
 from logging import Handler
 from logging.handlers import TimedRotatingFileHandler
 from threading import Lock
-from typing import TYPE_CHECKING
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from flask import g, has_request_context, request
 
 from api import config
 from api.utils.logger.formatters import (
+    TEXT_LOG_FORMAT,
     JsonLineFormatter,
     LocalTimezoneFormatter,
-    TEXT_LOG_FORMAT,
     current_log_timestamp,
 )
 from api.utils.logger.paths import get_scoped_log_dir, get_theme_log_dir, normalize_name
@@ -35,7 +34,7 @@ def _handler_tag(handler: Handler) -> str | None:
 
 
 def _set_handler_tag(handler: Handler, tag: str) -> None:
-    setattr(handler, "_chatbot_handler_tag", tag)
+    handler._chatbot_handler_tag = tag
 
 
 def _has_handler(logger: logging.Logger, tag: str) -> bool:

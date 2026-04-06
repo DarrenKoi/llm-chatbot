@@ -1,7 +1,7 @@
 import json
 import logging
 from collections import defaultdict, deque
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -48,15 +48,11 @@ def get_scheduled_tasks_snapshot() -> dict[str, Any]:
         for job in jobs
     ]
 
-    recent_failure_count = sum(
-        1
-        for task in tasks
-        if task["last_activity"]["status"] in {"failed", "aborted"}
-    )
+    recent_failure_count = sum(1 for task in tasks if task["last_activity"]["status"] in {"failed", "aborted"})
     no_history_count = sum(1 for task in tasks if task["last_activity"]["status"] == "no history")
 
     return {
-        "checked_at": _format_local_datetime(datetime.now(timezone.utc)),
+        "checked_at": _format_local_datetime(datetime.now(UTC)),
         "summary": {
             "configured_jobs": len(tasks),
             "running_jobs": sum(task["runtime"]["status"] == "running" for task in tasks),
@@ -137,11 +133,11 @@ def _get_job_next_run_time(job) -> datetime | None:
     if next_run_time is not None:
         return next_run_time
 
-    trigger_timezone = getattr(job.trigger, "timezone", timezone.utc)
+    trigger_timezone = getattr(job.trigger, "timezone", UTC)
     try:
         now = datetime.now(trigger_timezone)
     except Exception:
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
     try:
         return job.trigger.get_next_fire_time(None, now)
@@ -307,7 +303,7 @@ def _build_scheduler_worker_snapshot(records: list[dict[str, Any]]) -> dict[str,
             "detail": "scheduler worker 이벤트 타임스탬프를 해석할 수 없습니다.",
         }
 
-    age_seconds = max(0, int((datetime.now(timezone.utc) - timestamp).total_seconds()))
+    age_seconds = max(0, int((datetime.now(UTC) - timestamp).total_seconds()))
     stale_after_seconds = max(config.SCHEDULER_WORKER_IDLE_SECONDS * 3, _MIN_WORKER_STALE_SECONDS)
     if age_seconds > stale_after_seconds:
         return {

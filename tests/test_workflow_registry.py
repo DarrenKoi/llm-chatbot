@@ -1,6 +1,6 @@
-import sys
 import json
 import logging
+import sys
 from textwrap import dedent
 
 from api import config

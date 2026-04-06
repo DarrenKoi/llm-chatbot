@@ -169,7 +169,10 @@ def build_plan_node(state: TravelPlannerState, user_message: str) -> NodeResult:
     reply_lines = [
         f"{destination} {duration_text} 여행은 {travel_style} 중심으로 시작하면 좋습니다.",
         f"추천 방문지: {', '.join(recommended_places)}",
-        f"추천 흐름: 첫날은 {recommended_places[0]} 주변, 다음 일정은 {recommended_places[1]}와 {recommended_places[2]}를 묶어보세요.",
+        (
+            f"추천 흐름: 첫날은 {recommended_places[0]} 주변, "
+            f"다음 일정은 {recommended_places[1]}와 {recommended_places[2]}를 묶어보세요."
+        ),
         note,
         "원하시면 다음 단계에서 숙소 지역이나 일자별 상세 동선도 이어서 정리할 수 있습니다.",
     ]
@@ -231,10 +234,7 @@ def _resolve_request(state: TravelPlannerState, user_message: str) -> NodeResult
         if not current_style:
             return NodeResult(
                 action="wait",
-                reply=(
-                    "여행 계획을 같이 잡아볼게요. 어떤 스타일의 여행을 원하시나요?\n"
-                    "예: 도시, 휴양, 자연, 먹거리"
-                ),
+                reply=("여행 계획을 같이 잡아볼게요. 어떤 스타일의 여행을 원하시나요?\n예: 도시, 휴양, 자연, 먹거리"),
                 next_node_id="collect_preference",
                 data_updates={**base_updates, "last_asked_slot": "travel_style"},
             )
@@ -287,8 +287,6 @@ def _extract_duration(user_message: str) -> str:
     if nights and days:
         return f"{nights}박 {days}일"
     return f"{days_only}일"
-
-
 
 
 def _recommend_destinations(*, style: str) -> list[str]:

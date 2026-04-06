@@ -19,7 +19,9 @@ def execute_tool_call(tool_call: MCPToolCall) -> MCPToolResult:
             return MCPToolResult(tool_id=tool_call.tool_id, output=output)
         except Exception as exc:
             return MCPToolResult(
-                tool_id=tool_call.tool_id, success=False, error=str(exc),
+                tool_id=tool_call.tool_id,
+                success=False,
+                error=str(exc),
             )
 
     tool = get_tool(tool_call.tool_id)

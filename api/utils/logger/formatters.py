@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -43,7 +43,7 @@ def get_log_timezone() -> ZoneInfo:
         try:
             return ZoneInfo(_DEFAULT_LOG_TIMEZONE)
         except ZoneInfoNotFoundError:
-            return timezone.utc
+            return UTC
 
 
 def _normalize_datetime(value: datetime) -> str:
@@ -94,8 +94,9 @@ def build_log_document(record: logging.LogRecord, payload: dict[str, Any]) -> di
 
     message = str(normalized_payload.get("message", record.getMessage()))
     event = str(normalized_payload.get("event", message))
-    timestamp = str(normalized_payload.get("@timestamp") or normalized_payload.get("timestamp")
-                    or current_log_timestamp())
+    timestamp = str(
+        normalized_payload.get("@timestamp") or normalized_payload.get("timestamp") or current_log_timestamp()
+    )
 
     document: dict[str, Any] = {
         "timestamp": timestamp,

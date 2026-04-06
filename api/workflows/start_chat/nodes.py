@@ -1,13 +1,13 @@
 """시작 대화 워크플로 노드를 정의한다."""
 
 from api.profile.service import load_user_profile
+from api.workflows.models import NodeResult
 from api.workflows.start_chat.agent.executor import execute_start_chat_plan
 from api.workflows.start_chat.agent.planner import plan_start_chat_response
 from api.workflows.start_chat.rag.context_builder import build_start_chat_context
 from api.workflows.start_chat.rag.retriever import retrieve_start_chat_documents
 from api.workflows.start_chat.routing import detect_intent, determine_handoff_workflow
 from api.workflows.start_chat.state import StartChatWorkflowState
-from api.workflows.models import NodeResult
 
 
 def entry_node(state: StartChatWorkflowState, user_message: str) -> NodeResult:

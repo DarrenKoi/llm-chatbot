@@ -20,6 +20,21 @@ python index.py
 
 The local dev server listens on fixed port `5000`.
 
+## Code Style
+
+This repository uses `ruff` for Python linting and formatting.
+
+```bash
+ruff check .
+ruff format .
+```
+
+If you want `ruff` to rewrite simple lint issues automatically as well:
+
+```bash
+ruff check . --fix
+```
+
 ## Docs
 
 - Workflow onboarding guide: `doc/guideline/workflow_추가_가이드.md`

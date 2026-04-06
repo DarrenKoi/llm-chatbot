@@ -1,4 +1,4 @@
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from api import config
 
@@ -9,7 +9,9 @@ class TestInMemoryBackend:
     def _fresh_module(self):
         """Re-import conversation_service with reset global state."""
         import importlib
+
         import api.conversation_service as mod
+
         mod._backend = None
         importlib.reload(mod)
         return mod
@@ -101,7 +103,9 @@ class TestMongoBackend:
 
         with patch("pymongo.MongoClient", return_value=mock_client):
             import importlib
+
             import api.conversation_service as mod
+
             mod._backend = None
             importlib.reload(mod)
 
@@ -122,10 +126,12 @@ class TestMongoBackend:
         mock_cursor.sort.return_value = mock_cursor
         mock_cursor.limit.return_value = mock_cursor
         mock_cursor.__iter__ = MagicMock(
-            return_value=iter([
-                {"role": "assistant", "content": "older"},
-                {"role": "user", "content": "newer"},
-            ])
+            return_value=iter(
+                [
+                    {"role": "assistant", "content": "older"},
+                    {"role": "user", "content": "newer"},
+                ]
+            )
         )
 
         mock_col = MagicMock()
@@ -137,7 +143,9 @@ class TestMongoBackend:
 
         with patch("pymongo.MongoClient", return_value=mock_client):
             import importlib
+
             import api.conversation_service as mod
+
             mod._backend = None
             importlib.reload(mod)
 
@@ -166,7 +174,9 @@ class TestMongoBackend:
 
         with patch("pymongo.MongoClient", return_value=mock_client):
             import importlib
+
             import api.conversation_service as mod
+
             mod._backend = None
             importlib.reload(mod)
 
@@ -181,9 +191,7 @@ class TestMongoBackend:
         mock_cursor = MagicMock()
         mock_cursor.sort.return_value = mock_cursor
         mock_cursor.limit.return_value = mock_cursor
-        mock_cursor.__iter__ = MagicMock(
-            return_value=iter([{"user_id": "user1", "role": "user", "content": "hello"}])
-        )
+        mock_cursor.__iter__ = MagicMock(return_value=iter([{"user_id": "user1", "role": "user", "content": "hello"}]))
 
         mock_col = MagicMock()
         mock_col.find.return_value = mock_cursor
@@ -194,7 +202,9 @@ class TestMongoBackend:
 
         with patch("pymongo.MongoClient", return_value=mock_client):
             import importlib
+
             import api.conversation_service as mod
+
             mod._backend = None
             importlib.reload(mod)
 
@@ -215,7 +225,9 @@ class TestMongoBackend:
             mock_cls.return_value = mock_client
 
             import importlib
+
             import api.conversation_service as mod
+
             mod._backend = None
             importlib.reload(mod)
 

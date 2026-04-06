@@ -130,7 +130,6 @@ def test_handle_cube_message_success(
     caplog.set_level(logging.INFO, logger="api.cube.service")
 
     with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 1.0):
-
         result = handle_cube_message(
             {
                 "richnotificationmessage": {

@@ -112,10 +112,7 @@ def _load_from_redis(user_id: str) -> UserProfile | None:
     if not raw:
         return None
 
-    payload = {
-        _decode_redis_value(field): _decode_redis_value(value)
-        for field, value in raw.items()
-    }
+    payload = {_decode_redis_value(field): _decode_redis_value(value) for field, value in raw.items()}
     return _coerce_profile(payload, user_id=user_id, default_source="redis")
 
 
@@ -135,9 +132,7 @@ def _normalize_profile(payload: dict[str, Any], *, user_id: str, default_source:
     name = _clean_text(payload.get("name") or payload.get("user_name"))
     team = _clean_text(payload.get("team") or payload.get("team_name"))
     organization = _clean_text(payload.get("organization") or payload.get("org_name"))
-    work_location = _clean_text(
-        payload.get("work_location") or payload.get("site") or payload.get("location")
-    )
+    work_location = _clean_text(payload.get("work_location") or payload.get("site") or payload.get("location"))
     role = _clean_text(payload.get("role") or payload.get("job_title") or payload.get("position"))
     email = _clean_text(payload.get("email"))
     source = _clean_text(payload.get("source")) or default_source
@@ -167,5 +162,3 @@ def _decode_redis_value(value: bytes | str) -> str:
     if isinstance(value, bytes):
         return value.decode("utf-8")
     return str(value)
-
-

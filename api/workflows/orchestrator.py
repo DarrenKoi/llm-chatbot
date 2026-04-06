@@ -19,7 +19,7 @@ def _build_message_preview(message: str, *, limit: int = 120) -> str:
     compact = " ".join(message.split())
     if len(compact) <= limit:
         return compact
-    return f"{compact[:limit - 3]}..."
+    return f"{compact[: limit - 3]}..."
 
 
 def _log_workflow_event(
@@ -77,14 +77,16 @@ def _coerce_state(
 def _reset_start_chat_state(user_id: str) -> WorkflowState:
     """새 사용자 턴을 위한 start_chat 상태를 재구성한다."""
 
-    return build_state({
-        "user_id": user_id,
-        "workflow_id": DEFAULT_WORKFLOW_ID,
-        "node_id": DEFAULT_ENTRY_NODE_ID,
-        "status": "active",
-        "data": {},
-        "stack": [],
-    })
+    return build_state(
+        {
+            "user_id": user_id,
+            "workflow_id": DEFAULT_WORKFLOW_ID,
+            "node_id": DEFAULT_ENTRY_NODE_ID,
+            "status": "active",
+            "data": {},
+            "stack": [],
+        }
+    )
 
 
 def _restore_parent_workflow(state: WorkflowState) -> None:
@@ -163,10 +165,12 @@ def _handle_handoff(state: WorkflowState, result: NodeResult, user_message: str)
         return ""
 
     # 현재 위치를 스택에 저장 (복귀용)
-    state.stack.append({
-        "workflow_id": state.workflow_id,
-        "node_id": state.node_id,
-    })
+    state.stack.append(
+        {
+            "workflow_id": state.workflow_id,
+            "node_id": state.node_id,
+        }
+    )
     _log_workflow_event(
         state,
         "workflow_handoff_started",
@@ -228,7 +232,9 @@ def run_graph(graph: dict, state: WorkflowState, user_message: str) -> str:
         current_node_id = state.node_id
         log.info(
             "[orchestrator] step=%d  node=%s  workflow=%s",
-            step, state.node_id, state.workflow_id,
+            step,
+            state.node_id,
+            state.workflow_id,
         )
         _log_workflow_event(
             state,

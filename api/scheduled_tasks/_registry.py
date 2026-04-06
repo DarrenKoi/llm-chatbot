@@ -2,7 +2,8 @@ import importlib
 import inspect
 import logging
 import pkgutil
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from api.scheduled_tasks._lock import run_locked_job
 

@@ -32,10 +32,7 @@ def determine_handoff_workflow(state: StartChatWorkflowState) -> str | None:
     """시작 대화에서 다른 업무 워크플로로 넘길 대상을 판단한다."""
 
     intent = state.detected_intent
-    handoff_workflow_ids = {
-        workflow_def["workflow_id"]
-        for workflow_def in list_handoff_workflows()
-    }
+    handoff_workflow_ids = {workflow_def["workflow_id"] for workflow_def in list_handoff_workflows()}
     if intent in handoff_workflow_ids:
         return intent
     return None

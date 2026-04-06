@@ -21,9 +21,7 @@ CUBE_BOT_ID = os.environ.get("CUBE_BOT_ID", CUBE_API_ID)
 CUBE_BOT_TOKEN = os.environ.get("CUBE_BOT_TOKEN", CUBE_API_TOKEN)
 CUBE_BOT_NAME = os.environ.get("CUBE_BOT_NAME", "ITC OSS")
 CUBE_BOT_USERNAMES = tuple(
-    name.strip()
-    for name in os.environ.get("CUBE_BOT_USERNAMES", CUBE_BOT_NAME).split(",")
-    if name.strip()
+    name.strip() for name in os.environ.get("CUBE_BOT_USERNAMES", CUBE_BOT_NAME).split(",") if name.strip()
 )
 CUBE_TIMEOUT_SECONDS = int(os.environ.get("CUBE_TIMEOUT_SECONDS", 10))
 
@@ -118,9 +116,7 @@ FILE_DELIVERY_BASE_URL = os.environ.get(
     f"{WEB_APP_URL}/file-delivery/files",
 ).rstrip("/")
 FILE_DELIVERY_MAX_UPLOAD_BYTES = int(os.environ.get("FILE_DELIVERY_MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
-FILE_DELIVERY_STORAGE_LIMIT_BYTES = int(
-    os.environ.get("FILE_DELIVERY_STORAGE_LIMIT_BYTES", 8 * 1024 * 1024 * 1024)
-)
+FILE_DELIVERY_STORAGE_LIMIT_BYTES = int(os.environ.get("FILE_DELIVERY_STORAGE_LIMIT_BYTES", 8 * 1024 * 1024 * 1024))
 FILE_DELIVERY_ALLOWED_EXTENSIONS = tuple(
     ext.strip().lower()
     for ext in os.environ.get(
@@ -129,20 +125,10 @@ FILE_DELIVERY_ALLOWED_EXTENSIONS = tuple(
     ).split(",")
     if ext.strip()
 )
-FILE_DELIVERY_IMAGE_TTL_SECONDS = int(
-    os.environ.get("FILE_DELIVERY_IMAGE_TTL_SECONDS", 0)
-)
+FILE_DELIVERY_IMAGE_TTL_SECONDS = int(os.environ.get("FILE_DELIVERY_IMAGE_TTL_SECONDS", 0))
 FILE_DELIVERY_REDIS_URL = os.environ.get("FILE_DELIVERY_REDIS_URL", REDIS_URL)
 FILE_DELIVERY_RETENTION_DAYS = int(os.environ.get("FILE_DELIVERY_RETENTION_DAYS", 30))
-FILE_DELIVERY_MAX_RESIZE_WIDTH = int(
-    os.environ.get("FILE_DELIVERY_MAX_RESIZE_WIDTH", 2048)
-)
-FILE_DELIVERY_MAX_RESIZE_HEIGHT = int(
-    os.environ.get("FILE_DELIVERY_MAX_RESIZE_HEIGHT", 2048)
-)
-FILE_DELIVERY_THUMBNAIL_WIDTH = int(
-    os.environ.get("FILE_DELIVERY_THUMBNAIL_WIDTH", 320)
-)
-FILE_DELIVERY_THUMBNAIL_HEIGHT = int(
-    os.environ.get("FILE_DELIVERY_THUMBNAIL_HEIGHT", 320)
-)
+FILE_DELIVERY_MAX_RESIZE_WIDTH = int(os.environ.get("FILE_DELIVERY_MAX_RESIZE_WIDTH", 2048))
+FILE_DELIVERY_MAX_RESIZE_HEIGHT = int(os.environ.get("FILE_DELIVERY_MAX_RESIZE_HEIGHT", 2048))
+FILE_DELIVERY_THUMBNAIL_WIDTH = int(os.environ.get("FILE_DELIVERY_THUMBNAIL_WIDTH", 320))
+FILE_DELIVERY_THUMBNAIL_HEIGHT = int(os.environ.get("FILE_DELIVERY_THUMBNAIL_HEIGHT", 320))

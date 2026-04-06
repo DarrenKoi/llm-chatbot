@@ -2,11 +2,9 @@ import time
 import uuid
 from pathlib import Path
 
-from flask import Flask
-from flask import g, request
-from flask import render_template
+from flask import Flask, g, render_template, request
 
-from api import config
+from api import config as config
 from api.blueprint_loader import discover_blueprints
 from api.conversation_service import get_recent_messages
 from api.cube.payload import extract_user_id

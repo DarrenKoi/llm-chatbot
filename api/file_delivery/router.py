@@ -1,8 +1,14 @@
 import logging
 
-from flask import Blueprint, request, jsonify, render_template, send_file
+from flask import Blueprint, jsonify, render_template, request, send_file
 
-from api.file_delivery import get_file_metadata, get_file_variant, is_image_file, list_files_for_user, save_uploaded_file
+from api.file_delivery import (
+    get_file_metadata,
+    get_file_variant,
+    is_image_file,
+    list_files_for_user,
+    save_uploaded_file,
+)
 from api.utils.logger import log_activity
 
 logger = logging.getLogger(__name__)

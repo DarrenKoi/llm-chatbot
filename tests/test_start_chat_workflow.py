@@ -9,9 +9,9 @@ from unittest.mock import patch
 
 import pytest
 
-from api.workflows.models import NodeResult, WorkflowState
-from api.workflows.orchestrator import run_graph, _handle_handoff
 from api.workflows.chart_maker.graph import build_graph as build_chart_maker_graph
+from api.workflows.models import NodeResult, WorkflowState
+from api.workflows.orchestrator import _handle_handoff, run_graph
 from api.workflows.start_chat.graph import build_graph
 from api.workflows.start_chat.nodes import entry_node
 from api.workflows.start_chat.state import StartChatWorkflowState
@@ -44,6 +44,7 @@ def _mock_llm_and_history(llm_reply="mock LLM 응답"):
 
 # ── casual 의도: start_chat 내부 직접 처리 ─────────────────────
 
+
 def test_start_chat_casual_follows_linear_flow():
     """casual 의도 시 entry→classify→retrieve→plan→generate 순서로 실행된다."""
 
@@ -54,11 +55,14 @@ def test_start_chat_casual_follows_linear_flow():
     original_nodes = graph["nodes"]
     wrapped = {}
     for name, fn in original_nodes.items():
+
         def _wrap(node_fn, node_name):
             def wrapper(s, msg):
                 visited.append(node_name)
                 return node_fn(s, msg)
+
             return wrapper
+
         wrapped[name] = _wrap(fn, name)
     graph["nodes"] = wrapped
 
@@ -120,6 +124,7 @@ def test_entry_node_handles_missing_profile(mocker):
 
 # ── classify 노드 분기 테스트 ──────────────────────────────────
 
+
 def test_classify_returns_handoff_for_chart_maker():
     """chart_maker 의도 시 handoff action을 반환한다."""
 
@@ -166,13 +171,14 @@ def test_classify_handoff_targets(message, expected_workflow_id):
 
 # ── 오케스트레이터 handoff 테스트 ──────────────────────────────
 
+
 def test_orchestrator_handoff_switches_workflow():
     """handoff 시 스택에 현재 위치를 저장하고 대상 워크플로로 전환한다."""
 
     state = _make_state(detected_intent="chart_maker")
     graph = build_graph()
 
-    reply = run_graph(graph, state, "차트 만들어줘")
+    run_graph(graph, state, "차트 만들어줘")
 
     # chart_maker 워크플로가 실행되었어야 함
     # chart_maker의 entry_node는 wait을 반환하므로 워크플로가 완료되지 않음
@@ -250,7 +256,7 @@ def test_handed_off_workflow_uses_target_state_and_returns_to_start_chat():
     assert second_reply == ""
     assert state.workflow_id == "chart_maker"
     assert state.node_id == "build_spec"
-    assert getattr(state, "chart_type") == "line"
+    assert state.chart_type == "line"
 
     final_reply = run_graph(build_chart_maker_graph(), state, "계속")
 
@@ -262,6 +268,7 @@ def test_handed_off_workflow_uses_target_state_and_returns_to_start_chat():
 
 
 # ── handle_message 통합 테스트 ─────────────────────────────────
+
 
 def test_handle_message_uses_start_chat_as_default():
     """handle_message가 start_chat을 기본 워크플로로 사용한다."""
@@ -278,10 +285,12 @@ def test_handle_message_uses_start_chat_as_default():
     )
 
     mock_llm, mock_history = _mock_llm_and_history("안녕하세요!")
-    with patch("api.workflows.orchestrator.load_state", return_value=None), \
-         patch("api.workflows.orchestrator.save_state") as mock_save, \
-         mock_llm, mock_history:
-
+    with (
+        patch("api.workflows.orchestrator.load_state", return_value=None),
+        patch("api.workflows.orchestrator.save_state") as mock_save,
+        mock_llm,
+        mock_history,
+    ):
         reply = handle_message(incoming)
 
     assert reply == "안녕하세요!"
@@ -304,8 +313,10 @@ def test_handle_message_routes_chart_request_from_user_message():
         message="차트 만들어줘",
     )
 
-    with patch("api.workflows.orchestrator.load_state", return_value=None), \
-         patch("api.workflows.orchestrator.save_state") as mock_save:
+    with (
+        patch("api.workflows.orchestrator.load_state", return_value=None),
+        patch("api.workflows.orchestrator.save_state") as mock_save,
+    ):
         reply = handle_message(incoming)
 
     assert reply == "[chart_maker] 처리 완료."
@@ -346,9 +357,12 @@ def test_handle_message_restarts_completed_start_chat_session():
     )
 
     mock_llm, mock_history = _mock_llm_and_history("후속 답변입니다")
-    with patch("api.workflows.orchestrator.load_state", return_value=completed_state), \
-         patch("api.workflows.orchestrator.save_state") as mock_save, \
-         mock_llm, mock_history:
+    with (
+        patch("api.workflows.orchestrator.load_state", return_value=completed_state),
+        patch("api.workflows.orchestrator.save_state") as mock_save,
+        mock_llm,
+        mock_history,
+    ):
         reply = handle_message(incoming)
 
     assert reply == "후속 답변입니다"

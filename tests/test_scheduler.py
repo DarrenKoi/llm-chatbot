@@ -1,12 +1,12 @@
-from unittest.mock import MagicMock
-from types import SimpleNamespace
 import time
 import uuid
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
+import api.scheduled_tasks as scheduler_pkg
 from api import config
 from api.scheduled_tasks import _lock as lock_mod
 from api.scheduled_tasks import _registry as registry_mod
-import api.scheduled_tasks as scheduler_pkg
 
 
 class _FakeRedis:

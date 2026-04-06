@@ -52,10 +52,7 @@ def _invalidate_dev_workflow_modules() -> None:
 
     importlib.invalidate_caches()
 
-    stale_keys = [
-        key for key in sys.modules
-        if key.startswith("devtools.workflows.") and not key.endswith("__init__")
-    ]
+    stale_keys = [key for key in sys.modules if key.startswith("devtools.workflows.") and not key.endswith("__init__")]
     for key in stale_keys:
         del sys.modules[key]
 
@@ -104,12 +101,14 @@ def run_graph_with_trace(
         node_fn = nodes.get(state.node_id)
         if node_fn is None:
             log.warning("노드를 찾을 수 없습니다: %s", state.node_id)
-            trace.append({
-                "step": step,
-                "node_id": state.node_id,
-                "workflow_id": state.workflow_id,
-                "error": f"노드를 찾을 수 없음: {state.node_id}",
-            })
+            trace.append(
+                {
+                    "step": step,
+                    "node_id": state.node_id,
+                    "workflow_id": state.workflow_id,
+                    "error": f"노드를 찾을 수 없음: {state.node_id}",
+                }
+            )
             break
 
         current_node_id = state.node_id
@@ -119,31 +118,35 @@ def run_graph_with_trace(
             result = node_fn(state, user_message)
         except Exception as exc:
             elapsed_ms = int((time.perf_counter() - start_time) * 1000)
-            trace.append({
-                "step": step,
-                "node_id": current_node_id,
-                "workflow_id": state.workflow_id,
-                "error": str(exc),
-                "elapsed_ms": elapsed_ms,
-            })
+            trace.append(
+                {
+                    "step": step,
+                    "node_id": current_node_id,
+                    "workflow_id": state.workflow_id,
+                    "error": str(exc),
+                    "elapsed_ms": elapsed_ms,
+                }
+            )
             raise
 
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
         last_result = result
         _apply_result(state, result)
 
-        trace.append({
-            "step": step,
-            "node_id": current_node_id,
-            "workflow_id": state.workflow_id,
-            "action": result.action,
-            "reply_preview": result.reply[:100] if result.reply else "",
-            "next_node_id": result.next_node_id,
-            "next_workflow_id": result.next_workflow_id,
-            "data_updates": sorted(result.data_updates.keys()),
-            "elapsed_ms": elapsed_ms,
-            "state_snapshot": _serialize_state_safe(state),
-        })
+        trace.append(
+            {
+                "step": step,
+                "node_id": current_node_id,
+                "workflow_id": state.workflow_id,
+                "action": result.action,
+                "reply_preview": result.reply[:100] if result.reply else "",
+                "next_node_id": result.next_node_id,
+                "next_workflow_id": result.next_workflow_id,
+                "data_updates": sorted(result.data_updates.keys()),
+                "elapsed_ms": elapsed_ms,
+                "state_snapshot": _serialize_state_safe(state),
+            }
+        )
 
         if result.reply:
             reply = result.reply
@@ -181,16 +184,19 @@ def _handle_handoff(
         return "", []
 
     # 현재 위치를 스택에 저장 (복귀용)
-    state.stack.append({
-        "workflow_id": state.workflow_id,
-        "node_id": state.node_id,
-    })
+    state.stack.append(
+        {
+            "workflow_id": state.workflow_id,
+            "node_id": state.node_id,
+        }
+    )
 
     # 대상 워크플로 로드 (dev workflows에서 먼저, 없으면 production에서)
     try:
         target_def = get_dev_workflow(target_workflow_id)
     except KeyError:
         from api.workflows.registry import get_workflow
+
         target_def = get_workflow(target_workflow_id)
 
     # 대상 워크플로로 전환
@@ -237,14 +243,16 @@ def handle_dev_message(
 
     loaded_state = load_state(user_id)
     if loaded_state is None or loaded_state.workflow_id != workflow_id:
-        state = build_state({
-            "user_id": user_id,
-            "workflow_id": workflow_id,
-            "node_id": workflow_def["entry_node_id"],
-            "status": "active",
-            "data": {},
-            "stack": [],
-        })
+        state = build_state(
+            {
+                "user_id": user_id,
+                "workflow_id": workflow_id,
+                "node_id": workflow_def["entry_node_id"],
+                "status": "active",
+                "data": {},
+                "stack": [],
+            }
+        )
     else:
         state = loaded_state
 

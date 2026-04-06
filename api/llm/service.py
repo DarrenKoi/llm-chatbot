@@ -79,9 +79,7 @@ def _post_json(*, url: str, payload: dict[str, Any], headers: dict[str, str], ti
         response = httpx.post(url, json=payload, headers=headers, timeout=timeout)
         response.raise_for_status()
     except httpx.HTTPStatusError as exc:
-        raise LLMServiceError(
-            f"LLM request failed with HTTP {exc.response.status_code}: {exc.response.text}"
-        ) from exc
+        raise LLMServiceError(f"LLM request failed with HTTP {exc.response.status_code}: {exc.response.text}") from exc
     except httpx.RequestError as exc:
         raise LLMServiceError(f"LLM request failed: {exc}") from exc
 

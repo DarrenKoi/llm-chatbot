@@ -52,7 +52,7 @@ def scaffold(workflow_id: str) -> None:
     print(f"  1. {target_dir / 'state.py'} 에서 상태 필드를 정의하세요.")
     print(f"  2. {target_dir / 'nodes.py'} 에서 노드 함수를 구현하세요.")
     print(f"  3. {target_dir / 'graph.py'} 에서 그래프에 노드를 등록하세요.")
-    print(f"  4. python -m devtools.workflow_runner.app 으로 실행 후 테스트하세요.")
+    print("  4. python -m devtools.workflow_runner.app 으로 실행 후 테스트하세요.")
     print(f"  5. 완료 후 python -m devtools.scripts.promote {workflow_id} 로 운영 반영하세요.")
 
 

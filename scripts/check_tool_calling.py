@@ -134,19 +134,19 @@ def print_result(result: dict) -> None:
     print(f"{'=' * 60}")
 
     if result["error"]:
-        print(f"  상태: 오류")
+        print("  상태: 오류")
         print(f"  오류: {result['error']}")
         return
 
     if result["supported"]:
-        print(f"  상태: Function Calling 지원 확인")
+        print("  상태: Function Calling 지원 확인")
         print(f"  finish_reason: {result['finish_reason']}")
-        print(f"  tool_calls:")
+        print("  tool_calls:")
         for tc in result["tool_calls"]:
             fn = tc.get("function", {})
             print(f"    - {fn.get('name', '?')}({fn.get('arguments', '{}')})")
     else:
-        print(f"  상태: Function Calling 미지원 (또는 도구 호출 안 함)")
+        print("  상태: Function Calling 미지원 (또는 도구 호출 안 함)")
         print(f"  finish_reason: {result['finish_reason']}")
         if result["content"]:
             preview = result["content"][:150]
@@ -207,7 +207,7 @@ def main():
         sys.exit(1)
 
     print(f"테스트 대상 URL: {base_url}")
-    print(f"테스트 메시지: \"{TEST_MESSAGE}\"")
+    print(f'테스트 메시지: "{TEST_MESSAGE}"')
     print(f"제공 도구: {', '.join(t['function']['name'] for t in TEST_TOOLS)}")
     print(f"테스트 모델 수: {len(models)}")
 
@@ -218,7 +218,7 @@ def main():
         print_result(result)
 
         if args.raw and result["raw_response"]:
-            print(f"\n  [원본 응답]")
+            print("\n  [원본 응답]")
             print(f"  {json.dumps(result['raw_response'], ensure_ascii=False, indent=2)}")
 
     # 요약

@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from api import config
@@ -85,7 +85,7 @@ class _MongoBackend:
                 "user_id": user_id,
                 "role": message["role"],
                 "content": message["content"],
-                "created_at": datetime.now(timezone.utc),
+                "created_at": datetime.now(UTC),
             }
         )
 
@@ -104,7 +104,7 @@ class _InMemoryBackend:
         messages = list(self._store.get(user_id, []))
         if limit is None:
             return messages
-        return messages[-max(1, limit):]
+        return messages[-max(1, limit) :]
 
     def append(self, user_id: str, message: dict):
         if user_id not in self._store:
@@ -112,7 +112,7 @@ class _InMemoryBackend:
                 self._store.popitem(last=False)
             self._store[user_id] = []
         self._store[user_id].append(message)
-        self._store[user_id] = self._store[user_id][-config.CONVERSATION_MAX_MESSAGES:]
+        self._store[user_id] = self._store[user_id][-config.CONVERSATION_MAX_MESSAGES :]
         self._recent_messages.append(
             {
                 "user_id": user_id,
@@ -120,8 +120,8 @@ class _InMemoryBackend:
                 "content": message["content"],
             }
         )
-        self._recent_messages = self._recent_messages[-self.MAX_RECENT_MESSAGES:]
+        self._recent_messages = self._recent_messages[-self.MAX_RECENT_MESSAGES :]
         self._store.move_to_end(user_id)
 
     def get_recent(self, *, limit: int = 50) -> list[dict[str, Any]]:
-        return list(reversed(self._recent_messages[-max(1, limit):]))
+        return list(reversed(self._recent_messages[-max(1, limit) :]))
