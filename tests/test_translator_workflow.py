@@ -1,10 +1,14 @@
 """번역 서비스 워크플로 end-to-end 테스트."""
 
+import json
+import logging
 from unittest.mock import patch
 
 import pytest
 
+from api import config
 from api.mcp import local_tools, registry as mcp_registry
+from api.utils.logger import get_workflow_logger
 from api.workflows.orchestrator import run_graph
 from api.workflows.translator.graph import build_graph
 from api.workflows.translator.state import TranslatorWorkflowState
@@ -35,6 +39,25 @@ def _make_state(node_id: str = "entry") -> TranslatorWorkflowState:
         node_id=node_id,
         data={},
     )
+
+
+def _reset_workflow_loggers() -> None:
+    from api.utils.logger import service as logger_service
+
+    logger_service._setup_done = False
+    manager = logging.root.manager
+    for name, logger_obj in manager.loggerDict.items():
+        if not isinstance(logger_obj, logging.Logger) or not name.startswith("workflow."):
+            continue
+        for handler in list(logger_obj.handlers):
+            if getattr(handler, "_chatbot_handler_tag", "").startswith("chatbot."):
+                logger_obj.removeHandler(handler)
+                handler.close()
+
+
+def _flush_handlers(logger: logging.Logger) -> None:
+    for handler in logger.handlers:
+        handler.flush()
 
 
 def test_translate_tool_korean_to_english():
@@ -82,6 +105,31 @@ def test_translator_workflow_completes_when_target_language_is_explicit():
     assert state.data["target_language"] == "ja"
     assert state.data["translation_direction"] == "ko→ja"
     assert state.data["pronunciation_ko"] == "곤니치와"
+
+
+def test_translator_workflow_writes_structured_logs(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(config, "LOG_TIMEZONE", "Asia/Seoul")
+    monkeypatch.setattr(config, "LOG_RETENTION_DAYS", 7)
+    _reset_workflow_loggers()
+
+    state = _make_state()
+    reply = run_graph(build_graph(), state, '"안녕하세요"를 영어로 번역해줘')
+
+    assert reply == "Hello"
+    workflow_logger = get_workflow_logger("translator")
+    _flush_handlers(workflow_logger)
+
+    workflow_log_file = config.LOG_DIR / "workflows" / "translator" / "events.jsonl"
+    assert workflow_log_file.exists()
+    log_lines = workflow_log_file.read_text(encoding="utf-8").splitlines()
+    payloads = [json.loads(line) for line in log_lines]
+    events = [payload["event"] for payload in payloads]
+
+    assert "workflow_step_started" in events
+    assert "workflow_step_completed" in events
+    assert "workflow_run_finished" in events
+    assert any(payload.get("action") == "complete" for payload in payloads if payload["event"] == "workflow_step_completed")
 
 
 def test_translator_workflow_completes_for_english_request():

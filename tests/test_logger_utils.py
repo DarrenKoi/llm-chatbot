@@ -7,6 +7,7 @@ from api.utils.logger.formatters import LocalTimezoneFormatter
 from api.utils.logger import (
     get_theme_logger,
     get_topic_logger,
+    get_workflow_logger,
     log_activity,
     rollover_activity_logs,
     setup_logging,
@@ -29,7 +30,9 @@ def _reset_logger_state() -> None:
 
     manager = logging.root.manager
     for name, logger_obj in manager.loggerDict.items():
-        if isinstance(logger_obj, logging.Logger) and (name.startswith("topic.") or name.startswith("theme.")):
+        if isinstance(logger_obj, logging.Logger) and (
+            name.startswith("topic.") or name.startswith("theme.") or name.startswith("workflow.")
+        ):
             _remove_tagged_handlers(logger_obj)
 
 
@@ -119,6 +122,27 @@ def test_theme_logger_writes_under_theme_folder(tmp_path, monkeypatch):
     themed_log_file = config.LOG_DIR / "audit" / "security.log"
     assert themed_log_file.exists()
     assert "access granted" in themed_log_file.read_text(encoding="utf-8")
+
+
+def test_workflow_logger_writes_under_workflow_folder(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(config, "LOG_TIMEZONE", "Asia/Seoul")
+    monkeypatch.setattr(config, "LOG_RETENTION_DAYS", 7)
+    _reset_logger_state()
+
+    workflow_logger = get_workflow_logger("translator")
+    workflow_logger.info(
+        "workflow_step_started",
+        extra={"activity_data": {"event": "workflow_step_started", "node_id": "entry", "step": 0}},
+    )
+    _flush_handlers(workflow_logger)
+
+    workflow_log_file = config.LOG_DIR / "workflows" / "translator" / "events.jsonl"
+    assert workflow_log_file.exists()
+    payload = json.loads(workflow_log_file.read_text(encoding="utf-8").splitlines()[0])
+    assert payload["event"] == "workflow_step_started"
+    assert payload["node_id"] == "entry"
+    assert payload["step"] == 0
 
 
 def test_text_formatter_uses_configured_timezone(monkeypatch):

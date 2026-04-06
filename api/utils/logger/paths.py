@@ -26,8 +26,15 @@ def resolve_log_root_dir() -> Path:
     return root_dir
 
 
+def get_scoped_log_dir(*parts: str) -> Path:
+    scoped_dir = resolve_log_root_dir()
+    for index, part in enumerate(parts):
+        safe_part = normalize_name(part, field_name=f"log_dir_part_{index}")
+        scoped_dir = scoped_dir / safe_part
+
+    scoped_dir.mkdir(parents=True, exist_ok=True)
+    return scoped_dir
+
+
 def get_theme_log_dir(theme: str) -> Path:
-    safe_theme = normalize_name(theme, field_name="theme")
-    theme_dir = resolve_log_root_dir() / safe_theme
-    theme_dir.mkdir(parents=True, exist_ok=True)
-    return theme_dir
+    return get_scoped_log_dir(theme)

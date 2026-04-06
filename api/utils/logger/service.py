@@ -14,7 +14,7 @@ from api.utils.logger.formatters import (
     TEXT_LOG_FORMAT,
     current_log_timestamp,
 )
-from api.utils.logger.paths import get_theme_log_dir, normalize_name
+from api.utils.logger.paths import get_scoped_log_dir, get_theme_log_dir, normalize_name
 
 _setup_lock = Lock()
 _setup_done = False
@@ -23,6 +23,7 @@ _ROOT_HANDLER_TAG = "chatbot.root.stream"
 _ACTIVITY_HANDLER_TAG = "chatbot.activity.json"
 _TOPIC_HANDLER_TAG_PREFIX = "chatbot.topic."
 _THEME_HANDLER_TAG_PREFIX = "chatbot.theme."
+_WORKFLOW_HANDLER_TAG_PREFIX = "chatbot.workflow."
 
 
 def _handler_tag(handler: Handler) -> str | None:
@@ -187,6 +188,42 @@ def get_theme_logger(
     file_handler = _build_file_handler(
         file_path=themed_dir / f"{safe_name}.{suffix}",
         retention_days=retention_days if retention_days is not None else (backup_count or config.LOG_RETENTION_DAYS),
+        json_output=json_output,
+    )
+    _set_handler_tag(file_handler, handler_tag)
+    logger.addHandler(file_handler)
+    return logger
+
+
+def get_workflow_logger(
+    workflow_id: str,
+    *,
+    name: str = "events",
+    json_output: bool = True,
+    retention_days: int | None = None,
+) -> logging.Logger:
+    """Return a rotating logger saved under ``logs/workflows/<workflow_id>/<name>.(log|jsonl)``."""
+    setup_logging()
+    safe_workflow_id = normalize_name(workflow_id, field_name="workflow_id")
+    safe_name = normalize_name(name, field_name="name")
+    logger_name = (
+        f"workflow.{safe_workflow_id}.{safe_name}.json"
+        if json_output
+        else f"workflow.{safe_workflow_id}.{safe_name}"
+    )
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+    handler_tag = f"{_WORKFLOW_HANDLER_TAG_PREFIX}{safe_workflow_id}.{safe_name}.{'json' if json_output else 'text'}"
+    if _has_handler(logger, handler_tag):
+        return logger
+
+    suffix = "jsonl" if json_output else "log"
+    workflow_dir = get_scoped_log_dir("workflows", safe_workflow_id)
+    file_handler = _build_file_handler(
+        file_path=workflow_dir / f"{safe_name}.{suffix}",
+        retention_days=retention_days if retention_days is not None else config.LOG_RETENTION_DAYS,
         json_output=json_output,
     )
     _set_handler_tag(file_handler, handler_tag)
