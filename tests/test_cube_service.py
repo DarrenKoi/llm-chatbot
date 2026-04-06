@@ -130,6 +130,7 @@ def test_handle_cube_message_success(
     caplog.set_level(logging.INFO, logger="api.cube.service")
 
     with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 1.0):
+
         result = handle_cube_message(
             {
                 "richnotificationmessage": {
@@ -167,8 +168,6 @@ def test_handle_cube_message_success(
     )
     assert mock_log_request.call_count == 2
     assert "Workflow handling scheduled" in caplog.text
-    assert "Workflow handling started" in caplog.text
-    assert "Workflow handling completed" in caplog.text
 
 
 @patch("api.cube.service.log_request")
@@ -225,8 +224,6 @@ def test_handle_cube_message_sends_thinking_message_only_when_reply_is_slow(
     )
     assert mock_log_request.call_count == 2
     assert "Workflow handling exceeded thinking delay" in caplog.text
-    assert "Cube thinking message send started" in caplog.text
-    assert "Cube thinking message send completed" in caplog.text
 
 
 @patch("api.cube.service.send_multimessage")

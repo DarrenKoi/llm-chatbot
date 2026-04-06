@@ -15,6 +15,7 @@ class CubeClientError(RuntimeError):
 
 
 def _send_cube_request(*, url: str, payload: dict[str, Any], label: str) -> dict[str, Any] | None:
+    logger.info("Cube %s request started", label)
     try:
         response = httpx.post(
             url,
@@ -31,15 +32,19 @@ def _send_cube_request(*, url: str, payload: dict[str, Any], label: str) -> dict
     raw_body = response.content
 
     if not raw_body:
+        logger.info("Cube %s request completed: empty_response=True", label)
         return None
 
     try:
         data = response.json()
     except json.JSONDecodeError:
+        logger.info("Cube %s request completed: raw_text=True", label)
         return {"raw": response.text}
 
     if not isinstance(data, dict):
+        logger.info("Cube %s request completed: wrapped=True", label)
         return {"payload": data}
+    logger.info("Cube %s request completed", label)
     return data
 
 
@@ -52,19 +57,7 @@ def send_multimessage(*, user_id: str, reply_message: str) -> dict[str, Any] | N
         raise CubeClientError("CUBE_API_TOKEN is not configured.")
 
     payload = build_multimessage_payload(user_id=user_id, reply_message=reply_message)
-    logger.info(
-        "Cube multiMessage send started: user_id=%s reply_length=%d",
-        user_id,
-        len(reply_message),
-    )
-    result = _send_cube_request(url=config.CUBE_MULTIMESSAGE_URL, payload=payload, label="multiMessage")
-    logger.info(
-        "Cube multiMessage send completed: user_id=%s reply_length=%d response_type=%s",
-        user_id,
-        len(reply_message),
-        type(result).__name__,
-    )
-    return result
+    return _send_cube_request(url=config.CUBE_MULTIMESSAGE_URL, payload=payload, label="multiMessage")
 
 
 def send_richnotification(*, user_id: str, channel_id: str, reply_message: str) -> dict[str, Any] | None:
@@ -80,18 +73,4 @@ def send_richnotification(*, user_id: str, channel_id: str, reply_message: str) 
         channel_id=channel_id,
         reply_message=reply_message,
     )
-    logger.info(
-        "Cube richnotification send started: user_id=%s channel_id=%s reply_length=%d",
-        user_id,
-        channel_id,
-        len(reply_message),
-    )
-    result = _send_cube_request(url=config.CUBE_RICHNOTIFICATION_URL, payload=payload, label="richnotification")
-    logger.info(
-        "Cube richnotification send completed: user_id=%s channel_id=%s reply_length=%d response_type=%s",
-        user_id,
-        channel_id,
-        len(reply_message),
-        type(result).__name__,
-    )
-    return result
+    return _send_cube_request(url=config.CUBE_RICHNOTIFICATION_URL, payload=payload, label="richnotification")

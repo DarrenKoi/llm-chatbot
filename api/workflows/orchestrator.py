@@ -28,18 +28,19 @@ def _log_workflow_event(
     *,
     level: int = logging.INFO,
     workflow_id: str | None = None,
-    node_id: str | None = None,
-    status: str | None = None,
     **data: object,
 ) -> None:
     target_workflow_id = workflow_id or state.workflow_id
+    defaults: dict[str, object] = {
+        "node_id": state.node_id,
+        "status": state.status,
+    }
+    defaults.update(data)
     payload = build_activity_payload(
         event,
         user_id=state.user_id,
         workflow_id=target_workflow_id,
-        node_id=node_id if node_id is not None else state.node_id,
-        status=status if status is not None else state.status,
-        **data,
+        **defaults,
     )
     try:
         get_workflow_logger(target_workflow_id).log(level, event, extra={"activity_data": payload})

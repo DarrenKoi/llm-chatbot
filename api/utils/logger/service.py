@@ -159,6 +159,40 @@ def get_topic_logger(topic: str, *, json_output: bool = False) -> logging.Logger
     return logger
 
 
+def _get_scoped_logger(
+    *,
+    scope: str,
+    scope_id: str,
+    name: str,
+    log_dir,
+    handler_tag_prefix: str,
+    json_output: bool,
+    retention_days: int,
+) -> logging.Logger:
+    """Shared logic for theme/workflow scoped loggers."""
+    safe_name = normalize_name(name, field_name="name")
+    logger_name = f"{scope}.{scope_id}.{safe_name}"
+    if json_output:
+        logger_name += ".json"
+    logger = logging.getLogger(logger_name)
+    logger.setLevel(logging.INFO)
+    logger.propagate = False
+
+    handler_tag = f"{handler_tag_prefix}{scope_id}.{safe_name}.{'json' if json_output else 'text'}"
+    if _has_handler(logger, handler_tag):
+        return logger
+
+    suffix = "jsonl" if json_output else "log"
+    file_handler = _build_file_handler(
+        file_path=log_dir / f"{safe_name}.{suffix}",
+        retention_days=retention_days,
+        json_output=json_output,
+    )
+    _set_handler_tag(file_handler, handler_tag)
+    logger.addHandler(file_handler)
+    return logger
+
+
 def get_theme_logger(
     theme: str,
     *,
@@ -170,29 +204,17 @@ def get_theme_logger(
 ) -> logging.Logger:
     """Return a rotating logger saved under ``logs/<theme>/<name>.(log|jsonl)``."""
     setup_logging()
-    # Compatibility: old callers may still pass max_bytes from size-based logger API.
     _ = max_bytes
     safe_theme = normalize_name(theme, field_name="theme")
-    safe_name = normalize_name(name, field_name="name")
-    logger_name = f"theme.{safe_theme}.{safe_name}.json" if json_output else f"theme.{safe_theme}.{safe_name}"
-    logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
-
-    handler_tag = f"{_THEME_HANDLER_TAG_PREFIX}{safe_theme}.{safe_name}.{'json' if json_output else 'text'}"
-    if _has_handler(logger, handler_tag):
-        return logger
-
-    suffix = "jsonl" if json_output else "log"
-    themed_dir = get_theme_log_dir(safe_theme)
-    file_handler = _build_file_handler(
-        file_path=themed_dir / f"{safe_name}.{suffix}",
-        retention_days=retention_days if retention_days is not None else (backup_count or config.LOG_RETENTION_DAYS),
+    return _get_scoped_logger(
+        scope="theme",
+        scope_id=safe_theme,
+        name=name,
+        log_dir=get_theme_log_dir(safe_theme),
+        handler_tag_prefix=_THEME_HANDLER_TAG_PREFIX,
         json_output=json_output,
+        retention_days=retention_days if retention_days is not None else (backup_count or config.LOG_RETENTION_DAYS),
     )
-    _set_handler_tag(file_handler, handler_tag)
-    logger.addHandler(file_handler)
-    return logger
 
 
 def get_workflow_logger(
@@ -205,30 +227,15 @@ def get_workflow_logger(
     """Return a rotating logger saved under ``logs/workflows/<workflow_id>/<name>.(log|jsonl)``."""
     setup_logging()
     safe_workflow_id = normalize_name(workflow_id, field_name="workflow_id")
-    safe_name = normalize_name(name, field_name="name")
-    logger_name = (
-        f"workflow.{safe_workflow_id}.{safe_name}.json"
-        if json_output
-        else f"workflow.{safe_workflow_id}.{safe_name}"
-    )
-    logger = logging.getLogger(logger_name)
-    logger.setLevel(logging.INFO)
-    logger.propagate = False
-
-    handler_tag = f"{_WORKFLOW_HANDLER_TAG_PREFIX}{safe_workflow_id}.{safe_name}.{'json' if json_output else 'text'}"
-    if _has_handler(logger, handler_tag):
-        return logger
-
-    suffix = "jsonl" if json_output else "log"
-    workflow_dir = get_scoped_log_dir("workflows", safe_workflow_id)
-    file_handler = _build_file_handler(
-        file_path=workflow_dir / f"{safe_name}.{suffix}",
-        retention_days=retention_days if retention_days is not None else config.LOG_RETENTION_DAYS,
+    return _get_scoped_logger(
+        scope="workflow",
+        scope_id=safe_workflow_id,
+        name=name,
+        log_dir=get_scoped_log_dir("workflows", safe_workflow_id),
+        handler_tag_prefix=_WORKFLOW_HANDLER_TAG_PREFIX,
         json_output=json_output,
+        retention_days=retention_days if retention_days is not None else config.LOG_RETENTION_DAYS,
     )
-    _set_handler_tag(file_handler, handler_tag)
-    logger.addHandler(file_handler)
-    return logger
 
 
 def _rollover_logger_handlers(logger: logging.Logger) -> int:

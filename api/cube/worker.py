@@ -1,5 +1,4 @@
 import argparse
-import logging
 import os
 import time
 
@@ -15,7 +14,6 @@ from api.cube.service import process_queued_message
 from api.utils.logger import log_activity, setup_logging
 
 _HEARTBEAT_INTERVAL_SECONDS = 60
-logger = logging.getLogger(__name__)
 
 
 def process_next_queued_message(*, timeout_seconds: int | None = None) -> bool:
@@ -24,13 +22,6 @@ def process_next_queued_message(*, timeout_seconds: int | None = None) -> bool:
         return False
 
     incoming = queued_message.incoming
-    logger.info(
-        "Cube worker processing started: user_id=%s message_id=%s attempt=%d timeout_seconds=%s",
-        incoming.user_id,
-        incoming.message_id,
-        queued_message.attempt,
-        timeout_seconds,
-    )
     try:
         process_queued_message(queued_message)
     except Exception as exc:
@@ -38,14 +29,6 @@ def process_next_queued_message(*, timeout_seconds: int | None = None) -> bool:
         max_retries = max(1, config.CUBE_QUEUE_MAX_RETRIES)
         if next_attempt < max_retries:
             requeue_queued_message(queued_message, next_attempt=next_attempt)
-            logger.warning(
-                "Cube worker requeued message: user_id=%s message_id=%s attempt=%d next_attempt=%d max_retries=%d",
-                incoming.user_id,
-                incoming.message_id,
-                queued_message.attempt,
-                next_attempt,
-                max_retries,
-            )
             log_activity(
                 "cube_worker_message_requeued",
                 level="WARNING",
@@ -60,13 +43,6 @@ def process_next_queued_message(*, timeout_seconds: int | None = None) -> bool:
             )
         else:
             acknowledge_queued_message(queued_message)
-            logger.error(
-                "Cube worker failed message permanently: user_id=%s message_id=%s attempt=%d max_retries=%d",
-                incoming.user_id,
-                incoming.message_id,
-                queued_message.attempt,
-                max_retries,
-            )
             log_activity(
                 "cube_worker_message_failed",
                 level="ERROR",
@@ -82,12 +58,6 @@ def process_next_queued_message(*, timeout_seconds: int | None = None) -> bool:
         return True
 
     acknowledge_queued_message(queued_message)
-    logger.info(
-        "Cube worker processing completed: user_id=%s message_id=%s attempt=%d",
-        incoming.user_id,
-        incoming.message_id,
-        queued_message.attempt,
-    )
     log_activity(
         "cube_worker_message_processed",
         user_id=incoming.user_id,

@@ -137,18 +137,7 @@ def _send_thinking_message(incoming: CubeIncomingMessage) -> None:
         return
 
     try:
-        logger.info(
-            "Cube thinking message send started: user_id=%s message_id=%s reply_length=%d",
-            incoming.user_id,
-            incoming.message_id,
-            len(config.LLM_THINKING_MESSAGE),
-        )
         send_multimessage(user_id=incoming.user_id, reply_message=config.LLM_THINKING_MESSAGE)
-        logger.info(
-            "Cube thinking message send completed: user_id=%s message_id=%s",
-            incoming.user_id,
-            incoming.message_id,
-        )
     except CubeClientError:
         log_activity(
             "cube_thinking_message_failed",
@@ -158,39 +147,14 @@ def _send_thinking_message(incoming: CubeIncomingMessage) -> None:
         )
 
 
-def _run_workflow_message(incoming: CubeIncomingMessage, *, attempt: int = 0) -> str:
-    logger.info(
-        "Workflow handling started: user_id=%s message_id=%s attempt=%d workflow_input_length=%d",
-        incoming.user_id,
-        incoming.message_id,
-        attempt,
-        len(incoming.message),
-    )
-    reply = handle_workflow_message(incoming, attempt=attempt)
-    logger.info(
-        "Workflow handling completed: user_id=%s message_id=%s attempt=%d reply_length=%d",
-        incoming.user_id,
-        incoming.message_id,
-        attempt,
-        len(reply),
-    )
-    return reply
-
-
 def _generate_llm_reply(incoming: CubeIncomingMessage, *, attempt: int = 0) -> str:
     if not config.LLM_THINKING_MESSAGE:
-        return _run_workflow_message(incoming, attempt=attempt)
+        return handle_workflow_message(incoming, attempt=attempt)
 
     delay_seconds = config.LLM_THINKING_MESSAGE_DELAY_SECONDS
     if delay_seconds <= 0:
-        logger.info(
-            "Workflow handling with immediate thinking message: user_id=%s message_id=%s attempt=%d",
-            incoming.user_id,
-            incoming.message_id,
-            attempt,
-        )
         _send_thinking_message(incoming)
-        return _run_workflow_message(incoming, attempt=attempt)
+        return handle_workflow_message(incoming, attempt=attempt)
 
     with ThreadPoolExecutor(max_workers=1) as executor:
         logger.info(
@@ -200,7 +164,7 @@ def _generate_llm_reply(incoming: CubeIncomingMessage, *, attempt: int = 0) -> s
             attempt,
             delay_seconds,
         )
-        future = executor.submit(_run_workflow_message, incoming, attempt=attempt)
+        future = executor.submit(handle_workflow_message, incoming, attempt=attempt)
         try:
             return future.result(timeout=delay_seconds)
         except FutureTimeoutError:
