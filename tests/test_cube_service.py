@@ -1,3 +1,4 @@
+import logging
 import time
 from unittest.mock import call, patch
 
@@ -124,7 +125,10 @@ def test_handle_cube_message_success(
     mock_handle_workflow_message,
     mock_send_multimessage,
     mock_log_request,
+    caplog,
 ):
+    caplog.set_level(logging.INFO, logger="api.cube.service")
+
     with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 1.0):
         result = handle_cube_message(
             {
@@ -162,6 +166,9 @@ def test_handle_cube_message_success(
         reply_message="nice to meet you",
     )
     assert mock_log_request.call_count == 2
+    assert "Workflow handling scheduled" in caplog.text
+    assert "Workflow handling started" in caplog.text
+    assert "Workflow handling completed" in caplog.text
 
 
 @patch("api.cube.service.log_request")
@@ -173,7 +180,10 @@ def test_handle_cube_message_sends_thinking_message_only_when_reply_is_slow(
     mock_append_message,
     mock_send_multimessage,
     mock_log_request,
+    caplog,
 ):
+    caplog.set_level(logging.INFO, logger="api.cube.service")
+
     def slow_reply(*args, **kwargs):
         time.sleep(0.05)
         return "nice to meet you"
@@ -214,6 +224,9 @@ def test_handle_cube_message_sends_thinking_message_only_when_reply_is_slow(
         reply_message="nice to meet you",
     )
     assert mock_log_request.call_count == 2
+    assert "Workflow handling exceeded thinking delay" in caplog.text
+    assert "Cube thinking message send started" in caplog.text
+    assert "Cube thinking message send completed" in caplog.text
 
 
 @patch("api.cube.service.send_multimessage")

@@ -1,8 +1,9 @@
 import json
+import logging
 
 import httpx
 import pytest
-from api.cube.client import CubeClientError, _send_cube_request
+from api.cube.client import CubeClientError, _send_cube_request, send_multimessage, send_richnotification
 from api.llm.service import LLMServiceError, generate_reply
 
 
@@ -125,3 +126,39 @@ def test_send_cube_request_raises_for_http_status(mocker):
             payload={"hello": "world"},
             label="richnotification",
         )
+
+
+def test_send_multimessage_emits_info_logs(mocker, monkeypatch, caplog):
+    monkeypatch.setattr("api.config.CUBE_MULTIMESSAGE_URL", "https://cube.example.com/api/multiMessage")
+    monkeypatch.setattr("api.config.CUBE_API_ID", "bot-id")
+    monkeypatch.setattr("api.config.CUBE_API_TOKEN", "bot-token")
+    mocker.patch(
+        "api.cube.client.httpx.post",
+        return_value=_response(text="accepted"),
+    )
+
+    caplog.set_level(logging.INFO, logger="api.cube.client")
+
+    result = send_multimessage(user_id="u1", reply_message="hello")
+
+    assert result == {"raw": "accepted"}
+    assert "Cube multiMessage send started" in caplog.text
+    assert "Cube multiMessage send completed" in caplog.text
+
+
+def test_send_richnotification_emits_info_logs(mocker, monkeypatch, caplog):
+    monkeypatch.setattr("api.config.CUBE_RICHNOTIFICATION_URL", "https://cube.example.com/legacy/richnotification")
+    monkeypatch.setattr("api.config.CUBE_BOT_ID", "bot-id")
+    monkeypatch.setattr("api.config.CUBE_BOT_TOKEN", "bot-token")
+    mocker.patch(
+        "api.cube.client.httpx.post",
+        return_value=_response(text="accepted"),
+    )
+
+    caplog.set_level(logging.INFO, logger="api.cube.client")
+
+    result = send_richnotification(user_id="u1", channel_id="c1", reply_message="hello")
+
+    assert result == {"raw": "accepted"}
+    assert "Cube richnotification send started" in caplog.text
+    assert "Cube richnotification send completed" in caplog.text

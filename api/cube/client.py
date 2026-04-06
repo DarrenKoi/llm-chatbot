@@ -1,10 +1,13 @@
 import json
+import logging
 from typing import Any
 
 import httpx
 
 from api import config
 from api.cube.payload import build_multimessage_payload, build_richnotification_payload
+
+logger = logging.getLogger(__name__)
 
 
 class CubeClientError(RuntimeError):
@@ -49,7 +52,19 @@ def send_multimessage(*, user_id: str, reply_message: str) -> dict[str, Any] | N
         raise CubeClientError("CUBE_API_TOKEN is not configured.")
 
     payload = build_multimessage_payload(user_id=user_id, reply_message=reply_message)
-    return _send_cube_request(url=config.CUBE_MULTIMESSAGE_URL, payload=payload, label="multiMessage")
+    logger.info(
+        "Cube multiMessage send started: user_id=%s reply_length=%d",
+        user_id,
+        len(reply_message),
+    )
+    result = _send_cube_request(url=config.CUBE_MULTIMESSAGE_URL, payload=payload, label="multiMessage")
+    logger.info(
+        "Cube multiMessage send completed: user_id=%s reply_length=%d response_type=%s",
+        user_id,
+        len(reply_message),
+        type(result).__name__,
+    )
+    return result
 
 
 def send_richnotification(*, user_id: str, channel_id: str, reply_message: str) -> dict[str, Any] | None:
@@ -65,4 +80,18 @@ def send_richnotification(*, user_id: str, channel_id: str, reply_message: str) 
         channel_id=channel_id,
         reply_message=reply_message,
     )
-    return _send_cube_request(url=config.CUBE_RICHNOTIFICATION_URL, payload=payload, label="richnotification")
+    logger.info(
+        "Cube richnotification send started: user_id=%s channel_id=%s reply_length=%d",
+        user_id,
+        channel_id,
+        len(reply_message),
+    )
+    result = _send_cube_request(url=config.CUBE_RICHNOTIFICATION_URL, payload=payload, label="richnotification")
+    logger.info(
+        "Cube richnotification send completed: user_id=%s channel_id=%s reply_length=%d response_type=%s",
+        user_id,
+        channel_id,
+        len(reply_message),
+        type(result).__name__,
+    )
+    return result
