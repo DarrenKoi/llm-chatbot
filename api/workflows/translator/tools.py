@@ -5,6 +5,7 @@ import re
 from api.mcp.local_tools import register_handler
 from api.mcp.models import MCPServerConfig, MCPTool
 from api.mcp.registry import register_server, register_tool
+from api.workflows.translator import TRANSLATOR_TOOL_TAGS
 
 _KOREAN_CHAR = re.compile(r"[\uac00-\ud7a3]")
 _JAPANESE_CHAR = re.compile(r"[\u3040-\u30ff\u4e00-\u9faf]")
@@ -122,7 +123,7 @@ def register_translator_tools() -> None:
             tool_id="translate",
             server_id="translator_local",
             description="한국어/영어/일본어 사이의 번역을 수행한다.",
-            tags=("translation", "language"),
+            tags=TRANSLATOR_TOOL_TAGS,
             input_schema={
                 "type": "object",
                 "properties": {

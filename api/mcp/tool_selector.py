@@ -14,11 +14,5 @@ def select_tools(*, workflow_id: str, user_message: str, tools: list[MCPTool]) -
     if not required_tags:
         return list(tools)
 
-    selected = [tool for tool in tools if _matches_required_tags(tool=tool, required_tags=required_tags)]
-    return selected
-
-
-def _matches_required_tags(*, tool: MCPTool, required_tags: tuple[str, ...]) -> bool:
-    if not tool.tags:
-        return False
-    return any(tag in tool.tags for tag in required_tags)
+    required_tag_set = frozenset(required_tags)
+    return [tool for tool in tools if tool.tags and not required_tag_set.isdisjoint(tool.tags)]

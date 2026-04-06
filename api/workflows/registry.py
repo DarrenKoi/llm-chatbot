@@ -8,6 +8,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+from api.mcp.models import normalize_tags
 from api.utils.logger import log_workflow_activity
 from api.workflows.models import WorkflowState
 
@@ -146,10 +147,9 @@ def _normalize_workflow_definition(
         definition.get("handoff_keywords", ()),
         module_name=module_name,
     )
-    definition["tool_tags"] = _normalize_tags(
+    definition["tool_tags"] = normalize_tags(
         definition.get("tool_tags", ()),
-        field_name="tool_tags",
-        module_name=module_name,
+        context=module_name,
     )
     return definition
 
@@ -173,27 +173,6 @@ def _normalize_keywords(keywords: object, *, module_name: str) -> tuple[str, ...
         value = str(keyword).strip().lower()
         if value:
             normalized.append(value)
-    return tuple(normalized)
-
-
-def _normalize_tags(raw_tags: object, *, field_name: str, module_name: str) -> tuple[str, ...]:
-    if raw_tags in (None, ""):
-        return ()
-    if isinstance(raw_tags, str):
-        candidates = [raw_tags]
-    elif isinstance(raw_tags, Iterable):
-        candidates = raw_tags
-    else:
-        raise RuntimeError(f"{field_name}는 문자열 iterable이어야 합니다: {module_name}")
-
-    normalized: list[str] = []
-    seen: set[str] = set()
-    for tag in candidates:
-        value = str(tag).strip().lower()
-        if not value or value in seen:
-            continue
-        normalized.append(value)
-        seen.add(value)
     return tuple(normalized)
 
 
