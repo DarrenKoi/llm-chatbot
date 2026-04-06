@@ -11,15 +11,15 @@ cd "$CLAUDE_PROJECT_DIR" || exit 0
 git rev-parse --git-dir > /dev/null 2>&1 || exit 0
 [ -n "$(git remote)" ] || exit 0
 
-# Push any unpushed commits. If the branch has no upstream yet, fall back to a
-# plain push so first-push workflows still publish the branch.
+# Push any unpushed commits. If the branch has no upstream yet, set one up
+# with -u so first-push workflows still publish the branch.
 if git rev-parse --abbrev-ref --symbolic-full-name '@{u}' > /dev/null 2>&1; then
-  UNPUSHED=$(git log --oneline @{u}..HEAD 2>/dev/null | wc -l | tr -d ' ')
-  if [ "$UNPUSHED" -gt 0 ]; then
+  UNPUSHED=$(git rev-list --count '@{u}..HEAD' 2>/dev/null)
+  if [ "${UNPUSHED:-0}" -gt 0 ]; then
     git push > /dev/null 2>&1
   fi
 else
-  git push > /dev/null 2>&1
+  git push -u origin HEAD > /dev/null 2>&1
 fi
 
 # Warn if there are uncommitted changes
