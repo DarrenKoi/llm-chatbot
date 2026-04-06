@@ -94,7 +94,6 @@ def copy_entry(src: Path, dst: Path, entry: str, dry_run: bool, exclude_paths: l
     """단일 항목을 복사하고 복사된 파일 수를 반환한다."""
     normalized_entry = normalize_entry_path(entry)
     src_path = src / normalized_entry
-    dst_path = dst / normalized_entry
     count = 0
 
     if not src_path.exists():
@@ -117,6 +116,7 @@ def copy_entry(src: Path, dst: Path, entry: str, dry_run: bool, exclude_paths: l
         if should_exclude(src_path, normalized_entry, exclude_paths):
             return 0
         count = 1
+        dst_path = dst / normalized_entry
         if dry_run:
             print(f"  [복사 예정] {entry}")
         else:
@@ -182,12 +182,15 @@ def main():
 
     # 지정된 경로 정리
     for entry in CLEAN_BEFORE_SYNC:
-        target = dst / entry.rstrip("/")
+        target = dst / normalize_entry_path(entry)
         if target.exists():
             if args.dry_run:
                 print(f"  [삭제 예정] {entry}")
             else:
-                shutil.rmtree(target) if target.is_dir() else target.unlink()
+                if target.is_dir():
+                    shutil.rmtree(target)
+                else:
+                    target.unlink()
                 print(f"  [삭제 완료] {entry}")
 
     # 파일 복사 (기존 파일 덮어쓰기, 수동 추가 파일은 유지)
