@@ -148,9 +148,6 @@ def test_classify_returns_resume_for_casual():
     ("message", "expected_workflow_id"),
     [
         ("차트 만들어줘", "chart_maker"),
-        ("PPT 초안 만들어줘", "ppt_maker"),
-        ("웨이퍼 쿼터 알려줘", "at_wafer_quota"),
-        ("레시피 요청서 작성해줘", "recipe_requests"),
         ("여행 계획 짜줘", "travel_planner"),
     ],
 )

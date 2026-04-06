@@ -121,22 +121,16 @@ Flask 렌더링용 HTML 템플릿이다.
 
 ```text
 api/workflows/
-├── common/
 ├── start_chat/
 ├── chart_maker/
-├── ppt_maker/
-├── recipe_requests/
-├── at_wafer_quota/
-└── sample/
+├── translator/
+└── travel_planner/
 ```
 
 - `start_chat/`: 기본 진입 워크플로우
-- `common/`: 공통 처리 흐름
 - `chart_maker/`: 차트 생성 관련 흐름
-- `ppt_maker/`: PPT 생성 관련 흐름
-- `recipe_requests/`: 레시피 요청 처리 흐름
-- `at_wafer_quota/`: 특정 도메인 질의 처리 흐름
-- `sample/`: 예제 워크플로우
+- `translator/`: 번역 워크플로우
+- `travel_planner/`: 여행 계획 워크플로우
 
 각 워크플로우는 대체로 아래 패턴을 따른다.
 
