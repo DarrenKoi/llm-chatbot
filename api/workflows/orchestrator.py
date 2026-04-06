@@ -3,7 +3,7 @@
 import logging
 
 from api.cube.models import CubeIncomingMessage
-from api.utils.logger import build_activity_payload, get_workflow_logger
+from api.utils.logger import log_workflow_activity
 from api.workflows.models import NodeResult, WorkflowState
 from api.workflows.registry import get_workflow
 from api.workflows.state_service import build_state, load_state, save_state
@@ -31,19 +31,14 @@ def _log_workflow_event(
     **data: object,
 ) -> None:
     target_workflow_id = workflow_id or state.workflow_id
-    defaults: dict[str, object] = {
-        "node_id": state.node_id,
-        "status": state.status,
-    }
-    defaults.update(data)
-    payload = build_activity_payload(
-        event,
-        user_id=state.user_id,
-        workflow_id=target_workflow_id,
-        **defaults,
-    )
     try:
-        get_workflow_logger(target_workflow_id).log(level, event, extra={"activity_data": payload})
+        log_workflow_activity(
+            target_workflow_id,
+            event,
+            state=state,
+            level=level,
+            **data,
+        )
     except Exception:
         log.exception("워크플로 로그 기록에 실패했습니다: workflow=%s event=%s", target_workflow_id, event)
 

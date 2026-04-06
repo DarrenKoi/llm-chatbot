@@ -8,6 +8,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+from api.utils.logger import log_workflow_activity
 from api.workflows.models import WorkflowState
 
 log = logging.getLogger(__name__)
@@ -63,6 +64,7 @@ def load_workflows(
 
     if force_reload or _WORKFLOWS is None:
         _WORKFLOWS = discover_workflows(package_name=package_name, package_path=package_path)
+        _bootstrap_workflow_logging(_WORKFLOWS)
 
     return _WORKFLOWS
 
@@ -171,3 +173,17 @@ def _normalize_keywords(keywords: object, *, module_name: str) -> tuple[str, ...
         if value:
             normalized.append(value)
     return tuple(normalized)
+
+
+def _bootstrap_workflow_logging(workflows: dict[str, WorkflowDefinition]) -> None:
+    """Prime per-workflow structured logging for newly discovered workflow packages."""
+
+    for workflow_id, definition in workflows.items():
+        state_cls = definition.get("state_cls", WorkflowState)
+        log_workflow_activity(
+            workflow_id,
+            "workflow_registered",
+            entry_node_id=definition["entry_node_id"],
+            state_class=getattr(state_cls, "__name__", str(state_cls)),
+            handoff_keywords=list(definition.get("handoff_keywords", ())),
+        )

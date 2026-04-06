@@ -3,6 +3,7 @@ import sys
 from logging import Handler
 from logging.handlers import TimedRotatingFileHandler
 from threading import Lock
+from typing import TYPE_CHECKING
 from typing import Any
 
 from flask import g, has_request_context, request
@@ -15,6 +16,9 @@ from api.utils.logger.formatters import (
     current_log_timestamp,
 )
 from api.utils.logger.paths import get_scoped_log_dir, get_theme_log_dir, normalize_name
+
+if TYPE_CHECKING:
+    from api.workflows.models import WorkflowState
 
 _setup_lock = Lock()
 _setup_done = False
@@ -132,6 +136,46 @@ def log_activity(event: str, *, level: int | str = logging.INFO, **data: Any) ->
         logging.getLogger("activity").log(_parse_level(level), event, extra={"activity_data": payload})
     except Exception:
         logging.getLogger(__name__).exception("Failed to write structured activity log")
+
+
+def log_workflow_activity(
+    workflow_id: str,
+    event: str,
+    *,
+    state: "WorkflowState | None" = None,
+    level: int | str = logging.INFO,
+    user_id: str | None = None,
+    node_id: str | None = None,
+    status: str | None = None,
+    **data: Any,
+) -> None:
+    """Write a structured workflow-scoped event under ``logs/workflows/<workflow_id>/``."""
+    try:
+        setup_logging()
+        if state is not None:
+            user_id = user_id or getattr(state, "user_id", None)
+            node_id = node_id or getattr(state, "node_id", None)
+            status = status or getattr(state, "status", None)
+
+        payload_data: dict[str, Any] = {
+            "workflow_id": workflow_id,
+            **data,
+        }
+        if user_id is not None:
+            payload_data["user_id"] = user_id
+        if node_id is not None:
+            payload_data["node_id"] = node_id
+        if status is not None:
+            payload_data["status"] = status
+
+        payload = build_activity_payload(event, **payload_data)
+        get_workflow_logger(workflow_id).log(_parse_level(level), event, extra={"activity_data": payload})
+    except Exception:
+        logging.getLogger(__name__).exception(
+            "Failed to write workflow activity log: workflow=%s event=%s",
+            workflow_id,
+            event,
+        )
 
 
 def get_topic_logger(topic: str, *, json_output: bool = False) -> logging.Logger:

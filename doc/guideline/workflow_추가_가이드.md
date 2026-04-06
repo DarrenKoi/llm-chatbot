@@ -263,6 +263,8 @@ def build_graph() -> dict[str, object]:
 - 환경 변수는 `api/config.py`에 추가하고 코드에서 하드코딩하지 않는다.
 - 파일 경로는 `pathlib.Path`를 사용한다.
 - 사용자 노출 문구는 한국어 워크플로에 맞게 유지한다.
+- 기본 workflow 로그는 `logs/workflows/<workflow_id>/events.jsonl`에 자동으로 제공된다.
+- workflow 내부에서 추가 구조화 로그가 필요하면 `api.utils.logger.log_workflow_activity(workflow_id, event, ...)`를 사용한다.
 - 외부 연동 코드는 node 내부에 직접 퍼뜨리지 말고 필요하면 workflow 하위 `agent/`, `rag/`, 또는 별도 서비스 모듈로 분리한다.
 - 여러 workflow에서 공통으로 쓰는 로직이 생기면 각 workflow에 복붙하지 말고 `api/workflows/common/` 또는 infra/service 계층으로 승격한다.
 - state에 connection 객체, client 객체, 함수 객체 같은 비직렬화 값을 넣지 않는다.

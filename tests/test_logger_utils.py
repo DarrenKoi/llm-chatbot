@@ -9,9 +9,11 @@ from api.utils.logger import (
     get_topic_logger,
     get_workflow_logger,
     log_activity,
+    log_workflow_activity,
     rollover_activity_logs,
     setup_logging,
 )
+from api.workflows.models import WorkflowState
 
 
 def _remove_tagged_handlers(logger: logging.Logger) -> None:
@@ -143,6 +145,41 @@ def test_workflow_logger_writes_under_workflow_folder(tmp_path, monkeypatch):
     assert payload["event"] == "workflow_step_started"
     assert payload["node_id"] == "entry"
     assert payload["step"] == 0
+
+
+def test_log_workflow_activity_uses_workflow_state_context(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(config, "LOG_TIMEZONE", "Asia/Seoul")
+    monkeypatch.setattr(config, "LOG_RETENTION_DAYS", 7)
+    _reset_logger_state()
+
+    state = WorkflowState(
+        user_id="u-123",
+        workflow_id="translator",
+        node_id="entry",
+        status="active",
+    )
+
+    log_workflow_activity(
+        "translator",
+        "workflow_custom_event",
+        state=state,
+        step=1,
+        detail="started",
+    )
+    workflow_logger = get_workflow_logger("translator")
+    _flush_handlers(workflow_logger)
+
+    workflow_log_file = config.LOG_DIR / "workflows" / "translator" / "events.jsonl"
+    assert workflow_log_file.exists()
+    payload = json.loads(workflow_log_file.read_text(encoding="utf-8").splitlines()[0])
+    assert payload["event"] == "workflow_custom_event"
+    assert payload["workflow_id"] == "translator"
+    assert payload["user_id"] == "u-123"
+    assert payload["node_id"] == "entry"
+    assert payload["status"] == "active"
+    assert payload["step"] == 1
+    assert payload["detail"] == "started"
 
 
 def test_text_formatter_uses_configured_timezone(monkeypatch):
