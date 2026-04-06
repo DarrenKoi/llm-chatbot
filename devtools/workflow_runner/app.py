@@ -32,12 +32,10 @@ def create_dev_app() -> Flask:
     """Dev workflow runner Flask 앱을 생성한다."""
 
     template_dir = Path(__file__).resolve().parent / "templates"
-    static_dir = Path(__file__).resolve().parent / "static"
 
     app = Flask(
         __name__,
         template_folder=str(template_dir),
-        static_folder=str(static_dir),
     )
 
     app.register_blueprint(dev_bp)

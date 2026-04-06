@@ -1,6 +1,7 @@
 """Dev workflow runner API 엔드포인트."""
 
 import logging
+from pathlib import Path
 
 from flask import Blueprint, jsonify, render_template, request
 
@@ -14,7 +15,15 @@ from devtools.workflow_runner.dev_orchestrator import (
 
 log = logging.getLogger(__name__)
 
-dev_bp = Blueprint("dev_runner", __name__)
+_DEFAULT_USER_ID = "dev_user"
+
+_pkg_dir = Path(__file__).resolve().parent
+dev_bp = Blueprint(
+    "dev_runner",
+    __name__,
+    static_folder=str(_pkg_dir / "static"),
+    static_url_path="/static",
+)
 
 
 @dev_bp.route("/")
@@ -42,7 +51,7 @@ def api_send():
 
     workflow_id = str(body.get("workflow_id", "")).strip()
     message = str(body.get("message", "")).strip()
-    user_id = str(body.get("user_id", "dev_user")).strip() or "dev_user"
+    user_id = str(body.get("user_id", _DEFAULT_USER_ID)).strip() or _DEFAULT_USER_ID
 
     if not workflow_id:
         return jsonify({"error": "workflow_id가 필요합니다."}), 400
@@ -67,7 +76,7 @@ def api_send():
 def api_state():
     """현재 workflow state를 조회한다."""
 
-    user_id = request.args.get("user_id", "dev_user")
+    user_id = str(request.args.get("user_id", _DEFAULT_USER_ID)).strip() or _DEFAULT_USER_ID
     state = get_dev_state(user_id=user_id)
     if state is None:
         return jsonify({"state": None})
@@ -78,7 +87,7 @@ def api_state():
 def api_state_reset():
     """workflow state를 초기화한다."""
 
-    user_id = request.args.get("user_id", "dev_user")
+    user_id = str(request.args.get("user_id", _DEFAULT_USER_ID)).strip() or _DEFAULT_USER_ID
     reset_dev_state(user_id=user_id)
     return jsonify({"ok": True})
 
