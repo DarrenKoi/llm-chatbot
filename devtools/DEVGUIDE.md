@@ -10,7 +10,9 @@
 # 1. 새 워크플로 생성
 python -m devtools.scripts.new_workflow my_workflow
 
-# 2. 코드 작성 (아래 "워크플로 구조" 참고)
+# 2. 예제 참고 후 코드 작성
+#    - devtools/workflows/travel_planner_example/
+#    - devtools/workflows/translator_example/
 
 # 3. dev runner 실행
 python -m devtools.workflow_runner.app
@@ -40,7 +42,7 @@ from api.mcp.executor import execute_tool_call
 
 ### 2. 워크플로 구조
 
-모든 워크플로는 동일한 4파일 구조를 따릅니다:
+최소 구조는 아래 4파일입니다:
 
 ```
 devtools/workflows/my_workflow/
@@ -49,6 +51,22 @@ devtools/workflows/my_workflow/
     graph.py      # build_graph() → {"nodes": {...}, "entry_node_id": "entry"}
     nodes.py      # 노드 함수들 (state, user_message) -> NodeResult
 ```
+
+실제 운영 워크플로와 비슷하게 만들려면 필요에 따라 아래 파일도 추가합니다:
+
+```
+devtools/workflows/my_workflow/
+    routing.py    # 분기 조건 함수
+    prompts.py    # 프롬프트 상수
+    tools.py      # MCP/local tool 등록
+```
+
+참고 예제:
+
+- `devtools/workflows/travel_planner_example/`
+- `devtools/workflows/translator_example/`
+
+위 두 예제는 `api/workflows/`의 실제 구현 스타일을 devtools 쪽에도 맞춰 둔 샘플입니다.
 
 ### 3. 노드 함수 규약
 
@@ -82,6 +100,22 @@ def get_workflow_definition() -> dict[str, object]:
 ```
 
 ---
+
+## 추천 작성 순서
+
+1. `travel_planner_example` 또는 `translator_example` 중 가까운 예제를 고릅니다.
+2. 새 폴더를 만든 뒤 예제의 파일 분리 방식을 그대로 가져갑니다.
+3. 패키지 내부 import는 상대 import로 유지합니다.
+4. dev runner에서 먼저 검증합니다.
+5. 실제 운영 연결은 `api/workflows/start_chat/`에서 handoff 기준으로 붙입니다.
+
+## 응답 규칙
+
+devtools에서 작업하거나 검증했다면, LLM 응답에 그 사실을 분명하게 적습니다.
+
+- `This is done via devtools.`처럼 바로 드러나는 문장을 포함합니다.
+- 변경 설명에는 해당 `devtools/...` 경로를 함께 적습니다.
+- devtools 예제나 프로토타입이면 production 반영이 끝난 것처럼 말하지 않습니다.
 
 ## Dev Runner UI 기능
 
