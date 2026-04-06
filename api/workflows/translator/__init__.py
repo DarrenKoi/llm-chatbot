@@ -12,4 +12,5 @@ def get_workflow_definition() -> dict[str, object]:
         "entry_node_id": "entry",
         "build_graph": build_graph,
         "state_cls": TranslatorWorkflowState,
+        "tool_tags": ("translation", "language"),
     }

@@ -75,6 +75,7 @@ def test_discover_workflows_loads_package_definitions(tmp_path):
                     "build_graph": build_graph,
                     "state_cls": AlphaState,
                     "handoff_keywords": ("Alpha", "신규 업무"),
+                    "tool_tags": (" Translation ", "LANGUAGE", "translation"),
                 }
             """
         ).strip()
@@ -115,6 +116,7 @@ def test_discover_workflows_loads_package_definitions(tmp_path):
     assert sorted(workflows) == ["alpha_flow", "beta_flow"]
     assert workflows["alpha_flow"]["entry_node_id"] == "entry"
     assert workflows["alpha_flow"]["handoff_keywords"] == ("alpha", "신규 업무")
+    assert workflows["alpha_flow"]["tool_tags"] == ("translation", "language")
     assert workflows["beta_flow"]["entry_node_id"] == "start"
 
 
@@ -186,6 +188,7 @@ def test_load_workflows_bootstraps_workflow_logs(tmp_path, monkeypatch):
                 "entry_node_id": "entry",
                 "build_graph": build_graph,
                 "handoff_keywords": ("Alpha",),
+                "tool_tags": ("translation", "language"),
             }
             """
         ).strip()
@@ -218,3 +221,4 @@ def test_load_workflows_bootstraps_workflow_logs(tmp_path, monkeypatch):
     assert payload["workflow_id"] == "alpha_flow"
     assert payload["entry_node_id"] == "entry"
     assert payload["handoff_keywords"] == ["alpha"]
+    assert payload["tool_tags"] == ["translation", "language"]

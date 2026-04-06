@@ -1,9 +1,30 @@
 """MCP 서버, 도구, 실행 결과 모델을 정의한다."""
 
-from __future__ import annotations
-
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from typing import Any
+
+
+def _normalize_tags(raw_tags: object) -> tuple[str, ...]:
+    if raw_tags in (None, ""):
+        return ()
+
+    if isinstance(raw_tags, str):
+        candidates = [raw_tags]
+    elif isinstance(raw_tags, Iterable):
+        candidates = raw_tags
+    else:
+        raise TypeError("tags는 문자열 또는 문자열 iterable이어야 합니다.")
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for tag in candidates:
+        value = str(tag).strip().lower()
+        if not value or value in seen:
+            continue
+        normalized.append(value)
+        seen.add(value)
+    return tuple(normalized)
 
 
 @dataclass(slots=True)
@@ -23,6 +44,10 @@ class MCPTool:
     server_id: str
     description: str = ""
     input_schema: dict[str, Any] = field(default_factory=dict)
+    tags: tuple[str, ...] = field(default_factory=tuple)
+
+    def __post_init__(self) -> None:
+        self.tags = _normalize_tags(self.tags)
 
 
 @dataclass(slots=True)

@@ -122,6 +122,7 @@ def register_translator_tools() -> None:
             tool_id="translate",
             server_id="translator_local",
             description="한국어/영어/일본어 사이의 번역을 수행한다.",
+            tags=("translation", "language"),
             input_schema={
                 "type": "object",
                 "properties": {

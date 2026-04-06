@@ -77,6 +77,12 @@ def test_translate_tool_korean_to_english():
     assert result.output["result"] == "Hello"
 
 
+def test_translate_tool_is_registered_with_workflow_tags():
+    tool = mcp_registry.get_tool("translate")
+
+    assert tool.tags == ("translation", "language")
+
+
 def test_translate_tool_korean_to_japanese():
     """translate 도구가 한국어를 일본어로 번역하는지 확인한다."""
 
