@@ -48,7 +48,7 @@ def _metadata_index_key() -> str:
 
 def _build_file_url(file_id: str) -> str:
     base_url = config.FILE_DELIVERY_BASE_URL.rstrip("/")
-    return f"{base_url}/file_delivery/files/{file_id}"
+    return f"{base_url}/{file_id}"
 
 
 def _user_storage_key(user_id: str) -> str:

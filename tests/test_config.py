@@ -42,3 +42,15 @@ def test_cube_queue_redis_url_always_matches_redis_url(monkeypatch):
         assert reloaded.CUBE_QUEUE_REDIS_URL == "redis://primary"
     finally:
         importlib.reload(reloaded)
+
+
+def test_file_delivery_base_url_defaults_to_web_app_url(monkeypatch):
+    monkeypatch.setenv("WEB_APP_URL", "http://example-webapp")
+    monkeypatch.delenv("FILE_DELIVERY_BASE_URL", raising=False)
+
+    reloaded = importlib.reload(config)
+    try:
+        assert reloaded.WEB_APP_URL == "http://example-webapp"
+        assert reloaded.FILE_DELIVERY_BASE_URL == "http://example-webapp/file-delivery-files"
+    finally:
+        importlib.reload(reloaded)

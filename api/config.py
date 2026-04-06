@@ -101,6 +101,10 @@ else:
     _default_workspace_root = BASE_DIR
 
 WORKSPACE_ROOT = Path(os.environ.get("WORKSPACE_ROOT", str(_default_workspace_root))).expanduser()
+WEB_APP_URL = os.environ.get(
+    "WEB_APP_URL",
+    "http://itc-1stop-solution-llm-webapp.aipp02.skhynix.com",
+).rstrip("/")
 
 # File delivery
 FILE_DELIVERY_STORAGE_DIR = Path(
@@ -111,8 +115,8 @@ FILE_DELIVERY_STORAGE_DIR = Path(
 ).expanduser()
 FILE_DELIVERY_BASE_URL = os.environ.get(
     "FILE_DELIVERY_BASE_URL",
-    "http://itc-1stop-solution-llm-webapp.aipp02.skhynix.com",
-)
+    f"{WEB_APP_URL}/file-delivery-files",
+).rstrip("/")
 FILE_DELIVERY_MAX_UPLOAD_BYTES = int(os.environ.get("FILE_DELIVERY_MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
 FILE_DELIVERY_STORAGE_LIMIT_BYTES = int(
     os.environ.get("FILE_DELIVERY_STORAGE_LIMIT_BYTES", 8 * 1024 * 1024 * 1024)

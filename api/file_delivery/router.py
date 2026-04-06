@@ -65,6 +65,7 @@ def upload_file_delivery_file():
     ), 201
 
 
+@bp.route("/file-delivery-files/<file_id>")
 @bp.route("/file-delivery/files/<file_id>")
 @bp.route("/file_delivery/files/<file_id>")
 @bp.route("/cdn/files/<file_id>")
