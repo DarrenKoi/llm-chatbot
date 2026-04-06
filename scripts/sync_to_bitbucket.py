@@ -55,9 +55,19 @@ EXCLUDE_PATTERNS = [
     "*.pyc",
 ]
 
+DEFAULT_EXCLUDE_PATHS = [
+    "api/mcp/",
+    "api/workflows/",
+]
 
-def should_exclude(path: Path) -> bool:
-    """제외 패턴에 해당하는지 확인"""
+
+def normalize_entry_path(entry: str) -> Path:
+    """슬래시 유무와 상관없이 비교 가능한 상대 경로로 정규화한다."""
+    return Path(entry.rstrip("/"))
+
+
+def is_excluded_by_pattern(path: Path) -> bool:
+    """파일명/확장자 기반 제외 패턴에 해당하는지 확인"""
     for pattern in EXCLUDE_PATTERNS:
         if pattern.startswith("*"):
             if path.suffix == pattern[1:]:
@@ -67,10 +77,24 @@ def should_exclude(path: Path) -> bool:
     return False
 
 
-def copy_entry(src: Path, dst: Path, entry: str, dry_run: bool) -> int:
+def is_excluded_by_path(relative_path: Path, exclude_paths: list[Path]) -> bool:
+    """상대 경로가 제외 대상 하위인지 확인"""
+    for excluded in exclude_paths:
+        if relative_path == excluded or excluded in relative_path.parents:
+            return True
+    return False
+
+
+def should_exclude(path: Path, relative_path: Path, exclude_paths: list[Path]) -> bool:
+    """제외 패턴 또는 제외 경로에 해당하는지 확인"""
+    return is_excluded_by_pattern(path) or is_excluded_by_path(relative_path, exclude_paths)
+
+
+def copy_entry(src: Path, dst: Path, entry: str, dry_run: bool, exclude_paths: list[Path]) -> int:
     """단일 항목을 복사하고 복사된 파일 수를 반환한다."""
-    src_path = src / entry.rstrip("/")
-    dst_path = dst / entry.rstrip("/")
+    normalized_entry = normalize_entry_path(entry)
+    src_path = src / normalized_entry
+    dst_path = dst / normalized_entry
     count = 0
 
     if not src_path.exists():
@@ -79,9 +103,9 @@ def copy_entry(src: Path, dst: Path, entry: str, dry_run: bool) -> int:
 
     if src_path.is_dir():
         for file in src_path.rglob("*"):
-            if file.is_dir() or should_exclude(file):
-                continue
             rel = file.relative_to(src)
+            if file.is_dir() or should_exclude(file, rel, exclude_paths):
+                continue
             target = dst / rel
             count += 1
             if dry_run:
@@ -90,7 +114,7 @@ def copy_entry(src: Path, dst: Path, entry: str, dry_run: bool) -> int:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(file, target)
     else:
-        if should_exclude(src_path):
+        if should_exclude(src_path, normalized_entry, exclude_paths):
             return 0
         count = 1
         if dry_run:
@@ -116,9 +140,24 @@ def main():
         action="store_true",
         help="실제 복사 없이 대상 파일만 확인",
     )
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="PATH",
+        help="추가로 제외할 상대 경로 (예: api/profile/). 여러 번 지정 가능",
+    )
+    parser.add_argument(
+        "--no-default-excludes",
+        action="store_true",
+        help="기본 제외 경로(api/mcp/, api/workflows/) 없이 전체 동기화",
+    )
     args = parser.parse_args()
 
     dst = args.dst or DEFAULT_DST.get(platform.system(), PROJECT_ROOT.parent / "llm_chatbot_share")
+    exclude_entries = [] if args.no_default_excludes else list(DEFAULT_EXCLUDE_PATHS)
+    exclude_entries.extend(args.exclude)
+    exclude_paths = [normalize_entry_path(entry) for entry in exclude_entries]
 
     if not dst.exists():
         print(f"오류: 대상 디렉토리가 존재하지 않습니다: {dst}")
@@ -133,6 +172,12 @@ def main():
     print(f"소스: {PROJECT_ROOT}")
     print(f"대상: {dst}")
     print(f"모드: {'미리보기 (dry-run)' if args.dry_run else '실제 복사'}")
+    if exclude_paths:
+        print("제외 경로:")
+        for entry in exclude_paths:
+            print(f"  - {entry}")
+    else:
+        print("제외 경로: 없음")
     print()
 
     # 지정된 경로 정리
@@ -148,7 +193,7 @@ def main():
     # 파일 복사 (기존 파일 덮어쓰기, 수동 추가 파일은 유지)
     total = 0
     for entry in INCLUDE:
-        total += copy_entry(PROJECT_ROOT, dst, entry, args.dry_run)
+        total += copy_entry(PROJECT_ROOT, dst, entry, args.dry_run, exclude_paths)
 
     print(f"\n총 {total}개 파일 {'복사 예정' if args.dry_run else '복사 완료'}")
 
