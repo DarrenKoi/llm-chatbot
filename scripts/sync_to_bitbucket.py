@@ -36,6 +36,7 @@ DEFAULT_DST = {
 INCLUDE = [
     # 애플리케이션 패키지
     "api/",
+    "devtools/",
     # 엔트리포인트
     "index.py",
     "cube_worker.py",
@@ -48,6 +49,7 @@ INCLUDE = [
 # ──────────────────────────────────────────────
 CLEAN_BEFORE_SYNC = [
     "api/",
+    "devtools/",
 ]
 
 EXCLUDE_PATTERNS = [

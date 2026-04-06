@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from scripts import sync_to_bitbucket
 from scripts.sync_to_bitbucket import copy_entry, is_excluded_by_path, normalize_entry_path
 
 
@@ -42,3 +43,35 @@ def test_copy_entry_skips_excluded_directories(tmp_path):
     assert (dst / "api" / "cube" / "service.py").exists()
     assert not (dst / "api" / "mcp" / "client.py").exists()
     assert not (dst / "api" / "workflows" / "graph.py").exists()
+
+
+def test_main_copies_devtools_directory(tmp_path, monkeypatch, capsys):
+    project_root = tmp_path / "project"
+    destination = tmp_path / "share_repo"
+
+    (project_root / "api").mkdir(parents=True)
+    (project_root / "devtools" / "scripts").mkdir(parents=True)
+    (destination / ".git").mkdir(parents=True)
+
+    (project_root / "api" / "__init__.py").write_text("", encoding="utf-8")
+    (project_root / "devtools" / "scripts" / "promote.py").write_text(
+        "print('sync')\n",
+        encoding="utf-8",
+    )
+    (project_root / "index.py").write_text("app = None\n", encoding="utf-8")
+    (project_root / "cube_worker.py").write_text("cube = None\n", encoding="utf-8")
+    (project_root / "scheduler_worker.py").write_text("scheduler = None\n", encoding="utf-8")
+
+    monkeypatch.setattr(sync_to_bitbucket, "PROJECT_ROOT", project_root)
+    monkeypatch.setattr(
+        sync_to_bitbucket,
+        "DEFAULT_DST",
+        {"Darwin": destination},
+    )
+    monkeypatch.setattr("sys.argv", ["sync_to_bitbucket.py"])
+
+    sync_to_bitbucket.main()
+
+    captured = capsys.readouterr()
+    assert "총 5개 파일 복사 완료" in captured.out
+    assert (destination / "devtools" / "scripts" / "promote.py").exists()
