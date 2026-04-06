@@ -51,6 +51,6 @@ def test_file_delivery_base_url_defaults_to_web_app_url(monkeypatch):
     reloaded = importlib.reload(config)
     try:
         assert reloaded.WEB_APP_URL == "http://example-webapp"
-        assert reloaded.FILE_DELIVERY_BASE_URL == "http://example-webapp/file-delivery-files"
+        assert reloaded.FILE_DELIVERY_BASE_URL == "http://example-webapp/file-delivery/files"
     finally:
         importlib.reload(reloaded)

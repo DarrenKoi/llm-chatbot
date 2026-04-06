@@ -115,7 +115,7 @@ FILE_DELIVERY_STORAGE_DIR = Path(
 ).expanduser()
 FILE_DELIVERY_BASE_URL = os.environ.get(
     "FILE_DELIVERY_BASE_URL",
-    f"{WEB_APP_URL}/file-delivery-files",
+    f"{WEB_APP_URL}/file-delivery/files",
 ).rstrip("/")
 FILE_DELIVERY_MAX_UPLOAD_BYTES = int(os.environ.get("FILE_DELIVERY_MAX_UPLOAD_BYTES", 10 * 1024 * 1024))
 FILE_DELIVERY_STORAGE_LIMIT_BYTES = int(

@@ -15,7 +15,7 @@ def test_cdn_upload_and_get_image(client, tmp_path, monkeypatch):
     monkeypatch.setattr(
         config,
         "FILE_DELIVERY_BASE_URL",
-        "http://itc-1stop-solution-llm-webapp.aipp02.skhynix.com/file-delivery-files",
+        "http://itc-1stop-solution-llm-webapp.aipp02.skhynix.com/file-delivery/files",
     )
     file_delivery_service._metadata_backend = None
     _set_lastuser_cookie(client)
@@ -37,11 +37,11 @@ def test_cdn_upload_and_get_image(client, tmp_path, monkeypatch):
     assert payload["file_id"]
     assert (
         payload["file_url"]
-        == f"http://itc-1stop-solution-llm-webapp.aipp02.skhynix.com/file-delivery-files/{payload['file_id']}"
+        == f"http://itc-1stop-solution-llm-webapp.aipp02.skhynix.com/file-delivery/files/{payload['file_id']}"
     )
     assert payload["stored_filename"].endswith(".png")
 
-    download = client.get(f"/file-delivery-files/{payload['file_id']}")
+    download = client.get(f"/file-delivery/files/{payload['file_id']}")
     assert download.status_code == 200
     assert download.mimetype == "image/png"
     assert download.data == png_bytes
