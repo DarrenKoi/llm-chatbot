@@ -12,6 +12,8 @@ from pathlib import Path
 DEVTOOLS_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE_DIR = DEVTOOLS_ROOT / "workflows" / "_template"
 WORKFLOWS_DIR = DEVTOOLS_ROOT / "workflows"
+MCP_TEMPLATE_FILE = DEVTOOLS_ROOT / "mcp" / "_template.py"
+MCP_DIR = DEVTOOLS_ROOT / "mcp"
 
 WORKFLOW_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -36,6 +38,10 @@ def scaffold(workflow_id: str) -> None:
         print(f"오류: 템플릿 디렉토리를 찾을 수 없습니다: {TEMPLATE_DIR}")
         sys.exit(1)
 
+    if not MCP_TEMPLATE_FILE.exists():
+        print(f"오류: MCP 템플릿 파일을 찾을 수 없습니다: {MCP_TEMPLATE_FILE}")
+        sys.exit(1)
+
     state_class = _to_class_name(workflow_id)
 
     shutil.copytree(TEMPLATE_DIR, target_dir)
@@ -46,14 +52,28 @@ def scaffold(workflow_id: str) -> None:
         content = content.replace("__STATE_CLASS__", state_class)
         py_file.write_text(content, encoding="utf-8")
 
+    target_mcp_file = MCP_DIR / f"{workflow_id}.py"
+    target_mcp_file.parent.mkdir(parents=True, exist_ok=True)
+
+    if target_mcp_file.exists():
+        print(f"오류: 이미 존재하는 dev MCP 모듈입니다: {target_mcp_file}")
+        shutil.rmtree(target_dir, ignore_errors=True)
+        sys.exit(1)
+
+    mcp_content = MCP_TEMPLATE_FILE.read_text(encoding="utf-8")
+    mcp_content = mcp_content.replace("__WORKFLOW_ID__", workflow_id)
+    target_mcp_file.write_text(mcp_content, encoding="utf-8")
+
     print(f"워크플로를 생성했습니다: {target_dir}")
+    print(f"dev MCP 모듈을 생성했습니다: {target_mcp_file}")
     print()
     print("다음 단계:")
     print(f"  1. {target_dir / 'state.py'} 에서 상태 필드를 정의하세요.")
     print(f"  2. {target_dir / 'nodes.py'} 에서 노드 함수를 구현하세요.")
-    print(f"  3. {target_dir / 'graph.py'} 에서 그래프에 노드를 등록하세요.")
-    print("  4. python -m devtools.workflow_runner.app 으로 실행 후 테스트하세요.")
-    print(f"  5. 완료 후 python -m devtools.scripts.promote {workflow_id} 로 운영 반영하세요.")
+    print(f"  3. {target_mcp_file} 에서 MCP 도구 등록 함수를 구현하세요.")
+    print(f"  4. {target_dir / 'graph.py'} 에서 그래프에 노드를 등록하세요.")
+    print("  5. python -m devtools.workflow_runner.app 으로 실행 후 테스트하세요.")
+    print(f"  6. 완료 후 python -m devtools.scripts.promote {workflow_id} 로 운영 반영하세요.")
 
 
 def main() -> None:
