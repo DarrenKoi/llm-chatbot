@@ -35,3 +35,7 @@ api/utils/logger/logs/
 
 # Chart images (runtime generated)
 data/chart-images/
+
+# Dev workflow runner state
+var/
+devtools/var/

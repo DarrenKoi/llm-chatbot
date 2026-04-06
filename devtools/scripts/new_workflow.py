@@ -1,0 +1,68 @@
+"""새 워크플로를 _template에서 scaffold하는 스크립트.
+
+사용법:
+    python -m devtools.scripts.new_workflow my_new_workflow
+"""
+
+import re
+import shutil
+import sys
+from pathlib import Path
+
+DEVTOOLS_ROOT = Path(__file__).resolve().parent.parent
+TEMPLATE_DIR = DEVTOOLS_ROOT / "workflows" / "_template"
+WORKFLOWS_DIR = DEVTOOLS_ROOT / "workflows"
+
+WORKFLOW_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+def _to_class_name(workflow_id: str) -> str:
+    """snake_case workflow_id를 PascalCase 클래스 이름으로 변환한다."""
+
+    return "".join(part.capitalize() for part in workflow_id.split("_")) + "State"
+
+
+def scaffold(workflow_id: str) -> None:
+    if not WORKFLOW_ID_PATTERN.match(workflow_id):
+        print(f"오류: workflow_id는 소문자, 숫자, 밑줄만 허용됩니다: {workflow_id}")
+        sys.exit(1)
+
+    target_dir = WORKFLOWS_DIR / workflow_id
+    if target_dir.exists():
+        print(f"오류: 이미 존재하는 워크플로입니다: {target_dir}")
+        sys.exit(1)
+
+    if not TEMPLATE_DIR.exists():
+        print(f"오류: 템플릿 디렉토리를 찾을 수 없습니다: {TEMPLATE_DIR}")
+        sys.exit(1)
+
+    state_class = _to_class_name(workflow_id)
+
+    shutil.copytree(TEMPLATE_DIR, target_dir)
+
+    for py_file in target_dir.glob("*.py"):
+        content = py_file.read_text(encoding="utf-8")
+        content = content.replace("__WORKFLOW_ID__", workflow_id)
+        content = content.replace("__STATE_CLASS__", state_class)
+        py_file.write_text(content, encoding="utf-8")
+
+    print(f"워크플로를 생성했습니다: {target_dir}")
+    print()
+    print("다음 단계:")
+    print(f"  1. {target_dir / 'state.py'} 에서 상태 필드를 정의하세요.")
+    print(f"  2. {target_dir / 'nodes.py'} 에서 노드 함수를 구현하세요.")
+    print(f"  3. {target_dir / 'graph.py'} 에서 그래프에 노드를 등록하세요.")
+    print(f"  4. python -m devtools.workflow_runner.app 으로 실행 후 테스트하세요.")
+    print(f"  5. 완료 후 python -m devtools.scripts.promote {workflow_id} 로 운영 반영하세요.")
+
+
+def main() -> None:
+    if len(sys.argv) != 2:
+        print("사용법: python -m devtools.scripts.new_workflow <workflow_id>")
+        sys.exit(1)
+
+    scaffold(sys.argv[1])
+
+
+if __name__ == "__main__":
+    main()

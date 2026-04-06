@@ -1,0 +1,268 @@
+/* Dev Workflow Runner 스타일 */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: #f5f5f5;
+  color: #333;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Top Bar ── */
+
+.top-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: #1a1a2e;
+  color: #eee;
+  flex-shrink: 0;
+}
+
+.top-bar h1 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.controls select,
+.controls button {
+  padding: 4px 10px;
+  border: 1px solid #555;
+  border-radius: 4px;
+  background: #2a2a3e;
+  color: #eee;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.controls select:hover,
+.controls button:hover {
+  background: #3a3a5e;
+}
+
+.export-group {
+  display: flex;
+  gap: 4px;
+}
+
+/* ── Panels ── */
+
+.panels {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  gap: 1px;
+  background: #ddd;
+}
+
+.panel {
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel h2 {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  background: #f0f0f0;
+  border-bottom: 1px solid #ddd;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+}
+
+.panel-message {
+  flex: 1;
+  min-width: 0;
+}
+
+.panel-right {
+  width: 420px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: #ddd;
+}
+
+.panel-state {
+  flex: 1;
+}
+
+.panel-trace {
+  flex: 1;
+}
+
+/* ── Transcript ── */
+
+.transcript {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.transcript .empty {
+  color: #999;
+  text-align: center;
+  padding: 40px 0;
+}
+
+.msg {
+  margin-bottom: 8px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.msg .role {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  width: 32px;
+}
+
+.msg .text {
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.msg-user .role { color: #2563eb; }
+.msg-bot .role { color: #059669; }
+.msg-system .role { color: #dc2626; }
+
+/* ── Input Area ── */
+
+.input-area {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid #ddd;
+  flex-shrink: 0;
+}
+
+.input-area input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 14px;
+  outline: none;
+}
+
+.input-area input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.input-area button {
+  padding: 8px 20px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.input-area button:hover {
+  background: #1d4ed8;
+}
+
+/* ── JSON View ── */
+
+.json-view {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: #374151;
+}
+
+/* ── Trace View ── */
+
+.trace-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+
+.trace-list p {
+  color: #999;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.trace-step {
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: #f9fafb;
+  border-radius: 4px;
+  font-size: 12px;
+  border-left: 3px solid #d1d5db;
+}
+
+.trace-step .step-num {
+  font-weight: 700;
+  color: #6b7280;
+}
+
+.trace-step .node-id {
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.trace-step .action {
+  color: #059669;
+  font-weight: 500;
+}
+
+.trace-step .elapsed {
+  color: #9ca3af;
+  font-size: 11px;
+}
+
+.trace-step .reply-preview {
+  margin-top: 4px;
+  padding: 4px 8px;
+  background: #ecfdf5;
+  border-radius: 3px;
+  font-size: 11px;
+  color: #374151;
+  white-space: pre-wrap;
+}
+
+/* ── Responsive ── */
+
+@media (max-width: 768px) {
+  .panels {
+    flex-direction: column;
+  }
+  .panel-right {
+    width: 100%;
+    max-height: 40vh;
+  }
+}
