@@ -4,6 +4,8 @@
     python -m devtools.scripts.promote my_workflow
 """
 
+import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -13,8 +15,15 @@ DEV_WORKFLOWS_DIR = PROJECT_ROOT / "devtools" / "workflows"
 PROD_WORKFLOWS_DIR = PROJECT_ROOT / "api" / "workflows"
 DEV_STATE_DIR = PROJECT_ROOT / "devtools" / "var" / "workflow_state"
 
+WORKFLOW_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
+
 
 def promote(workflow_id: str) -> None:
+    # 0. Path traversal 방지
+    if not WORKFLOW_ID_PATTERN.match(workflow_id):
+        print(f"오류: workflow_id는 소문자, 숫자, 밑줄만 허용됩니다: {workflow_id}")
+        sys.exit(1)
+
     source = DEV_WORKFLOWS_DIR / workflow_id
     target = PROD_WORKFLOWS_DIR / workflow_id
 
@@ -45,14 +54,13 @@ def promote(workflow_id: str) -> None:
             print("취소됨.")
             sys.exit(0)
 
-    # 3. 이동
-    shutil.move(str(source), str(target))
-    print(f"이동 완료: {source} -> {target}")
+    # 3. 복사 후 검증 (실패 시 롤백)
+    shutil.copytree(str(source), str(target))
+    print(f"복사 완료: {source} -> {target}")
 
     # 4. Import 검증
     print("import 검증 중...")
     try:
-        # sys.path에 프로젝트 루트가 있어야 함
         if str(PROJECT_ROOT) not in sys.path:
             sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -63,10 +71,17 @@ def promote(workflow_id: str) -> None:
         print(f"  entry_node_id: {definition.get('entry_node_id')}")
         print("  import 검증 통과")
     except Exception as exc:
+        # 검증 실패 시 롤백
+        shutil.rmtree(str(target), ignore_errors=True)
         print(f"  import 검증 실패: {exc}")
-        print(f"  수동으로 확인하세요: {target}")
+        print(f"  promotion을 롤백했습니다. dev 워크플로를 수정 후 다시 시도하세요.")
+        sys.exit(1)
 
-    # 5. Dev state 정리
+    # 5. 검증 통과 후 dev 소스 삭제
+    shutil.rmtree(str(source))
+    print(f"dev 소스 삭제 완료: {source}")
+
+    # 6. Dev state 정리
     _cleanup_dev_state(workflow_id)
 
     print()
@@ -85,7 +100,6 @@ def _cleanup_dev_state(workflow_id: str) -> None:
     cleaned = 0
     for state_file in DEV_STATE_DIR.glob("*.json"):
         try:
-            import json
             data = json.loads(state_file.read_text(encoding="utf-8"))
             if data.get("workflow_id") == workflow_id:
                 state_file.unlink()

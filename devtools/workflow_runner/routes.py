@@ -37,12 +37,12 @@ def api_send():
     """메시지를 전송하고 reply + trace + state를 반환한다."""
 
     body = request.get_json(silent=True)
-    if not body:
-        return jsonify({"error": "요청 본문이 비어 있습니다."}), 400
+    if not isinstance(body, dict):
+        return jsonify({"error": "요청 본문은 JSON 객체여야 합니다."}), 400
 
-    workflow_id = body.get("workflow_id", "")
-    message = body.get("message", "")
-    user_id = body.get("user_id", "dev_user")
+    workflow_id = str(body.get("workflow_id", "")).strip()
+    message = str(body.get("message", "")).strip()
+    user_id = str(body.get("user_id", "dev_user")).strip() or "dev_user"
 
     if not workflow_id:
         return jsonify({"error": "workflow_id가 필요합니다."}), 400
