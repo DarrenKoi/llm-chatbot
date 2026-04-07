@@ -11,6 +11,17 @@ from api.file_delivery import (
 )
 from api.utils.logger import log_activity
 
+_FILE_LIST_FIELDS = (
+    "file_id",
+    "file_url",
+    "original_filename",
+    "title",
+    "content_type",
+    "size_bytes",
+    "created_at",
+    "source",
+)
+
 logger = logging.getLogger(__name__)
 
 bp = Blueprint("file_delivery", __name__)
@@ -71,11 +82,35 @@ def upload_file_delivery_file():
     ), 201
 
 
+@bp.route("/api/v1/file-delivery/files", methods=["GET"])
+@bp.route("/api/v1/file_delivery/files", methods=["GET"])
+def list_user_delivery_files():
+    user_id = _resolve_request_user_id()
+    if not user_id:
+        return jsonify({"error": "Unable to resolve user from session"}), 400
+
+    try:
+        raw_limit = request.args.get("limit", "20")
+        limit = max(1, min(int(raw_limit), 100))
+    except ValueError:
+        limit = 20
+
+    try:
+        files = list_files_for_user(user_id=user_id, limit=limit)
+    except Exception:
+        logger.exception("File delivery list failed")
+        return jsonify({"error": "Failed to load file list"}), 500
+    trimmed = [{k: f[k] for k in _FILE_LIST_FIELDS if k in f} for f in files]
+    return jsonify({"files": trimmed, "total": len(trimmed)})
+
+
 @bp.route("/file-delivery/files/<file_id>")
 @bp.route("/file-delivery-files/<file_id>")
 @bp.route("/file_delivery/files/<file_id>")
 @bp.route("/cdn/files/<file_id>")
 def get_file_delivery_file(file_id: str):
+    # TODO: This download route is currently public by file_id. Revisit whether
+    # listing APIs and chat responses should expose URLs without an owner check.
     width_arg = request.args.get("w")
     height_arg = request.args.get("h")
     thumbnail_arg = request.args.get("thumbnail", "").lower()

@@ -70,6 +70,13 @@ def _extract_extension(filename: str) -> str:
     return suffix.lstrip(".")
 
 
+def _normalize_extension(extension: str) -> str:
+    normalized = extension.strip().lower().lstrip(".")
+    if not normalized:
+        raise ValueError("File extension is required")
+    return normalized
+
+
 def _validate_file_id(file_id: str) -> bool:
     return bool(file_id) and len(file_id) == 32 and all(c in "0123456789abcdef" for c in file_id)
 
@@ -218,7 +225,9 @@ def save_file_bytes(
     *,
     user_id: str = "",
     title: str = "",
+    source: str = "",
 ) -> dict:
+    extension = _normalize_extension(extension)
     if extension not in config.FILE_DELIVERY_ALLOWED_EXTENSIONS:
         raise ValueError(f"Unsupported file extension: {extension}")
     if not data:
@@ -257,10 +266,41 @@ def save_file_bytes(
         "user_id": user_id,
         "user_storage_key": user_storage_key,
         "title": title,
+        "source": source,
     }
-    _save_metadata(file_id, metadata)
+    try:
+        _save_metadata(file_id, metadata)
+    except Exception:
+        try:
+            if file_path.exists():
+                file_path.unlink()
+        except OSError:
+            logger.exception("Failed to remove orphaned file delivery artifact after metadata write failure.")
+        raise
     metadata["file_url"] = _build_file_url(file_id)
     return metadata
+
+
+def save_llm_generated_image(
+    data: bytes,
+    extension: str,
+    *,
+    user_id: str = "",
+    title: str = "",
+) -> dict:
+    """LLM(MCP)이 생성한 이미지를 file_delivery 저장소에 저장하고 메타데이터를 반환한다."""
+
+    extension = _normalize_extension(extension)
+    content_type = _CONTENT_TYPE_BY_EXT.get(extension, "image/png")
+    return save_file_bytes(
+        data=data,
+        extension=extension,
+        content_type=content_type,
+        original_filename=f"{title or 'generated'}.{extension}",
+        user_id=user_id,
+        title=title,
+        source="llm_generated",
+    )
 
 
 def list_files_for_user(user_id: str, limit: int = 20) -> list[dict]:
@@ -269,6 +309,9 @@ def list_files_for_user(user_id: str, limit: int = 20) -> list[dict]:
         return []
 
     items: list[dict] = []
+    # TODO: Replace the global metadata scan with a per-user index. This now runs on
+    # both file-list API requests and start-chat context injection, so latency scales
+    # with the total file count across all users.
     for file_id in _get_metadata_backend().list_ids():
         metadata = _load_metadata(file_id)
         if not metadata or metadata.get("user_id", "").strip() != normalized_user_id:

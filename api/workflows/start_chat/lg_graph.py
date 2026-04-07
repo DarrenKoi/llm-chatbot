@@ -77,6 +77,27 @@ def retrieve_context_node(state: StartChatState) -> dict:
     return {"retrieved_contexts": contexts}
 
 
+def _build_file_context(user_id: str) -> str:
+    """사용자 업로드 파일 목록을 LLM 컨텍스트 문자열로 반환한다."""
+
+    from api.file_delivery import list_files_for_user
+
+    files = list_files_for_user(user_id=user_id, limit=20)
+    if not files:
+        return ""
+
+    lines: list[str] = []
+    for f in files:
+        name = f.get("original_filename") or f.get("title") or f.get("file_id", "")
+        url = f.get("file_url", "")
+        source = f.get("source", "")
+        created = (f.get("created_at") or "")[:10]
+        tag = f" [{source}]" if source else ""
+        lines.append(f"- {name}{tag} ({created}): {url}")
+
+    return "[사용자 파일]\n" + "\n".join(lines)
+
+
 def generate_reply_node(state: StartChatState) -> dict:
     """LLM을 호출하여 응답을 생성한다."""
 
@@ -87,8 +108,17 @@ def generate_reply_node(state: StartChatState) -> dict:
     user_id = state.get("user_id", "")
     channel_id = state.get("channel_id", "")
     user_message = state.get("user_message", "")
-    contexts = state.get("retrieved_contexts", [])
+    contexts = list(state.get("retrieved_contexts", []))
     profile_summary = state.get("profile_summary", "")
+
+    file_context = ""
+    if user_id:
+        try:
+            file_context = _build_file_context(user_id)
+        except Exception:
+            log.exception("Failed to load file-delivery context for start_chat.")
+    if file_context:
+        contexts.append(file_context)
 
     history = get_history(user_id, conversation_id=channel_id or None)
     if history and history[-1].get("role") == "user":
