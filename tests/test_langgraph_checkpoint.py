@@ -1,31 +1,49 @@
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from api import config
-from api.workflows.langgraph_checkpoint import open_langgraph_checkpoint_mongo
+from api.workflows.langgraph_checkpoint import build_thread_id, get_checkpointer
 
 
-def test_open_langgraph_checkpoint_mongo_requires_uri(monkeypatch):
+def test_build_thread_id_with_channel_id():
+    assert build_thread_id("user1", "c1") == "user1::c1"
+
+
+def test_build_thread_id_without_channel_id():
+    assert build_thread_id("user1") == "user1"
+
+
+def test_build_thread_id_with_empty_channel_id():
+    assert build_thread_id("user1", "") == "user1"
+
+
+def test_get_checkpointer_returns_memory_saver_when_no_mongo(monkeypatch):
     monkeypatch.setattr(config, "AFM_MONGO_URI", "")
-    monkeypatch.setattr(config, "AFM_DB_NAME", "test-db")
 
-    with pytest.raises(RuntimeError, match="AFM_MONGO_URI"):
-        open_langgraph_checkpoint_mongo()
+    from langgraph.checkpoint.memory import MemorySaver
+
+    checkpointer = get_checkpointer()
+    assert isinstance(checkpointer, MemorySaver)
 
 
-def test_open_langgraph_checkpoint_mongo_uses_afm_database(monkeypatch):
-    sentinel_db = object()
-    mock_client = MagicMock()
-    mock_client.__getitem__.return_value = sentinel_db
-
+def test_get_checkpointer_returns_mongo_saver_when_uri_set(monkeypatch):
     monkeypatch.setattr(config, "AFM_MONGO_URI", "mongodb://fake:27017")
     monkeypatch.setattr(config, "AFM_DB_NAME", "test-db")
+    monkeypatch.setattr(config, "LANGGRAPH_CHECKPOINT_COLLECTION_NAME", "test-checkpoints")
+    monkeypatch.setattr(config, "LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME", "test-checkpoint-writes")
+    monkeypatch.setattr(config, "CHECKPOINT_TTL_SECONDS", 259200)
 
-    with patch("pymongo.MongoClient", return_value=mock_client) as mock_cls:
-        result = open_langgraph_checkpoint_mongo()
-
-    mock_cls.assert_called_once_with("mongodb://fake:27017", serverSelectionTimeoutMS=3000)
-    mock_client.__getitem__.assert_called_once_with("test-db")
-    assert result.client is mock_client
-    assert result.database is sentinel_db
+    mock_client = MagicMock()
+    with (
+        patch("pymongo.MongoClient", return_value=mock_client),
+        patch("langgraph.checkpoint.mongodb.MongoDBSaver", autospec=True) as mock_saver_cls,
+    ):
+        checkpointer = get_checkpointer()
+        assert checkpointer is mock_saver_cls.return_value
+        mock_client.admin.command.assert_called_once_with("ping")
+        mock_saver_cls.assert_called_once_with(
+            mock_client,
+            db_name="test-db",
+            checkpoint_collection_name="test-checkpoints",
+            writes_collection_name="test-checkpoint-writes",
+            ttl=259200,
+        )

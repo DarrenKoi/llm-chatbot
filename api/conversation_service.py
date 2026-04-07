@@ -64,7 +64,7 @@ def append_messages(
 
 
 class _MongoBackend:
-    COLLECTION = "cube_conversation_messages"
+    COLLECTION = config.CONVERSATION_COLLECTION_NAME
 
     def __init__(self, db):
         self._col = db[self.COLLECTION]
@@ -170,7 +170,6 @@ class _InMemoryBackend:
         metadata: dict[str, Any] | None = None,
     ):
         store_key = _build_store_key(user_id, conversation_id)
-        normalized_conversation_id = _normalize_conversation_id(user_id, conversation_id)
         if store_key not in self._store:
             if len(self._store) >= self.MAX_USERS:
                 self._store.popitem(last=False)
@@ -180,7 +179,7 @@ class _InMemoryBackend:
         self._recent_messages.append(
             {
                 "user_id": user_id,
-                "conversation_id": normalized_conversation_id,
+                "conversation_id": _normalize_conversation_id(user_id, conversation_id),
                 "role": message["role"],
                 "content": message["content"],
             }
@@ -201,6 +200,9 @@ def _build_store_key(user_id: str, conversation_id: str | None) -> str:
 
 
 def _build_query(user_id: str, conversation_id: str | None) -> dict[str, Any]:
+    # conversation_id를 생략하면 해당 사용자의 모든 대화를 반환한다.
+    # _build_document는 항상 conversation_id를 정규화하여 저장하므로,
+    # 특정 채널만 조회할 때는 conversation_id를 명시해야 한다.
     query: dict[str, Any] = {"user_id": user_id}
     if conversation_id:
         query["conversation_id"] = conversation_id

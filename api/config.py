@@ -41,6 +41,13 @@ APP_ENV = os.environ.get("APP_ENV", os.environ.get("FLASK_ENV", "development"))
 # MongoDB (conversation storage; empty = in-memory fallback)
 AFM_MONGO_URI = os.environ.get("AFM_MONGO_URI", "")
 AFM_DB_NAME = os.environ.get("AFM_DB_NAME", "itc-afm-data-platform-mongodb")
+CONVERSATION_COLLECTION_NAME = os.environ.get("CONVERSATION_COLLECTION_NAME", "conversation_history")
+LANGGRAPH_CHECKPOINT_COLLECTION_NAME = os.environ.get("LANGGRAPH_CHECKPOINT_COLLECTION_NAME", "checkpoints")
+LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME = os.environ.get(
+    "LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME",
+    "checkpoint_writes",
+)
+CHECKPOINT_TTL_SECONDS = int(os.environ.get("CHECKPOINT_TTL_SECONDS", 3 * 24 * 60 * 60))
 
 # Redis (empty = in-memory fallback)
 REDIS_URL = os.environ.get("REDIS_URL", "")
@@ -84,12 +91,18 @@ TOPIC_LOG_BACKUP_COUNT = int(os.environ.get("TOPIC_LOG_BACKUP_COUNT", 14))
 # Workflow state
 WORKFLOW_STATE_DIR = Path(os.environ.get("WORKFLOW_STATE_DIR", str(BASE_DIR / "var" / "workflow_state"))).expanduser()
 
+# LangGraph feature toggles
+USE_LANGGRAPH_TRANSLATOR = os.environ.get("USE_LANGGRAPH_TRANSLATOR", "").lower() in ("1", "true", "yes")
+USE_LANGGRAPH_CHART_MAKER = os.environ.get("USE_LANGGRAPH_CHART_MAKER", "").lower() in ("1", "true", "yes")
+USE_LANGGRAPH_TRAVEL_PLANNER = os.environ.get("USE_LANGGRAPH_TRAVEL_PLANNER", "").lower() in ("1", "true", "yes")
+USE_LANGGRAPH = os.environ.get("USE_LANGGRAPH", "").lower() in ("1", "true", "yes")
+
 # MCP cache
 MCP_CACHE_DIR = Path(os.environ.get("MCP_CACHE_DIR", str(BASE_DIR / "var" / "mcp_cache"))).expanduser()
 
 # Conversation history
 CONVERSATION_MAX_MESSAGES = int(os.environ.get("CONVERSATION_MAX_MESSAGES", 5))
-CONVERSATION_TTL_SECONDS = int(os.environ.get("CONVERSATION_TTL_SECONDS", 3600))
+CONVERSATION_TTL_SECONDS = int(os.environ.get("CONVERSATION_TTL_SECONDS", 0))
 
 # Workspace (cross-platform)
 _linux_workspace_root = Path("/project/workSpace")

@@ -105,6 +105,7 @@ class TestMongoBackend:
 
     @patch.object(config, "CONVERSATION_MAX_MESSAGES", 5)
     @patch.object(config, "CONVERSATION_TTL_SECONDS", 3600)
+    @patch.object(config, "CONVERSATION_COLLECTION_NAME", "conversation_history")
     @patch.object(config, "AFM_DB_NAME", "test-db")
     @patch.object(config, "AFM_MONGO_URI", "mongodb://fake:27017")
     def test_append_inserts_document(self):
@@ -139,6 +140,31 @@ class TestMongoBackend:
             assert doc["channel_id"] == "c1"
             assert "created_at" in doc
             assert mock_col.create_index.call_count == 3
+
+    @patch.object(config, "CONVERSATION_MAX_MESSAGES", 5)
+    @patch.object(config, "CONVERSATION_TTL_SECONDS", 0)
+    @patch.object(config, "CONVERSATION_COLLECTION_NAME", "conversation_history")
+    @patch.object(config, "AFM_DB_NAME", "test-db")
+    @patch.object(config, "AFM_MONGO_URI", "mongodb://fake:27017")
+    def test_mongo_backend_skips_ttl_index_when_disabled(self):
+        mock_col = MagicMock()
+        mock_db = MagicMock()
+        mock_db.__getitem__ = MagicMock(return_value=mock_col)
+        mock_client = MagicMock()
+        mock_client.__getitem__ = MagicMock(return_value=mock_db)
+
+        with patch("pymongo.MongoClient", return_value=mock_client):
+            import importlib
+
+            import api.conversation_service as mod
+
+            mod._backend = None
+            importlib.reload(mod)
+
+            mod.get_history("user1", conversation_id="c1")
+
+            assert mock_db.__getitem__.call_args_list[0].args[0] == "conversation_history"
+            assert mock_col.create_index.call_count == 2
 
     @patch.object(config, "CONVERSATION_MAX_MESSAGES", 5)
     @patch.object(config, "AFM_DB_NAME", "test-db")

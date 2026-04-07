@@ -63,3 +63,8 @@
 - `api/mcp/models.py`의 `MCPTool.tags`도 소문자 태그 tuple로 정규화한다.
 - `api/mcp/tool_selector.py`는 workflow의 `tool_tags`와 MCP 도구의 `tags`를 매칭해 도구 후보를 필터링한다.
 - `tool_tags`가 비어 있는 workflow는 기존처럼 전체 도구를 그대로 노출한다.
+
+## LangGraph 저장 규칙
+- LangGraph 체크포인트는 MongoDB `checkpoints` / `checkpoint_writes` 컬렉션을 사용하며 기본 TTL은 3일(`CHECKPOINT_TTL_SECONDS=259200`)이다.
+- 대화 이력 보관용 컬렉션은 `conversation_history`를 기본값으로 사용하고, 기본 TTL 없이 영구 보관한다(`CONVERSATION_TTL_SECONDS=0`).
+- 체크포인트는 단기 실행 상태와 resume 용도, 대화 이력 컬렉션은 감사/모니터링/장기 조회 용도로 분리한다.

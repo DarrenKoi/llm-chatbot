@@ -54,3 +54,21 @@ def test_file_delivery_base_url_defaults_to_web_app_url(monkeypatch):
         assert reloaded.FILE_DELIVERY_BASE_URL == "http://example-webapp/file-delivery/files"
     finally:
         importlib.reload(reloaded)
+
+
+def test_mongo_storage_config_can_separate_checkpoint_and_history(monkeypatch):
+    monkeypatch.setenv("CONVERSATION_COLLECTION_NAME", "conversation_history")
+    monkeypatch.setenv("LANGGRAPH_CHECKPOINT_COLLECTION_NAME", "checkpoints")
+    monkeypatch.setenv("LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME", "checkpoint_writes")
+    monkeypatch.setenv("CHECKPOINT_TTL_SECONDS", "259200")
+    monkeypatch.setenv("CONVERSATION_TTL_SECONDS", "0")
+
+    reloaded = importlib.reload(config)
+    try:
+        assert reloaded.CONVERSATION_COLLECTION_NAME == "conversation_history"
+        assert reloaded.LANGGRAPH_CHECKPOINT_COLLECTION_NAME == "checkpoints"
+        assert reloaded.LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME == "checkpoint_writes"
+        assert reloaded.CHECKPOINT_TTL_SECONDS == 259200
+        assert reloaded.CONVERSATION_TTL_SECONDS == 0
+    finally:
+        importlib.reload(reloaded)
