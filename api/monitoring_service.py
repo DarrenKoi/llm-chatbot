@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from api import config
 from api.utils.logger.paths import get_theme_log_dir
+from api.workflows.langgraph_checkpoint import validate_mongo_storage_config
 
 MonitorTone = Literal["ok", "warning", "error", "disabled"]
 _ACTIVITY_TAIL_LINES = 400
@@ -27,6 +28,7 @@ class MonitorEntry:
 
 def get_monitoring_snapshot() -> dict[str, object]:
     entries = [
+        _check_langgraph_checkpoint_store(),
         _check_mongo_conversation_store(),
         _check_cube_queue(),
         _check_cube_worker_daemon(),
@@ -47,13 +49,25 @@ def get_monitoring_snapshot() -> dict[str, object]:
 
 
 def _check_mongo_conversation_store() -> MonitorEntry:
+    try:
+        collections = validate_mongo_storage_config()
+    except ValueError as exc:
+        return MonitorEntry(
+            name="Conversation Store",
+            backend="MongoDB",
+            tone="error",
+            status="config error",
+            target=config.CONVERSATION_COLLECTION_NAME,
+            detail=str(exc),
+        )
+
     if not config.AFM_MONGO_URI:
         return MonitorEntry(
             name="Conversation Store",
             backend="MongoDB",
             tone="warning",
             status="fallback",
-            target="미설정",
+            target=collections.conversation_history,
             detail="AFM_MONGO_URI가 비어 있어 현재 대화 이력은 메모리 백엔드로 동작합니다.",
         )
 
@@ -71,7 +85,7 @@ def _check_mongo_conversation_store() -> MonitorEntry:
             backend="MongoDB",
             tone="error",
             status="failed",
-            target=_mask_url(config.AFM_MONGO_URI),
+            target=f"{_mask_url(config.AFM_MONGO_URI)} / {collections.conversation_history}",
             detail=f"MongoDB ping 실패: {exc}. 현재 설정에서는 대화 이력을 메모리로 fallback 하지 않습니다.",
         )
 
@@ -80,8 +94,65 @@ def _check_mongo_conversation_store() -> MonitorEntry:
         backend="MongoDB",
         tone="ok",
         status="connected",
-        target=_mask_url(config.AFM_MONGO_URI),
-        detail=f"DB `{config.AFM_DB_NAME}` 에 정상 연결되었습니다.",
+        target=f"{_mask_url(config.AFM_MONGO_URI)} / {collections.conversation_history}",
+        detail=f"DB `{config.AFM_DB_NAME}` 의 대화 이력 컬렉션에 정상 연결되었습니다.",
+    )
+
+
+def _check_langgraph_checkpoint_store() -> MonitorEntry:
+    try:
+        collections = validate_mongo_storage_config()
+    except ValueError as exc:
+        return MonitorEntry(
+            name="LangGraph Checkpointer",
+            backend="MongoDB",
+            tone="error",
+            status="config error",
+            target=(
+                f"{config.LANGGRAPH_CHECKPOINT_COLLECTION_NAME} / {config.LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME}"
+            ),
+            detail=str(exc),
+        )
+
+    checkpoint_target = f"{collections.checkpoint} / {collections.checkpoint_writes}"
+    ttl_seconds = config.CHECKPOINT_TTL_SECONDS if config.CHECKPOINT_TTL_SECONDS > 0 else None
+
+    if not config.AFM_MONGO_URI:
+        return MonitorEntry(
+            name="LangGraph Checkpointer",
+            backend="MongoDB",
+            tone="warning",
+            status="fallback",
+            target=checkpoint_target,
+            detail="AFM_MONGO_URI가 비어 있어 LangGraph 체크포인터는 메모리 백엔드로 동작합니다.",
+        )
+
+    try:
+        from pymongo import MongoClient
+
+        client = MongoClient(config.AFM_MONGO_URI, serverSelectionTimeoutMS=3000)
+        try:
+            client.admin.command("ping")
+        finally:
+            client.close()
+    except Exception as exc:
+        return MonitorEntry(
+            name="LangGraph Checkpointer",
+            backend="MongoDB",
+            tone="error",
+            status="failed",
+            target=f"{_mask_url(config.AFM_MONGO_URI)} / {checkpoint_target}",
+            detail=f"MongoDB ping 실패: {exc}. LangGraph 체크포인터를 영속적으로 사용할 수 없습니다.",
+        )
+
+    ttl_detail = f"TTL={ttl_seconds}초" if ttl_seconds is not None else "TTL 비활성"
+    return MonitorEntry(
+        name="LangGraph Checkpointer",
+        backend="MongoDB",
+        tone="ok",
+        status="connected",
+        target=f"{_mask_url(config.AFM_MONGO_URI)} / {checkpoint_target}",
+        detail=f"DB `{config.AFM_DB_NAME}` 의 체크포인터 컬렉션에 정상 연결되었습니다. {ttl_detail}.",
     )
 
 

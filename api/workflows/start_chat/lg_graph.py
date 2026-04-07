@@ -1,0 +1,159 @@
+"""시작 대화 LangGraph 워크플로.
+
+메인 대화 진입점이다. 의도 분류 후 일반 대화(RAG + LLM) 또는
+자식 워크플로 서브그래프로 분기한다.
+"""
+
+import logging
+
+from langchain_core.messages import AIMessage
+from langgraph.graph import END, StateGraph
+
+from api.workflows.lg_state import StartChatState
+
+log = logging.getLogger(__name__)
+
+
+def _get_handoff_subgraph_builders() -> dict[str, object]:
+    """레지스트리에서 LangGraph 서브그래프를 제공하는 handoff 워크플로를 수집한다."""
+
+    from api.workflows.registry import list_handoff_workflows
+
+    builders: dict[str, object] = {}
+    for workflow_def in list_handoff_workflows():
+        workflow_id = workflow_def["workflow_id"]
+        builder = workflow_def.get("build_lg_graph")
+        if callable(builder):
+            builders[workflow_id] = builder
+    return builders
+
+
+def entry_node(state: StartChatState) -> dict:
+    """프로필을 1회 로딩한다."""
+
+    if state.get("profile_loaded"):
+        return {}
+
+    from api.profile.service import load_user_profile
+
+    profile = load_user_profile(state.get("user_id", ""))
+    profile_summary = profile.to_prompt_text() if profile else ""
+    profile_source = profile.source if profile else "unavailable"
+
+    return {
+        "profile_loaded": profile is not None,
+        "profile_source": profile_source,
+        "profile_summary": profile_summary,
+    }
+
+
+def classify_node(state: StartChatState) -> dict:
+    """사용자 의도를 분류한다."""
+
+    from api.workflows.registry import list_handoff_workflows
+
+    user_message = state.get("user_message", "").strip().lower()
+    if not user_message:
+        return {"detected_intent": "start_chat"}
+
+    for workflow_def in list_handoff_workflows():
+        workflow_id = workflow_def["workflow_id"]
+        keywords = workflow_def.get("handoff_keywords", ())
+        if any(keyword in user_message for keyword in keywords):
+            return {"detected_intent": workflow_id}
+
+    return {"detected_intent": "start_chat"}
+
+
+def retrieve_context_node(state: StartChatState) -> dict:
+    """일반 질의응답용 검색 컨텍스트를 수집한다."""
+
+    from api.workflows.start_chat.rag.context_builder import build_start_chat_context
+    from api.workflows.start_chat.rag.retriever import retrieve_start_chat_documents
+
+    user_message = state.get("user_message", "")
+    documents = retrieve_start_chat_documents(user_message)
+    contexts = build_start_chat_context(documents)
+    return {"retrieved_contexts": contexts}
+
+
+def plan_response_node(state: StartChatState) -> dict:
+    """응답 생성 계획을 만든다."""
+
+    user_message = state.get("user_message", "")
+    return {"agent_plan": [f"answer:{user_message}"]}
+
+
+def generate_reply_node(state: StartChatState) -> dict:
+    """LLM을 호출하여 응답을 생성한다."""
+
+    from api.conversation_service import get_history
+    from api.llm.service import generate_reply
+    from api.workflows.start_chat.prompts import START_CHAT_CONTEXT_TEMPLATE
+
+    user_id = state.get("user_id", "")
+    channel_id = state.get("channel_id", "")
+    user_message = state.get("user_message", "")
+    contexts = state.get("retrieved_contexts", [])
+    profile_summary = state.get("profile_summary", "")
+
+    history = get_history(user_id, conversation_id=channel_id or None)
+    if history and history[-1].get("role") == "user":
+        history = history[:-1]
+
+    if contexts:
+        augmented_message = START_CHAT_CONTEXT_TEMPLATE.format(
+            contexts="\n".join(contexts),
+            question=user_message,
+        )
+    else:
+        augmented_message = user_message
+
+    reply = generate_reply(
+        history=history,
+        user_message=augmented_message,
+        user_profile_text=profile_summary,
+    )
+
+    return {"messages": [AIMessage(content=reply)]}
+
+
+def _route_after_classify(state: StartChatState) -> str:
+    """classify 후 다음 노드를 결정한다."""
+
+    intent = state.get("detected_intent", "start_chat")
+    if intent in _get_handoff_subgraph_builders():
+        return intent
+    return "retrieve_context"
+
+
+def build_lg_graph() -> StateGraph:
+    """시작 대화 워크플로 LangGraph StateGraph 빌더를 반환한다.
+
+    자식 워크플로(translator, chart_maker, travel_planner)는 서브그래프로 포함된다.
+    """
+
+    builder = StateGraph(StartChatState)
+
+    # 메인 노드
+    builder.add_node("entry", entry_node)
+    builder.add_node("classify", classify_node)
+    builder.add_node("retrieve_context", retrieve_context_node)
+    builder.add_node("plan_response", plan_response_node)
+    builder.add_node("generate_reply", generate_reply_node)
+
+    # 자식 워크플로 서브그래프
+    for workflow_id, subgraph_builder in _get_handoff_subgraph_builders().items():
+        builder.add_node(workflow_id, subgraph_builder().compile())
+
+    # 엣지
+    builder.set_entry_point("entry")
+    builder.add_edge("entry", "classify")
+    builder.add_conditional_edges("classify", _route_after_classify)
+    builder.add_edge("retrieve_context", "plan_response")
+    builder.add_edge("plan_response", "generate_reply")
+    builder.add_edge("generate_reply", END)
+    for workflow_id in _get_handoff_subgraph_builders():
+        builder.add_edge(workflow_id, END)
+
+    return builder

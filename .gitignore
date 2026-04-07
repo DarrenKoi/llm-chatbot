@@ -13,7 +13,7 @@ venv/
 env/
 .pytest_cache/
 .ruff_cache/
-
+.playwright-mcp/
 # Environment variables
 .env
 .env.local

@@ -1,6 +1,8 @@
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+
 from api import config
 from api.llm.prompt import DEFAULT_SYSTEM_PROMPT, get_system_prompt
-from api.llm.service import _build_messages, _extract_reply_text
+from api.llm.service import _build_messages, _extract_content
 
 
 def test_build_messages_includes_system_prompt_and_history(monkeypatch):
@@ -20,10 +22,10 @@ def test_build_messages_includes_system_prompt_and_history(monkeypatch):
     )
 
     assert messages == [
-        {"role": "system", "content": "system prompt::- 이름: 홍길동"},
-        {"role": "assistant", "content": "이전 답변"},
-        {"role": "user", "content": "이전 질문"},
-        {"role": "user", "content": "현재 질문"},
+        SystemMessage(content="system prompt::- 이름: 홍길동"),
+        AIMessage(content="이전 답변"),
+        HumanMessage(content="이전 질문"),
+        HumanMessage(content="현재 질문"),
     ]
 
 
@@ -71,21 +73,15 @@ def test_build_time_context_uses_korean_local_time(monkeypatch):
     assert "UTC+09:00" in context
 
 
-def test_extract_reply_text_supports_string_and_list_content():
+def test_extract_content_supports_string_and_list():
+    assert _extract_content("안녕하세요") == "안녕하세요"
     assert (
-        _extract_reply_text(
-            {
-                "choices": [
-                    {
-                        "message": {
-                            "content": [
-                                {"type": "text", "text": "안녕"},
-                                {"type": "text", "text": "하세요"},
-                            ]
-                        }
-                    }
-                ]
-            }
+        _extract_content(
+            [
+                {"type": "text", "text": "안녕"},
+                {"type": "text", "text": "하세요"},
+            ]
         )
         == "안녕하세요"
     )
+    assert _extract_content(None) == ""

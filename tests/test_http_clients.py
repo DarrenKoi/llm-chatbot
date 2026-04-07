@@ -1,5 +1,6 @@
 import json
 import logging
+from unittest.mock import MagicMock
 
 import httpx
 import pytest
@@ -20,63 +21,49 @@ def _response(
     return httpx.Response(status_code, text=text, request=httpx.Request("POST", url))
 
 
-def test_generate_reply_uses_httpx_post(mocker, monkeypatch):
+def test_generate_reply_calls_chat_openai(mocker, monkeypatch):
     monkeypatch.setattr("api.config.LLM_BASE_URL", "https://llm.example.com/v1")
     monkeypatch.setattr("api.config.LLM_MODEL", "gpt-test")
     monkeypatch.setattr("api.config.LLM_API_KEY", "secret")
     monkeypatch.setattr(
         "api.llm.service.get_system_prompt",
-        lambda user_profile_text="": f"system prompt with korean time::{user_profile_text}",
+        lambda user_profile_text="": f"system prompt::{user_profile_text}",
     )
-    post_mock = mocker.patch(
-        "api.llm.service.httpx.post",
-        return_value=_response(json_body={"choices": [{"message": {"content": "hello"}}]}),
-    )
+
+    mock_llm = MagicMock()
+    mock_llm.invoke.return_value = MagicMock(content="hello")
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
 
     reply = generate_reply(history=[], user_message="hi", user_profile_text="- 이름: 홍길동")
 
     assert reply == "hello"
-    post_mock.assert_called_once_with(
-        "https://llm.example.com/v1/chat/completions",
-        json={
-            "model": "gpt-test",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": "system prompt with korean time::- 이름: 홍길동",
-                },
-                {"role": "user", "content": "hi"},
-            ],
-        },
-        headers={"Authorization": "Bearer secret"},
-        timeout=30,
-    )
+    mock_llm.invoke.assert_called_once()
+    messages = mock_llm.invoke.call_args[0][0]
+    assert messages[0].content == "system prompt::- 이름: 홍길동"
+    assert messages[-1].content == "hi"
 
 
-def test_generate_reply_raises_for_http_status(mocker, monkeypatch):
+def test_generate_reply_raises_on_llm_error(mocker, monkeypatch):
     monkeypatch.setattr("api.config.LLM_BASE_URL", "https://llm.example.com/v1")
     monkeypatch.setattr("api.config.LLM_MODEL", "gpt-test")
-    mocker.patch(
-        "api.llm.service.httpx.post",
-        return_value=_response(status_code=502, text="upstream failed"),
-    )
 
-    with pytest.raises(LLMServiceError, match="LLM request failed with HTTP 502: upstream failed"):
+    mock_llm = MagicMock()
+    mock_llm.invoke.side_effect = RuntimeError("upstream failed")
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    with pytest.raises(LLMServiceError, match="LLM request failed"):
         generate_reply(history=[], user_message="hi")
 
 
-def test_generate_reply_raises_for_request_error(mocker, monkeypatch):
+def test_generate_reply_raises_for_empty_reply(mocker, monkeypatch):
     monkeypatch.setattr("api.config.LLM_BASE_URL", "https://llm.example.com/v1")
     monkeypatch.setattr("api.config.LLM_MODEL", "gpt-test")
-    mocker.patch(
-        "api.llm.service.httpx.post",
-        side_effect=httpx.ConnectError(
-            "connection refused",
-            request=httpx.Request("POST", "https://llm.example.com/v1/chat/completions"),
-        ),
-    )
 
-    with pytest.raises(LLMServiceError, match="LLM request failed: connection refused"):
+    mock_llm = MagicMock()
+    mock_llm.invoke.return_value = MagicMock(content="")
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    with pytest.raises(LLMServiceError, match="LLM reply is empty"):
         generate_reply(history=[], user_message="hi")
 
 

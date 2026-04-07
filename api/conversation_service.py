@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from api import config
+from api.workflows.langgraph_checkpoint import validate_mongo_storage_config
 
 _backend = None
 
@@ -64,10 +65,9 @@ def append_messages(
 
 
 class _MongoBackend:
-    COLLECTION = config.CONVERSATION_COLLECTION_NAME
-
     def __init__(self, db):
-        self._col = db[self.COLLECTION]
+        collections = validate_mongo_storage_config()
+        self._col = db[collections.conversation_history]
         self._col.create_index(
             [("user_id", 1), ("conversation_id", 1), ("created_at", -1)],
             background=True,

@@ -13,6 +13,7 @@ from api.cube.service import (
     accept_cube_message,
     handle_cube_message,
 )
+from api.workflows.models import WorkflowReply
 
 
 @patch("api.cube.service.log_request")
@@ -116,7 +117,10 @@ def test_accept_cube_empty_event_is_ignored(mock_enqueue):
 
 @patch("api.cube.service.log_request")
 @patch("api.cube.service.send_multimessage")
-@patch("api.cube.service.handle_workflow_message", return_value="nice to meet you")
+@patch(
+    "api.cube.service.handle_workflow_message",
+    return_value=WorkflowReply(reply="nice to meet you", workflow_id="start_chat"),
+)
 @patch("api.cube.service.append_message")
 @patch("api.cube.service.get_history", return_value=[{"role": "assistant", "content": "previous"}])
 def test_handle_cube_message_success(
@@ -180,6 +184,7 @@ def test_handle_cube_message_success(
                 "direction": "outbound",
                 "user_name": "tester",
                 "reply_to_message_id": "m1",
+                "workflow_id": "start_chat",
             },
         ),
     ]
@@ -206,7 +211,7 @@ def test_handle_cube_message_sends_thinking_message_only_when_reply_is_slow(
 
     def slow_reply(*args, **kwargs):
         time.sleep(0.05)
-        return "nice to meet you"
+        return WorkflowReply(reply="nice to meet you", workflow_id="start_chat")
 
     with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 0.01):
         with patch("api.cube.service.handle_workflow_message", side_effect=slow_reply) as mock_handle_workflow_message:
@@ -253,6 +258,7 @@ def test_handle_cube_message_sends_thinking_message_only_when_reply_is_slow(
                 "direction": "outbound",
                 "user_name": "tester",
                 "reply_to_message_id": "m1",
+                "workflow_id": "start_chat",
             },
         ),
     ]

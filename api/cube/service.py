@@ -11,7 +11,8 @@ from api.cube.models import CubeAcceptedMessage, CubeHandledMessage, CubeIncomin
 from api.cube.payload import extract_cube_request_fields
 from api.cube.queue import CubeQueueError, enqueue_incoming_message
 from api.utils.logger import log_activity
-from api.workflows.orchestrator import handle_message as handle_workflow_message
+from api.workflows.lg_orchestrator import handle_message as handle_workflow_message
+from api.workflows.models import WorkflowReply
 
 logger = logging.getLogger(__name__)
 
@@ -147,7 +148,7 @@ def _send_thinking_message(incoming: CubeIncomingMessage) -> None:
         )
 
 
-def _generate_llm_reply(incoming: CubeIncomingMessage, *, attempt: int = 0) -> str:
+def _generate_llm_reply(incoming: CubeIncomingMessage, *, attempt: int = 0) -> WorkflowReply:
     if not config.LLM_THINKING_MESSAGE:
         return handle_workflow_message(incoming, attempt=attempt)
 
@@ -183,6 +184,7 @@ def _build_conversation_metadata(
     *,
     direction: str,
     reply_to_message_id: str | None = None,
+    workflow_id: str | None = None,
 ) -> dict[str, Any]:
     metadata: dict[str, Any] = {
         "channel_id": incoming.channel_id,
@@ -194,6 +196,8 @@ def _build_conversation_metadata(
         metadata["message_id"] = incoming.message_id
     if reply_to_message_id:
         metadata["reply_to_message_id"] = reply_to_message_id
+    if workflow_id:
+        metadata["workflow_id"] = workflow_id
     return metadata
 
 
@@ -271,7 +275,9 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
     )
 
     try:
-        llm_reply = _generate_llm_reply(incoming, attempt=attempt)
+        workflow_result = _generate_llm_reply(incoming, attempt=attempt)
+        llm_reply = workflow_result.reply
+        workflow_id = workflow_result.workflow_id
     except Exception as exc:
         log_activity(
             "cube_reply_failed",
@@ -314,9 +320,12 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
                 incoming,
                 direction="outbound",
                 reply_to_message_id=incoming.message_id,
+                workflow_id=workflow_id,
             ),
         )
     except ConversationStoreError:
+        # 사용자에게 응답이 이미 전달된 상태이므로 re-raise하지 않는다.
+        # 저장 실패는 로그로 추적하고, 대화 이력에만 누락이 발생한다.
         log_activity(
             "cube_conversation_store_append_failed",
             level="ERROR",

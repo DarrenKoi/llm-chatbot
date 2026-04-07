@@ -91,12 +91,6 @@ TOPIC_LOG_BACKUP_COUNT = int(os.environ.get("TOPIC_LOG_BACKUP_COUNT", 14))
 # Workflow state
 WORKFLOW_STATE_DIR = Path(os.environ.get("WORKFLOW_STATE_DIR", str(BASE_DIR / "var" / "workflow_state"))).expanduser()
 
-# LangGraph feature toggles
-USE_LANGGRAPH_TRANSLATOR = os.environ.get("USE_LANGGRAPH_TRANSLATOR", "").lower() in ("1", "true", "yes")
-USE_LANGGRAPH_CHART_MAKER = os.environ.get("USE_LANGGRAPH_CHART_MAKER", "").lower() in ("1", "true", "yes")
-USE_LANGGRAPH_TRAVEL_PLANNER = os.environ.get("USE_LANGGRAPH_TRAVEL_PLANNER", "").lower() in ("1", "true", "yes")
-USE_LANGGRAPH = os.environ.get("USE_LANGGRAPH", "").lower() in ("1", "true", "yes")
-
 # MCP cache
 MCP_CACHE_DIR = Path(os.environ.get("MCP_CACHE_DIR", str(BASE_DIR / "var" / "mcp_cache"))).expanduser()
 

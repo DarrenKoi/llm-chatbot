@@ -288,3 +288,23 @@ class TestMongoBackend:
 
             with pytest.raises(mod.ConversationStoreError, match="MongoDB conversation store"):
                 mod.append_message("user1", {"role": "user", "content": "hi"})
+
+    @patch.object(config, "CONVERSATION_COLLECTION_NAME", "shared")
+    @patch.object(config, "LANGGRAPH_CHECKPOINT_COLLECTION_NAME", "shared")
+    @patch.object(config, "LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME", "checkpoint_writes")
+    @patch.object(config, "AFM_DB_NAME", "test-db")
+    @patch.object(config, "AFM_MONGO_URI", "mongodb://fake:27017")
+    def test_raises_when_mongo_collection_names_overlap(self):
+        with patch("pymongo.MongoClient") as mock_cls:
+            mock_client = MagicMock()
+            mock_cls.return_value = mock_client
+
+            import importlib
+
+            import api.conversation_service as mod
+
+            mod._backend = None
+            importlib.reload(mod)
+
+            with pytest.raises(mod.ConversationStoreError, match="MongoDB conversation store"):
+                mod.get_history("user1")
