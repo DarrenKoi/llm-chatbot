@@ -134,7 +134,7 @@ FILE_DELIVERY_ALLOWED_EXTENSIONS = tuple(
     ext.strip().lower()
     for ext in os.environ.get(
         "FILE_DELIVERY_ALLOWED_EXTENSIONS",
-        "png,jpg,jpeg,gif,webp,xlsx,pptx,docx",
+        "png,jpg,jpeg,gif,webp,xlsx,pptx,docx,txt,pdf",
     ).split(",")
     if ext.strip()
 )
