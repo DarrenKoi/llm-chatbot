@@ -143,11 +143,13 @@ def test_handoff_to_chart_maker_subgraph(mock_profile):
 
     state = graph.get_state(config)
     assert state.tasks, "chart_maker 서브그래프에서 interrupt가 발생해야 한다"
+    assert "어떤 형태의 차트" in state.tasks[0].interrupts[0].value["reply"]
 
     graph.invoke(Command(resume="bar chart"), config)
 
     state2 = graph.get_state(config)
     assert state2.tasks
+    assert "차트에 넣을 데이터" in state2.tasks[0].interrupts[0].value["reply"]
 
     result = graph.invoke(Command(resume="매출 데이터"), config)
 

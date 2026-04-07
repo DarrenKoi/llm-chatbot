@@ -83,3 +83,15 @@ def test_handle_message_travel_planner_full_flow(mock_profile):
     assert result1.workflow_id == "travel_planner"
     assert "도쿄 3박 4일 여행" in result1.reply
     assert "시부야" in result1.reply
+
+
+@patch("api.profile.service.load_user_profile", return_value=None)
+def test_handle_message_chart_maker_returns_prompt(mock_profile):
+    """차트 생성 요청 시 빈 문자열 대신 다음 입력을 안내하는 interrupt 응답을 반환한다."""
+
+    from api.workflows.lg_orchestrator import handle_message
+
+    result = handle_message(_make_incoming("차트 만들어줘"))
+
+    assert result.workflow_id == "chart_maker"
+    assert "어떤 형태의 차트" in result.reply

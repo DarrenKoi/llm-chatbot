@@ -14,7 +14,7 @@ from api.workflows.lg_state import ChartMakerState
 def entry_node(state: ChartMakerState) -> dict:
     """진입 노드. 요구사항 수집을 위해 interrupt한다."""
 
-    user_input = interrupt({"reply": ""})
+    user_input = interrupt({"reply": "어떤 형태의 차트를 원하시나요? 예: 막대 차트, 선 차트, pie chart"})
     return {"user_message": user_input}
 
 
@@ -22,7 +22,7 @@ def collect_requirements_node(state: ChartMakerState) -> dict:
     """차트 유형을 저장하고 추가 입력을 기다린다."""
 
     chart_type = state.get("user_message", "").strip()
-    user_input = interrupt({"reply": ""})
+    user_input = interrupt({"reply": "차트에 넣을 데이터를 알려주세요. 예: 월별 매출, 분기별 사용자 수"})
     return {"chart_type": chart_type, "user_message": user_input}
 
 
