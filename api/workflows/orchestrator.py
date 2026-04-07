@@ -74,7 +74,7 @@ def _coerce_state(
     return build_state(payload)
 
 
-def _reset_start_chat_state(user_id: str) -> WorkflowState:
+def _reset_start_chat_state(user_id: str, channel_id: str = "") -> WorkflowState:
     """새 사용자 턴을 위한 start_chat 상태를 재구성한다."""
 
     return build_state(
@@ -82,6 +82,7 @@ def _reset_start_chat_state(user_id: str) -> WorkflowState:
             "user_id": user_id,
             "workflow_id": DEFAULT_WORKFLOW_ID,
             "node_id": DEFAULT_ENTRY_NODE_ID,
+            "channel_id": channel_id,
             "status": "active",
             "data": {},
             "stack": [],
@@ -100,7 +101,7 @@ def _restore_parent_workflow(state: WorkflowState) -> None:
     parent_workflow_id = return_point["workflow_id"]
 
     if parent_workflow_id == DEFAULT_WORKFLOW_ID:
-        restored_state = _reset_start_chat_state(state.user_id)
+        restored_state = _reset_start_chat_state(state.user_id, state.channel_id)
         restored_state.stack = list(state.stack)
     else:
         restored_state = _coerce_state(
@@ -313,9 +314,9 @@ def handle_message(incoming: CubeIncomingMessage, attempt: int = 0) -> str:
 
     del attempt
 
-    loaded_state = load_state(incoming.user_id)
+    loaded_state = load_state(incoming.user_id, channel_id=incoming.channel_id)
     if loaded_state is None:
-        state = _reset_start_chat_state(incoming.user_id)
+        state = _reset_start_chat_state(incoming.user_id, incoming.channel_id)
         _log_workflow_event(state, "workflow_state_initialized", reason="not_found")
     else:
         state = _coerce_state(loaded_state)
@@ -328,9 +329,10 @@ def handle_message(incoming: CubeIncomingMessage, attempt: int = 0) -> str:
             stack_depth=len(getattr(loaded_state, "stack", []) or []),
         )
         if state.workflow_id == DEFAULT_WORKFLOW_ID and state.status == "completed":
-            state = _reset_start_chat_state(incoming.user_id)
+            state = _reset_start_chat_state(incoming.user_id, incoming.channel_id)
             _log_workflow_event(state, "workflow_state_reinitialized", reason="default_completed")
 
+    state.channel_id = incoming.channel_id
     state.data["latest_user_message"] = incoming.message
     _log_workflow_event(
         state,

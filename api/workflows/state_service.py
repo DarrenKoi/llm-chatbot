@@ -62,17 +62,22 @@ def build_state(payload: dict[str, object]) -> WorkflowState:
     return cls(**state_kwargs)
 
 
-def _build_state_path(user_id: str) -> Path:
+def _build_state_path(user_id: str, channel_id: str = "") -> Path:
     """사용자별 워크플로 상태 파일 경로를 생성한다."""
 
     safe_user_id = user_id.replace("/", "_")
+    safe_channel_id = channel_id.replace("/", "_")
+    if safe_channel_id:
+        return WORKFLOW_STATE_DIR / f"{safe_user_id}__{safe_channel_id}.json"
     return WORKFLOW_STATE_DIR / f"{safe_user_id}.json"
 
 
-def load_state(user_id: str) -> WorkflowState | None:
+def load_state(user_id: str, *, channel_id: str = "") -> WorkflowState | None:
     """사용자별 워크플로 상태를 조회한다."""
 
-    state_path = _build_state_path(user_id)
+    state_path = _build_state_path(user_id, channel_id)
+    if not state_path.exists() and channel_id:
+        state_path = _build_state_path(user_id)
     if not state_path.exists():
         return None
 
@@ -84,7 +89,7 @@ def save_state(state: WorkflowState) -> WorkflowState:
     """워크플로 상태를 저장하고 동일 객체를 반환한다."""
 
     WORKFLOW_STATE_DIR.mkdir(parents=True, exist_ok=True)
-    state_path = _build_state_path(state.user_id)
+    state_path = _build_state_path(state.user_id, state.channel_id)
     state_path.write_text(
         json.dumps(_serialize_state(state), ensure_ascii=False, indent=2, default=str),
         encoding="utf-8",
@@ -92,9 +97,9 @@ def save_state(state: WorkflowState) -> WorkflowState:
     return state
 
 
-def clear_state(user_id: str) -> None:
+def clear_state(user_id: str, *, channel_id: str = "") -> None:
     """사용자별 워크플로 상태를 삭제한다."""
 
-    state_path = _build_state_path(user_id)
+    state_path = _build_state_path(user_id, channel_id)
     if state_path.exists():
         state_path.unlink()

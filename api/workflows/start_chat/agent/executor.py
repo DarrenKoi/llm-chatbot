@@ -15,7 +15,7 @@ def execute_start_chat_plan(*, user_message: str, state: StartChatWorkflowState)
 
     # process_incoming_message()이 워크플로 호출 전에 현재 메시지를 이력에
     # 이미 추가하므로, generate_reply()의 중복 추가를 방지하기 위해 마지막 항목 제외
-    history = get_history(state.user_id)
+    history = get_history(state.user_id, conversation_id=state.channel_id or None)
     if history and history[-1].get("role") == "user":
         history = history[:-1]
 

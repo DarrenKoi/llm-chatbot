@@ -88,7 +88,7 @@ WORKFLOW_STATE_DIR = Path(os.environ.get("WORKFLOW_STATE_DIR", str(BASE_DIR / "v
 MCP_CACHE_DIR = Path(os.environ.get("MCP_CACHE_DIR", str(BASE_DIR / "var" / "mcp_cache"))).expanduser()
 
 # Conversation history
-CONVERSATION_MAX_MESSAGES = int(os.environ.get("CONVERSATION_MAX_MESSAGES", 20))
+CONVERSATION_MAX_MESSAGES = int(os.environ.get("CONVERSATION_MAX_MESSAGES", 5))
 CONVERSATION_TTL_SECONDS = int(os.environ.get("CONVERSATION_TTL_SECONDS", 3600))
 
 # Workspace (cross-platform)

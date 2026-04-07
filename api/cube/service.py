@@ -5,7 +5,7 @@ from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
 
 from api import config
-from api.conversation_service import append_message, get_history
+from api.conversation_service import ConversationStoreError, append_message, get_history
 from api.cube.client import CubeClientError, send_multimessage
 from api.cube.models import CubeAcceptedMessage, CubeHandledMessage, CubeIncomingMessage, CubeQueuedMessage
 from api.cube.payload import extract_cube_request_fields
@@ -178,6 +178,25 @@ def _generate_llm_reply(incoming: CubeIncomingMessage, *, attempt: int = 0) -> s
             return future.result()
 
 
+def _build_conversation_metadata(
+    incoming: CubeIncomingMessage,
+    *,
+    direction: str,
+    reply_to_message_id: str | None = None,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "channel_id": incoming.channel_id,
+        "source": "cube",
+        "direction": direction,
+        "user_name": incoming.user_name,
+    }
+    if direction == "inbound":
+        metadata["message_id"] = incoming.message_id
+    if reply_to_message_id:
+        metadata["reply_to_message_id"] = reply_to_message_id
+    return metadata
+
+
 def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0) -> CubeHandledMessage:
     if _is_wakeup_message(incoming):
         log_activity(
@@ -206,8 +225,27 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
         queue_attempt=attempt,
     )
 
-    history = get_history(incoming.user_id)
-    append_message(incoming.user_id, {"role": "user", "content": incoming.message})
+    try:
+        history = get_history(incoming.user_id, conversation_id=incoming.channel_id)
+        append_message(
+            incoming.user_id,
+            {"role": "user", "content": incoming.message},
+            conversation_id=incoming.channel_id,
+            metadata=_build_conversation_metadata(incoming, direction="inbound"),
+        )
+    except ConversationStoreError as exc:
+        log_activity(
+            "cube_reply_failed",
+            level="ERROR",
+            user_id=incoming.user_id,
+            user_name=incoming.user_name,
+            channel_id=incoming.channel_id,
+            message_id=incoming.message_id,
+            reason="conversation_store_error",
+            error=str(exc),
+            queue_attempt=attempt,
+        )
+        raise CubeUpstreamError("Conversation storage is unavailable.") from exc
     log_request(
         {
             "user_id": incoming.user_id,
@@ -248,17 +286,6 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
         )
         raise CubeUpstreamError("Workflow reply generation failed.") from exc
 
-    append_message(incoming.user_id, {"role": "assistant", "content": llm_reply})
-    log_activity(
-        "cube_llm_reply_generated",
-        user_id=incoming.user_id,
-        user_name=incoming.user_name,
-        channel_id=incoming.channel_id,
-        message_id=incoming.message_id,
-        reply_length=len(llm_reply),
-        queue_attempt=attempt,
-    )
-
     try:
         send_multimessage(
             user_id=incoming.user_id,
@@ -277,6 +304,39 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
             queue_attempt=attempt,
         )
         raise CubeUpstreamError("Cube multiMessage delivery failed.") from exc
+
+    try:
+        append_message(
+            incoming.user_id,
+            {"role": "assistant", "content": llm_reply},
+            conversation_id=incoming.channel_id,
+            metadata=_build_conversation_metadata(
+                incoming,
+                direction="outbound",
+                reply_to_message_id=incoming.message_id,
+            ),
+        )
+    except ConversationStoreError:
+        log_activity(
+            "cube_conversation_store_append_failed",
+            level="ERROR",
+            user_id=incoming.user_id,
+            user_name=incoming.user_name,
+            channel_id=incoming.channel_id,
+            message_id=incoming.message_id,
+            reply_length=len(llm_reply),
+            queue_attempt=attempt,
+        )
+
+    log_activity(
+        "cube_llm_reply_generated",
+        user_id=incoming.user_id,
+        user_name=incoming.user_name,
+        channel_id=incoming.channel_id,
+        message_id=incoming.message_id,
+        reply_length=len(llm_reply),
+        queue_attempt=attempt,
+    )
 
     log_request(
         {

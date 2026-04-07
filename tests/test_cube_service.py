@@ -151,15 +151,37 @@ def test_handle_cube_message_success(
     assert result.message_id == "m1"
     assert result.user_message == "hello"
     assert result.llm_reply == "nice to meet you"
-    mock_get_history.assert_called_once_with("u1")
+    mock_get_history.assert_called_once_with("u1", conversation_id="c1")
     assert mock_handle_workflow_message.call_count == 1
     incoming = mock_handle_workflow_message.call_args.args[0]
     assert incoming.user_id == "u1"
     assert incoming.message == "hello"
     assert mock_handle_workflow_message.call_args.kwargs["attempt"] == 0
     assert mock_append_message.call_args_list == [
-        call("u1", {"role": "user", "content": "hello"}),
-        call("u1", {"role": "assistant", "content": "nice to meet you"}),
+        call(
+            "u1",
+            {"role": "user", "content": "hello"},
+            conversation_id="c1",
+            metadata={
+                "channel_id": "c1",
+                "source": "cube",
+                "direction": "inbound",
+                "user_name": "tester",
+                "message_id": "m1",
+            },
+        ),
+        call(
+            "u1",
+            {"role": "assistant", "content": "nice to meet you"},
+            conversation_id="c1",
+            metadata={
+                "channel_id": "c1",
+                "source": "cube",
+                "direction": "outbound",
+                "user_name": "tester",
+                "reply_to_message_id": "m1",
+            },
+        ),
     ]
     mock_send_multimessage.assert_called_once_with(
         user_id="u1",
@@ -206,11 +228,33 @@ def test_handle_cube_message_sends_thinking_message_only_when_reply_is_slow(
 
     assert result.user_id == "u1"
     assert result.llm_reply == "nice to meet you"
-    mock_get_history.assert_called_once_with("u1")
+    mock_get_history.assert_called_once_with("u1", conversation_id="c1")
     assert mock_handle_workflow_message.call_count == 1
     assert mock_append_message.call_args_list == [
-        call("u1", {"role": "user", "content": "hello"}),
-        call("u1", {"role": "assistant", "content": "nice to meet you"}),
+        call(
+            "u1",
+            {"role": "user", "content": "hello"},
+            conversation_id="c1",
+            metadata={
+                "channel_id": "c1",
+                "source": "cube",
+                "direction": "inbound",
+                "user_name": "tester",
+                "message_id": "m1",
+            },
+        ),
+        call(
+            "u1",
+            {"role": "assistant", "content": "nice to meet you"},
+            conversation_id="c1",
+            metadata={
+                "channel_id": "c1",
+                "source": "cube",
+                "direction": "outbound",
+                "user_name": "tester",
+                "reply_to_message_id": "m1",
+            },
+        ),
     ]
     assert mock_send_multimessage.call_count == 2
     assert mock_send_multimessage.call_args_list[0] == call(
@@ -285,8 +329,19 @@ def test_handle_cube_message_raises_when_llm_fails(
                 }
             )
 
-    mock_get_history.assert_called_once_with("u1")
-    mock_append_message.assert_called_once_with("u1", {"role": "user", "content": "hello"})
+    mock_get_history.assert_called_once_with("u1", conversation_id="c1")
+    mock_append_message.assert_called_once_with(
+        "u1",
+        {"role": "user", "content": "hello"},
+        conversation_id="c1",
+        metadata={
+            "channel_id": "c1",
+            "source": "cube",
+            "direction": "inbound",
+            "user_name": "tester",
+            "message_id": "m1",
+        },
+    )
     mock_send_multimessage.assert_not_called()
 
 
@@ -321,8 +376,19 @@ def test_handle_cube_message_sends_thinking_message_when_slow_reply_then_fails(
                     }
                 )
 
-    mock_get_history.assert_called_once_with("u1")
-    mock_append_message.assert_called_once_with("u1", {"role": "user", "content": "hello"})
+    mock_get_history.assert_called_once_with("u1", conversation_id="c1")
+    mock_append_message.assert_called_once_with(
+        "u1",
+        {"role": "user", "content": "hello"},
+        conversation_id="c1",
+        metadata={
+            "channel_id": "c1",
+            "source": "cube",
+            "direction": "inbound",
+            "user_name": "tester",
+            "message_id": "m1",
+        },
+    )
     mock_send_multimessage.assert_called_once_with(
         user_id="u1",
         reply_message=config.LLM_THINKING_MESSAGE,

@@ -14,6 +14,7 @@ class WorkflowState:
     user_id: str
     workflow_id: str
     node_id: str
+    channel_id: str = ""
     status: WorkflowStatus = "active"
     data: dict[str, Any] = field(default_factory=dict)
     stack: list[dict[str, str]] = field(default_factory=list)

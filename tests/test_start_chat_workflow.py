@@ -297,6 +297,7 @@ def test_handle_message_uses_start_chat_as_default():
     mock_save.assert_called_once()
     saved_state = mock_save.call_args[0][0]
     assert saved_state.workflow_id == "start_chat"
+    assert saved_state.channel_id == "c1"
 
 
 def test_handle_message_routes_chart_request_from_user_message():
@@ -322,6 +323,7 @@ def test_handle_message_routes_chart_request_from_user_message():
     assert reply == "[chart_maker] 처리 완료."
     saved_state = mock_save.call_args[0][0]
     assert saved_state.workflow_id == "chart_maker"
+    assert saved_state.channel_id == "c1"
     assert saved_state.node_id == "collect_requirements"
     assert saved_state.status == "waiting_user_input"
     assert saved_state.data["detected_intent"] == "chart_maker"
@@ -369,6 +371,7 @@ def test_handle_message_restarts_completed_start_chat_session():
     mock_save.assert_called_once()
     saved_state = mock_save.call_args[0][0]
     assert saved_state.workflow_id == "start_chat"
+    assert saved_state.channel_id == "c1"
     assert saved_state.status == "completed"
     assert saved_state.data["detected_intent"] == "start_chat"
     assert saved_state.data["latest_user_message"] == "후속 질문"

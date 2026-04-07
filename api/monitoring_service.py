@@ -69,10 +69,10 @@ def _check_mongo_conversation_store() -> MonitorEntry:
         return MonitorEntry(
             name="Conversation Store",
             backend="MongoDB",
-            tone="warning",
-            status="fallback",
+            tone="error",
+            status="failed",
             target=_mask_url(config.AFM_MONGO_URI),
-            detail=f"MongoDB ping 실패: {exc}. 앱은 메모리 대화 저장소로 fallback 됩니다.",
+            detail=f"MongoDB ping 실패: {exc}. 현재 설정에서는 대화 이력을 메모리로 fallback 하지 않습니다.",
         )
 
     return MonitorEntry(

@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from api import config
 
 
@@ -49,6 +51,16 @@ class TestInMemoryBackend:
 
     @patch.object(config, "AFM_MONGO_URI", "")
     @patch.object(config, "CONVERSATION_MAX_MESSAGES", 20)
+    def test_history_is_scoped_by_conversation_id(self):
+        mod = self._fresh_module()
+        mod.append_message("user1", {"role": "user", "content": "alpha"}, conversation_id="c1")
+        mod.append_message("user1", {"role": "assistant", "content": "beta"}, conversation_id="c2")
+
+        assert mod.get_history("user1", conversation_id="c1") == [{"role": "user", "content": "alpha"}]
+        assert mod.get_history("user1", conversation_id="c2") == [{"role": "assistant", "content": "beta"}]
+
+    @patch.object(config, "AFM_MONGO_URI", "")
+    @patch.object(config, "CONVERSATION_MAX_MESSAGES", 20)
     def test_empty_history(self):
         mod = self._fresh_module()
         assert mod.get_history("nonexistent") == []
@@ -83,8 +95,8 @@ class TestInMemoryBackend:
         recent = mod.get_recent_messages(limit=2)
 
         assert recent == [
-            {"user_id": "user2", "role": "assistant", "content": "second"},
-            {"user_id": "user1", "role": "user", "content": "first"},
+            {"user_id": "user2", "conversation_id": "user2", "role": "assistant", "content": "second"},
+            {"user_id": "user1", "conversation_id": "user1", "role": "user", "content": "first"},
         ]
 
 
@@ -92,6 +104,7 @@ class TestMongoBackend:
     """Test the MongoDB conversation backend with mocked pymongo."""
 
     @patch.object(config, "CONVERSATION_MAX_MESSAGES", 5)
+    @patch.object(config, "CONVERSATION_TTL_SECONDS", 3600)
     @patch.object(config, "AFM_DB_NAME", "test-db")
     @patch.object(config, "AFM_MONGO_URI", "mongodb://fake:27017")
     def test_append_inserts_document(self):
@@ -109,14 +122,23 @@ class TestMongoBackend:
             mod._backend = None
             importlib.reload(mod)
 
-            mod.append_message("user1", {"role": "user", "content": "hello"})
+            mod.append_message(
+                "user1",
+                {"role": "user", "content": "hello"},
+                conversation_id="c1",
+                metadata={"message_id": "m1", "channel_id": "c1"},
+            )
 
             mock_col.insert_one.assert_called_once()
             doc = mock_col.insert_one.call_args[0][0]
             assert doc["user_id"] == "user1"
+            assert doc["conversation_id"] == "c1"
             assert doc["role"] == "user"
             assert doc["content"] == "hello"
+            assert doc["message_id"] == "m1"
+            assert doc["channel_id"] == "c1"
             assert "created_at" in doc
+            assert mock_col.create_index.call_count == 3
 
     @patch.object(config, "CONVERSATION_MAX_MESSAGES", 5)
     @patch.object(config, "AFM_DB_NAME", "test-db")
@@ -149,11 +171,15 @@ class TestMongoBackend:
             mod._backend = None
             importlib.reload(mod)
 
-            history = mod.get_history("user1")
+            history = mod.get_history("user1", conversation_id="c1")
 
             # Reversed from descending DB order → chronological
             assert history[0]["content"] == "newer"
             assert history[1]["content"] == "older"
+            mock_col.find.assert_called_once_with(
+                {"user_id": "user1", "conversation_id": "c1"},
+                {"_id": 0, "role": 1, "content": 1},
+            )
             mock_cursor.limit.assert_called_with(5)
 
     @patch.object(config, "CONVERSATION_MAX_MESSAGES", 5)
@@ -211,12 +237,15 @@ class TestMongoBackend:
             recent = mod.get_recent_messages(limit=50)
 
             assert recent == [{"user_id": "user1", "role": "user", "content": "hello"}]
-            mock_col.find.assert_called_once_with({}, {"_id": 0, "user_id": 1, "role": 1, "content": 1})
+            mock_col.find.assert_called_once_with(
+                {},
+                {"_id": 0, "user_id": 1, "conversation_id": 1, "role": 1, "content": 1},
+            )
             mock_cursor.limit.assert_called_with(50)
 
     @patch.object(config, "AFM_DB_NAME", "test-db")
     @patch.object(config, "AFM_MONGO_URI", "mongodb://fake:27017")
-    def test_fallback_to_inmemory_on_connection_failure(self):
+    def test_raises_when_configured_mongo_is_unavailable(self):
         from pymongo.errors import ConnectionFailure
 
         with patch("pymongo.MongoClient") as mock_cls:
@@ -231,6 +260,5 @@ class TestMongoBackend:
             mod._backend = None
             importlib.reload(mod)
 
-            mod.append_message("user1", {"role": "user", "content": "hi"})
-            assert mod.get_history("user1") == [{"role": "user", "content": "hi"}]
-            assert isinstance(mod._backend, mod._InMemoryBackend)
+            with pytest.raises(mod.ConversationStoreError, match="MongoDB conversation store"):
+                mod.append_message("user1", {"role": "user", "content": "hi"})
