@@ -61,6 +61,18 @@ class TestInMemoryBackend:
 
     @patch.object(config, "AFM_MONGO_URI", "")
     @patch.object(config, "CONVERSATION_MAX_MESSAGES", 20)
+    def test_history_without_conversation_id_includes_all_user_conversations(self):
+        mod = self._fresh_module()
+        mod.append_message("user1", {"role": "user", "content": "alpha"}, conversation_id="c1")
+        mod.append_message("user1", {"role": "assistant", "content": "beta"}, conversation_id="c2")
+
+        assert mod.get_history("user1") == [
+            {"role": "user", "content": "alpha"},
+            {"role": "assistant", "content": "beta"},
+        ]
+
+    @patch.object(config, "AFM_MONGO_URI", "")
+    @patch.object(config, "CONVERSATION_MAX_MESSAGES", 20)
     def test_empty_history(self):
         mod = self._fresh_module()
         assert mod.get_history("nonexistent") == []
@@ -308,3 +320,67 @@ class TestMongoBackend:
 
             with pytest.raises(mod.ConversationStoreError, match="MongoDB conversation store"):
                 mod.get_history("user1")
+
+
+class TestLocalFileBackend:
+    @patch.object(config, "CONVERSATION_BACKEND", "local")
+    @patch.object(config, "AFM_MONGO_URI", "")
+    @patch.object(config, "CONVERSATION_MAX_MESSAGES", 20)
+    def test_local_backend_persists_history_per_user_and_conversation(self, tmp_path):
+        with patch.object(config, "CONVERSATION_LOCAL_DIR", tmp_path):
+            import importlib
+
+            import api.conversation_service as mod
+
+            mod._backend = None
+            importlib.reload(mod)
+
+            mod.append_message("dev_alice", {"role": "user", "content": "alpha"}, conversation_id="c1")
+            mod.append_message("dev_alice", {"role": "assistant", "content": "beta"}, conversation_id="c2")
+            mod.append_message("dev_bob", {"role": "user", "content": "gamma"}, conversation_id="c1")
+
+            assert mod.get_history("dev_alice", conversation_id="c1") == [{"role": "user", "content": "alpha"}]
+            assert mod.get_history("dev_alice") == [
+                {"role": "user", "content": "alpha"},
+                {"role": "assistant", "content": "beta"},
+            ]
+            assert mod.get_recent_messages(limit=2) == [
+                {
+                    "user_id": "dev_bob",
+                    "conversation_id": "c1",
+                    "role": "user",
+                    "content": "gamma",
+                },
+                {
+                    "user_id": "dev_alice",
+                    "conversation_id": "c2",
+                    "role": "assistant",
+                    "content": "beta",
+                },
+            ]
+
+    @patch.object(config, "CONVERSATION_BACKEND", "local")
+    @patch.object(config, "AFM_MONGO_URI", "")
+    def test_local_backend_skips_duplicate_message_id(self, tmp_path):
+        with patch.object(config, "CONVERSATION_LOCAL_DIR", tmp_path):
+            import importlib
+
+            import api.conversation_service as mod
+
+            mod._backend = None
+            importlib.reload(mod)
+
+            mod.append_message(
+                "dev_alice",
+                {"role": "user", "content": "hello"},
+                conversation_id="c1",
+                metadata={"message_id": "m1"},
+            )
+            mod.append_message(
+                "dev_alice",
+                {"role": "user", "content": "hello again"},
+                conversation_id="c1",
+                metadata={"message_id": "m1"},
+            )
+
+            assert mod.get_history("dev_alice", conversation_id="c1") == [{"role": "user", "content": "hello"}]

@@ -1,8 +1,8 @@
 """로컬 워크플로 개발용 Flask 서버.
 
 Production Flask 앱(port 5000)과 충돌하지 않도록 port 5001을 사용한다.
-api.* import 전에 WORKFLOW_STATE_DIR을 devtools/var/workflow_state로 설정하여
-production 상태와 완전히 분리한다.
+Dev runner 내부에서는 workflow state와 대화 이력을 각각 devtools 전용 로컬 경로로
+분리하여 production 설정과 섞이지 않게 한다.
 
 사용법:
     python -m devtools.workflow_runner.app
@@ -17,20 +17,30 @@ _project_root = Path(__file__).resolve().parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-# api.* import 전에 dev 전용 상태 디렉토리 설정
-os.environ.setdefault(
-    "WORKFLOW_STATE_DIR",
-    str(Path(__file__).resolve().parent.parent / "var" / "workflow_state"),
-)
+_dev_root = Path(__file__).resolve().parent.parent / "var"
+_dev_workflow_state_dir = _dev_root / "workflow_state"
+_dev_conversation_dir = _dev_root / "conversation_history"
 
 from flask import Flask  # noqa: E402
 
 from devtools.workflow_runner.routes import dev_bp  # noqa: E402
 
 
+def _configure_dev_runtime() -> None:
+    from api import config, conversation_service
+    from api.workflows import state_service
+
+    config.WORKFLOW_STATE_DIR = _dev_workflow_state_dir
+    config.CONVERSATION_BACKEND = "local"
+    config.CONVERSATION_LOCAL_DIR = _dev_conversation_dir
+    state_service.WORKFLOW_STATE_DIR = _dev_workflow_state_dir
+    conversation_service._backend = None
+
+
 def create_dev_app() -> Flask:
     """Dev workflow runner Flask 앱을 생성한다."""
 
+    _configure_dev_runtime()
     template_dir = Path(__file__).resolve().parent / "templates"
 
     app = Flask(
@@ -51,7 +61,8 @@ def main() -> None:
 
     print("=== Dev Workflow Runner ===")
     print(f"http://localhost:{port}")
-    print(f"State dir: {os.environ.get('WORKFLOW_STATE_DIR')}")
+    print(f"State dir: {_dev_workflow_state_dir}")
+    print(f"Conversation dir: {_dev_conversation_dir}")
     print()
 
     app.run(host="0.0.0.0", port=port, debug=True)

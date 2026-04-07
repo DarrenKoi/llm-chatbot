@@ -49,6 +49,27 @@ def get_monitoring_snapshot() -> dict[str, object]:
 
 
 def _check_mongo_conversation_store() -> MonitorEntry:
+    backend_name = (config.CONVERSATION_BACKEND or "auto").strip().lower()
+    if backend_name == "local":
+        target = str(config.CONVERSATION_LOCAL_DIR)
+        return MonitorEntry(
+            name="Conversation Store",
+            backend="Local File",
+            tone="ok" if config.CONVERSATION_LOCAL_DIR.exists() else "warning",
+            status="connected" if config.CONVERSATION_LOCAL_DIR.exists() else "ready",
+            target=target,
+            detail="대화 이력은 로컬 파일 백엔드에 저장됩니다.",
+        )
+    if backend_name == "memory":
+        return MonitorEntry(
+            name="Conversation Store",
+            backend="Memory",
+            tone="warning",
+            status="fallback",
+            target="process memory",
+            detail="대화 이력은 프로세스 메모리 백엔드로 동작합니다.",
+        )
+
     try:
         collections = validate_mongo_storage_config()
     except ValueError as exc:

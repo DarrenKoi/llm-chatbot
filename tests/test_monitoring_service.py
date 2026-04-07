@@ -236,6 +236,28 @@ def test_check_langgraph_checkpoint_store_reports_connected(monkeypatch):
     assert "TTL=259200초" in entry.detail
 
 
+def test_check_mongo_conversation_store_reports_local_file_backend(monkeypatch, tmp_path):
+    monkeypatch.setattr(config, "CONVERSATION_BACKEND", "local")
+    monkeypatch.setattr(config, "CONVERSATION_LOCAL_DIR", tmp_path)
+
+    entry = monitoring_service._check_mongo_conversation_store()
+
+    assert entry.tone == "ok"
+    assert entry.status == "connected"
+    assert entry.backend == "Local File"
+    assert entry.target == str(tmp_path)
+
+
+def test_check_mongo_conversation_store_reports_memory_backend(monkeypatch):
+    monkeypatch.setattr(config, "CONVERSATION_BACKEND", "memory")
+
+    entry = monitoring_service._check_mongo_conversation_store()
+
+    assert entry.tone == "warning"
+    assert entry.status == "fallback"
+    assert entry.backend == "Memory"
+
+
 def test_check_langgraph_checkpoint_store_reports_config_error(monkeypatch):
     monkeypatch.setattr(config, "AFM_MONGO_URI", "mongodb://user:secret@db-host:27017/")
     monkeypatch.setattr(config, "CONVERSATION_COLLECTION_NAME", "shared")
