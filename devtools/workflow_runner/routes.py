@@ -5,6 +5,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, render_template, request
 
+from api import conversation_service
 from devtools.workflow_runner.dev_orchestrator import (
     get_dev_state,
     handle_dev_message,
@@ -92,6 +93,20 @@ def api_state_reset():
     user_id = str(request.args.get("user_id", default_user_id)).strip() or default_user_id
     reset_dev_state(user_id=user_id)
     return jsonify({"ok": True})
+
+
+@dev_bp.route("/api/history")
+def api_history():
+    """서버 측 대화 이력을 조회한다."""
+
+    default_user_id = get_default_dev_user_id()
+    user_id = str(request.args.get("user_id", default_user_id)).strip() or default_user_id
+    workflow_id = str(request.args.get("workflow_id", "")).strip()
+    history = conversation_service.get_history(
+        user_id,
+        conversation_id=workflow_id or None,
+    )
+    return jsonify({"history": history})
 
 
 @dev_bp.route("/api/reload", methods=["POST"])

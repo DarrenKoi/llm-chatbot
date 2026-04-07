@@ -129,6 +129,8 @@ def test_start_scheduler_uses_strict_job_defaults(monkeypatch):
         return mock_scheduler
 
     monkeypatch.setattr(config, "SCHEDULER_JOB_MISFIRE_GRACE_SECONDS", 900)
+    monkeypatch.setattr(config, "FILE_DELIVERY_CLEANUP_HOUR", 1)
+    monkeypatch.setattr(config, "FILE_DELIVERY_CLEANUP_MINUTE", 0)
     monkeypatch.setattr(scheduler_pkg, "BackgroundScheduler", _fake_scheduler_factory)
     monkeypatch.setattr(scheduler_pkg, "_scheduler", None)
 
@@ -141,12 +143,37 @@ def test_start_scheduler_uses_strict_job_defaults(monkeypatch):
     registered_job_ids = {job["id"] for job in registered_jobs}
     assert registered_job_ids == {"cleanup_uwsgi_logs", "cleanup_file_delivery"}
 
+    jobs_by_id = {job["id"]: job for job in registered_jobs}
+    assert jobs_by_id["cleanup_uwsgi_logs"]["hour"] == 1
+    assert jobs_by_id["cleanup_uwsgi_logs"]["minute"] == 0
+    assert jobs_by_id["cleanup_file_delivery"]["hour"] == 1
+    assert jobs_by_id["cleanup_file_delivery"]["minute"] == 0
+
     for kwargs in registered_jobs:
         assert kwargs["trigger"] == "cron"
         assert "max_instances" not in kwargs, "per-job max_instances should come from job_defaults"
         assert "coalesce" not in kwargs, "per-job coalesce should come from job_defaults"
         assert "misfire_grace_time" not in kwargs, "per-job misfire_grace_time should come from job_defaults"
 
+    mock_scheduler.start.assert_called_once()
+
+
+def test_start_scheduler_falls_back_when_file_cleanup_schedule_is_invalid(monkeypatch):
+    mock_scheduler = MagicMock()
+    mock_scheduler.add_job = MagicMock()
+    mock_scheduler.start = MagicMock()
+
+    monkeypatch.setattr(config, "SCHEDULER_JOB_MISFIRE_GRACE_SECONDS", 900)
+    monkeypatch.setattr(config, "FILE_DELIVERY_CLEANUP_HOUR", 99)
+    monkeypatch.setattr(config, "FILE_DELIVERY_CLEANUP_MINUTE", -5)
+    monkeypatch.setattr(scheduler_pkg, "BackgroundScheduler", lambda **_kwargs: mock_scheduler)
+    monkeypatch.setattr(scheduler_pkg, "_scheduler", None)
+
+    scheduler_pkg.start_scheduler()
+
+    registered_jobs = {call.kwargs["id"]: call.kwargs for call in mock_scheduler.add_job.call_args_list}
+    assert registered_jobs["cleanup_file_delivery"]["hour"] == 1
+    assert registered_jobs["cleanup_file_delivery"]["minute"] == 0
     mock_scheduler.start.assert_called_once()
 
 

@@ -98,6 +98,21 @@ def test_get_expired_file_ids_ignores_invalid_created_at(file_delivery_env, monk
     assert file_delivery_service.get_expired_file_ids(reference_time=datetime(2026, 4, 7, tzinfo=UTC)) == []
 
 
+def test_metadata_ttl_seconds_uses_retention_when_ttl_is_shorter(monkeypatch):
+    monkeypatch.setattr(config, "FILE_DELIVERY_RETENTION_DAYS", 21)
+    monkeypatch.setattr(config, "FILE_DELIVERY_IMAGE_TTL_SECONDS", 3600)
+    monkeypatch.setattr(file_delivery_service, "_metadata_ttl_warning_emitted", False)
+
+    assert file_delivery_service._metadata_ttl_seconds() == 21 * 24 * 60 * 60
+
+
+def test_metadata_ttl_seconds_keeps_explicit_ttl_when_it_exceeds_retention(monkeypatch):
+    monkeypatch.setattr(config, "FILE_DELIVERY_RETENTION_DAYS", 21)
+    monkeypatch.setattr(config, "FILE_DELIVERY_IMAGE_TTL_SECONDS", 30 * 24 * 60 * 60)
+
+    assert file_delivery_service._metadata_ttl_seconds() == 30 * 24 * 60 * 60
+
+
 def test_delete_file_removes_original_variant_and_metadata(file_delivery_env):
     image_module = pytest.importorskip("PIL.Image")
 

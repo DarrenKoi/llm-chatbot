@@ -34,7 +34,9 @@ def file_delivery_env(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "FILE_DELIVERY_REDIS_URL", "")
     monkeypatch.setattr(config, "FILE_DELIVERY_BASE_URL", "http://testserver/file-delivery/files")
     monkeypatch.setattr(file_delivery_service, "_metadata_backend", None)
+    monkeypatch.setattr(file_delivery_service, "_metadata_ttl_warning_emitted", False)
 
     yield storage_dir
 
     file_delivery_service._metadata_backend = None
+    file_delivery_service._metadata_ttl_warning_emitted = False

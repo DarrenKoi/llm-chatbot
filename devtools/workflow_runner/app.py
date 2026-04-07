@@ -36,6 +36,9 @@ def _configure_dev_runtime() -> None:
     state_service.WORKFLOW_STATE_DIR = _dev_workflow_state_dir
     conversation_service._backend = None
 
+    _dev_workflow_state_dir.mkdir(parents=True, exist_ok=True)
+    _dev_conversation_dir.mkdir(parents=True, exist_ok=True)
+
 
 def create_dev_app() -> Flask:
     """Dev workflow runner Flask 앱을 생성한다."""

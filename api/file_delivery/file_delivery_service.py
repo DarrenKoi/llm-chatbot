@@ -14,6 +14,7 @@ from api import config
 logger = logging.getLogger(__name__)
 
 _metadata_backend = None
+_metadata_ttl_warning_emitted = False
 _FILENAME_SAFE_CHARS = re.compile(r"[^a-zA-Z0-9._-]+")
 
 _CONTENT_TYPE_BY_EXT = {
@@ -150,6 +151,36 @@ def _get_metadata_backend():
 
     _metadata_backend = _InMemoryMetadataBackend()
     return _metadata_backend
+
+
+def _retention_seconds() -> int:
+    retention_days = config.FILE_DELIVERY_RETENTION_DAYS
+    if retention_days <= 0:
+        return 0
+    return retention_days * 24 * 60 * 60
+
+
+def _metadata_ttl_seconds() -> int:
+    global _metadata_ttl_warning_emitted
+
+    ttl_seconds = config.FILE_DELIVERY_IMAGE_TTL_SECONDS
+    if ttl_seconds <= 0:
+        return 0
+
+    retention_seconds = _retention_seconds()
+    if retention_seconds and ttl_seconds < retention_seconds:
+        if not _metadata_ttl_warning_emitted:
+            logger.warning(
+                "FILE_DELIVERY_IMAGE_TTL_SECONDS=%s is shorter than FILE_DELIVERY_RETENTION_DAYS=%s; "
+                "using %s seconds so cleanup can still find expired files.",
+                ttl_seconds,
+                config.FILE_DELIVERY_RETENTION_DAYS,
+                retention_seconds,
+            )
+            _metadata_ttl_warning_emitted = True
+        return retention_seconds
+
+    return ttl_seconds
 
 
 def _save_metadata(file_id: str, metadata: dict) -> None:
@@ -474,8 +505,9 @@ class _RedisMetadataBackend:
     def set(self, file_id: str, metadata: dict):
         payload = json.dumps(metadata, ensure_ascii=False)
         key = _metadata_key(file_id)
-        if config.FILE_DELIVERY_IMAGE_TTL_SECONDS > 0:
-            self._r.set(key, payload, ex=config.FILE_DELIVERY_IMAGE_TTL_SECONDS)
+        ttl_seconds = _metadata_ttl_seconds()
+        if ttl_seconds > 0:
+            self._r.set(key, payload, ex=ttl_seconds)
         else:
             self._r.set(key, payload)
         self._r.sadd(_metadata_index_key(), file_id)

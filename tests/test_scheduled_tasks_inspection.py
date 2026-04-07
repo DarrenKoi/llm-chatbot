@@ -64,8 +64,8 @@ def test_get_scheduled_tasks_snapshot_builds_runtime_and_history(monkeypatch):
                 {
                     "id": "cleanup_file_delivery",
                     "callable": "api.scheduled_tasks.tasks.cleanup._cleanup_expired_file_delivery_files",
-                    "trigger": "cron[hour='2', minute='0']",
-                    "next_run_at": "2026-04-03 02:00:00",
+                    "trigger": "cron[hour='1', minute='0']",
+                    "next_run_at": "2026-04-03 01:00:00",
                     "uses_distributed_lock": True,
                     "lock_id": "cleanup_file_delivery",
                     "lock_key": "scheduler:sknn_v3:cleanup_file_delivery",

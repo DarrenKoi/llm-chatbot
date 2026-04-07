@@ -138,8 +138,8 @@ def test_monitor_page_renders_db_status_table(mock_get_monitoring_snapshot, clie
             {
                 "id": "cleanup_file_delivery",
                 "callable": "api.scheduled_tasks.tasks.cleanup._cleanup_expired_file_delivery_files",
-                "trigger": "cron[hour='2', minute='0']",
-                "next_run_at": "2026-04-03 02:00:00",
+                "trigger": "cron[hour='1', minute='0']",
+                "next_run_at": "2026-04-03 01:00:00",
                 "uses_distributed_lock": True,
                 "lock_key": "scheduler:sknn_v3:cleanup_file_delivery",
                 "runtime": {

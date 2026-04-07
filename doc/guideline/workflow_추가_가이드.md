@@ -7,7 +7,7 @@
 이 문서는 동료가 이 저장소에 새 업무 workflow를 추가할 때 따라야 할 기준을 정리한 문서다.
 목표는 아래 두 가지다.
 
-- 현재 구성된 `Cube -> queue -> worker -> orchestrator -> workflow` 흐름에 자연스럽게 붙을 것
+- 현재 구성된 `Cube -> queue -> worker -> LangGraph orchestrator -> workflow` 흐름에 자연스럽게 붙을 것
 - 누가 추가해도 구조, 상태 저장, handoff, 테스트 방식이 흔들리지 않을 것
 
 ## 한눈에 보는 실행 흐름
@@ -17,10 +17,9 @@ Cube 메시지 수신
 -> api/cube/router.py
 -> Redis queue 적재
 -> worker 처리
--> api/workflows/orchestrator.handle_message()
--> 현재 workflow graph 실행
--> NodeResult에 따라 resume / wait / handoff / complete
--> 상태 저장
+-> api/workflows/lg_orchestrator.handle_message()
+-> start_chat 루트 그래프 → classify → 서브그래프 handoff 또는 일반 대화
+-> LangGraph checkpointer가 상태 자동 저장 (MongoDB 또는 MemorySaver)
 -> Cube 응답 전송
 ```
 
@@ -28,8 +27,8 @@ Cube 메시지 수신
 
 - 새 workflow는 `api/workflows/<workflow_id>/` 패키지로 추가한다.
 - workflow 등록은 수동이 아니라 `api/workflows/registry.py`가 자동 탐색한다.
-- 런타임에서 실제 진행은 각 node가 반환하는 `NodeResult` 기준으로 결정된다.
-- `graph.py`의 `edges`와 `router`는 시각화와 문서화에 유용하지만, 실행 제어의 핵심은 `NodeResult.next_node_id`와 `action`이다.
+- 본선 실행은 LangGraph `StateGraph` 기반이다. `interrupt()`로 사용자 입력을 요청하고, `Command(resume=...)`로 재개한다.
+- 상태 저장은 LangGraph checkpointer가 자동 처리한다 (MongoDB 또는 MemorySaver).
 
 ## 새 workflow를 만들기 전에 준비할 것
 
@@ -45,7 +44,6 @@ Cube 메시지 수신
 
 - `workflow_id`는 다른 패키지와 중복되지 않는가
 - handoff 키워드가 너무 넓어서 다른 workflow와 충돌하지 않는가
-- 상태에 넣을 값이 JSON 직렬화 가능한가
 - 외부 API, DB, 파일 저장소 의존성을 테스트에서 mock 할 수 있는가
 - 실패 시 사용자에게 어떤 안내 문구를 줄지 정했는가
 
@@ -56,59 +54,83 @@ Cube 메시지 수신
 ```text
 api/workflows/<workflow_id>/
   __init__.py
-  graph.py
-  nodes.py
-  state.py
-  routing.py          # 선택
-  prompts.py          # 선택
-  rag/                # 선택
-  agent/              # 선택
+  lg_graph.py
+  state.py          # 선택 (레거시 어댑터용)
+  nodes.py          # 선택 (레거시 어댑터용)
+  lg_adapter.py     # 선택 (devtools 시각화 호환)
+  prompts.py        # 선택
+  tools.py          # 선택 (MCP 도구 등록)
+  rag/              # 선택
 ```
 
 현재 코드베이스 기준 역할은 다음과 같다.
 
-- `__init__.py`: workflow 정의 export
-- `graph.py`: 노드 목록, entry node, 시각화용 edge 정의
-- `nodes.py`: 실제 업무 로직과 `NodeResult` 반환
-- `state.py`: `WorkflowState`를 확장한 전용 상태 정의
-- `routing.py`: 분기 판단 함수 모음
+- `__init__.py`: workflow 정의 export (`get_workflow_definition()` + `build_lg_graph()`)
+- `lg_graph.py`: LangGraph `StateGraph` 정의 — 노드, 엣지, 조건 분기, `interrupt()` 포함
+- `state.py`: 레거시 어댑터용 `WorkflowState` 기반 상태 정의
+- `nodes.py`: 레거시 어댑터용 `NodeResult` 기반 노드 함수
+- `lg_adapter.py`: LangGraph 그래프를 기존 `build_graph()` dict 인터페이스로 래핑 (devtools 호환)
 - `prompts.py`: 프롬프트 상수
-- `rag/`, `agent/`: workflow 전용 capability
+- `tools.py`: MCP 도구 서버/핸들러 등록
+- `rag/`: workflow 전용 검색 capability
+
+## LangGraph 상태 정의
+
+모든 workflow 상태는 `api/workflows/lg_state.py`의 `ChatState`를 확장한 `TypedDict`로 정의한다.
+
+`ChatState` 공통 필드:
+
+```python
+class ChatState(TypedDict, total=False):
+    messages: Annotated[list, add_messages]  # LangGraph 메시지 리듀서
+    user_id: str
+    channel_id: str
+    user_message: str
+    workflow_id: str
+```
+
+workflow 전용 상태 예시:
+
+```python
+class MyFlowState(ChatState, total=False):
+    request_type: str
+    confirmed: bool
+    result_payload: dict[str, str]
+```
+
+규칙:
+
+- 모든 필드에 기본값이 필요하므로 `total=False`를 사용한다.
+- `messages`는 LangGraph `add_messages` 리듀서로 자동 누적된다.
+- 상태는 LangGraph checkpointer가 자동 직렬화하므로 단순 자료형을 사용한다.
 
 ## 필수 계약
 
 ### 1. `__init__.py`
 
-workflow 패키지는 `get_workflow_definition()` 또는 `WORKFLOW_DEFINITION`을 export해야 한다.
-현재 저장소에서는 `get_workflow_definition()` 함수 방식을 기본 규약으로 본다.
+workflow 패키지는 두 가지를 export해야 한다.
 
-필수 항목:
+**`build_lg_graph()` (필수)**: LangGraph 서브그래프 빌더. `start_chat`이 서브그래프로 주입할 때 사용한다.
 
-- `workflow_id`
-- `entry_node_id`
-- `build_graph`
-
-권장 항목:
-
-- `state_cls`
-- `handoff_keywords`
+**`get_workflow_definition()` (필수)**: workflow 메타데이터. registry가 자동 탐색에 사용한다.
 
 예시:
 
 ```python
-from __future__ import annotations
+def build_lg_graph():
+    from api.workflows.my_flow.lg_graph import build_lg_graph as builder
+    return builder()
 
 
 def get_workflow_definition() -> dict[str, object]:
-    from api.workflows.my_flow.graph import build_graph
-    from api.workflows.my_flow.state import MyFlowState
-
     return {
         "workflow_id": "my_flow",
         "entry_node_id": "entry",
-        "build_graph": build_graph,
-        "state_cls": MyFlowState,
+        "build_graph": build_graph,          # 레거시 어댑터 (devtools 호환)
+        "build_lg_graph": build_lg_graph,    # LangGraph 서브그래프 빌더
+        "state_cls": MyFlowWorkflowState,    # 레거시 상태 클래스
         "handoff_keywords": ("my flow", "내 업무"),
+        "tool_tags": (),                     # MCP 도구 태그 (선택)
     }
 ```
 
@@ -118,135 +140,94 @@ def get_workflow_definition() -> dict[str, object]:
 - `handoff_keywords`는 `start_chat`에서 해당 workflow로 넘기고 싶을 때만 넣는다.
 - `handoff_keywords`는 등록 시 소문자/trim 정규화된다. 비교는 substring 방식이므로 과도하게 일반적인 단어는 피한다.
 
-### 2. `state.py`
+### 2. `lg_graph.py`
 
-전용 상태는 반드시 `WorkflowState` 하위 dataclass로 정의한다.
+LangGraph `StateGraph`를 구성하는 핵심 파일이다. 노드 함수와 그래프 빌더를 모두 이 파일에 둔다.
 
 예시:
 
 ```python
-from dataclasses import dataclass, field
+from langchain_core.messages import AIMessage
+from langgraph.graph import END, StateGraph
+from langgraph.types import interrupt
 
-from api.workflows.models import WorkflowState
+from api.workflows.lg_state import MyFlowState
 
 
-@dataclass
-class MyFlowState(WorkflowState):
-    request_type: str = ""
-    confirmed: bool = False
-    result_payload: dict[str, str] = field(default_factory=dict)
+def entry_node(state: MyFlowState) -> dict:
+    """초기 요청을 파싱한다."""
+    user_message = state.get("user_message", "")
+    if not user_message.strip():
+        return {"request_type": ""}
+    return {"request_type": "default"}
+
+
+def collect_request_node(state: MyFlowState) -> dict:
+    """사용자에게 요청 내용을 물어본다."""
+    user_input = interrupt({"reply": "처리할 요청을 알려주세요."})
+    return {"user_message": user_input}
+
+
+def process_request_node(state: MyFlowState) -> dict:
+    """요청을 처리하고 응답을 반환한다."""
+    request = state.get("user_message", "")
+    return {
+        "messages": [AIMessage(content=f"요청을 접수했습니다: {request}")],
+        "confirmed": True,
+    }
+
+
+def _route_after_entry(state: MyFlowState) -> str:
+    if not state.get("request_type"):
+        return "collect_request"
+    return "process_request"
+
+
+def build_lg_graph() -> StateGraph:
+    builder = StateGraph(MyFlowState)
+
+    builder.add_node("entry", entry_node)
+    builder.add_node("collect_request", collect_request_node)
+    builder.add_node("process_request", process_request_node)
+
+    builder.set_entry_point("entry")
+    builder.add_conditional_edges("entry", _route_after_entry)
+    builder.add_edge("collect_request", "entry")
+    builder.add_edge("process_request", END)
+
+    return builder
 ```
 
-규칙:
+핵심 패턴:
 
-- workflow 전용 필드는 기본값을 가져야 한다.
-- 저장 상태는 JSON 파일로 직렬화되므로 단순 자료형 위주로 유지한다.
-- `data_updates`에 넣은 값은 `state.data`와 상태 객체 양쪽에 반영된다.
-- 다음 턴에서도 필요할 값은 `NodeResult.data_updates`로 반드시 저장한다.
-
-### 3. `nodes.py`
-
-모든 node 함수는 아래 계약을 따른다.
-
-```python
-def some_node(state: MyFlowState, user_message: str) -> NodeResult:
-    ...
-```
-
-`NodeResult.action` 의미:
-
-- `resume`: 같은 사용자 턴 안에서 다음 node로 즉시 이동
-- `wait`: 사용자 추가 입력을 기다리고 멈춤
-- `reply`: 응답을 반환하고 현재 턴 종료
-- `handoff`: 다른 workflow로 전환
-- `complete`: 현재 workflow 완료
+| 이전 (커스텀) | 현재 (LangGraph) |
+|---------------|------------------|
+| `NodeResult(action="wait", reply="...")` | `interrupt({"reply": "..."})` |
+| `NodeResult(action="resume", next_node_id="X")` | 조건부 엣지로 라우팅 |
+| `NodeResult(action="complete", reply="...")` | `AIMessage` 반환 + `END` 엣지 |
+| `state.source_text` (dataclass) | `state.get("source_text", "")` (TypedDict) |
+| `NodeResult.data_updates` | dict 반환값이 곧 상태 업데이트 |
 
 실무 규칙:
 
-- `wait`, `reply`, `complete`처럼 턴을 멈추는 액션에는 사용자용 `reply`를 함께 넣는 것을 기본으로 한다.
-- `reply` 없이 멈추면 상위 처리에서 `"[workflow_id] 처리 완료."` 같은 fallback 문구가 나갈 수 있다.
-- 다음 node로 넘어가야 하면 `next_node_id`를 명시한다.
-- 다른 workflow로 넘길 때는 `next_workflow_id`를 명시한다.
+- 노드 함수는 `(state: MyFlowState) -> dict` 시그니처를 따른다.
+- 응답은 `AIMessage`를 `messages` 키에 넣어 반환한다.
+- 사용자 입력이 필요하면 `interrupt({"reply": "안내 문구"})`를 호출한다.
+- 라우팅 함수는 부작용 없이 상태만 읽는다.
 - 외부 API 호출 전후, 파싱 결과, 핵심 분기 정도는 로그를 남긴다.
-
-예시:
-
-```python
-from api.workflows.models import NodeResult
-
-
-def entry_node(state: MyFlowState, user_message: str) -> NodeResult:
-    if not user_message.strip():
-        return NodeResult(
-            action="wait",
-            reply="요청 내용을 한 줄로 알려주세요.",
-            next_node_id="collect_request",
-        )
-
-    return NodeResult(
-        action="resume",
-        next_node_id="process_request",
-        data_updates={"request_type": "default"},
-    )
-```
-
-### 4. `graph.py`
-
-`build_graph()`는 dict를 반환한다.
-
-현재 저장소에서 사실상 필요한 항목:
-
-- `workflow_id`
-- `entry_node_id`
-- `nodes`
-
-권장 항목:
-
-- `edges`
-- `router`
-
-예시:
-
-```python
-from api.workflows.my_flow import nodes, routing
-
-
-def build_graph() -> dict[str, object]:
-    return {
-        "workflow_id": "my_flow",
-        "entry_node_id": "entry",
-        "nodes": {
-            "entry": nodes.entry_node,
-            "collect_request": nodes.collect_request_node,
-            "process_request": nodes.process_request_node,
-        },
-        "edges": [
-            ("entry", "collect_request", "입력 부족"),
-            ("entry", "process_request", "입력 충분"),
-            ("collect_request", "process_request"),
-        ],
-        "router": routing.route_next_node,
-    }
-```
-
-주의:
-
-- 실제 실행 제어는 `edges`가 아니라 node가 반환한 `NodeResult`로 이뤄진다.
-- 그래도 `edges`는 `/workflows/<workflow_id>` 시각화와 코드 가독성에 도움이 되므로 같이 유지하는 것이 좋다.
-- node id 문자열은 상태 저장과 이어달리기에 쓰이므로 중간에 자주 바꾸지 않는 편이 안전하다.
 
 ## handoff 규칙
 
-이 저장소의 기본 진입점은 `start_chat`이다.
-특정 업무 workflow로 진입시키고 싶다면 `start_chat`이 메시지를 분류해 handoff 한다.
+이 저장소의 기본 진입점은 `start_chat` 루트 그래프다.
+특정 업무 workflow로 진입시키고 싶다면 `start_chat`이 메시지를 분류해 서브그래프로 handoff 한다.
 
 규칙:
 
 - `start_chat`은 일반 대화와 업무 workflow handoff를 담당한다.
 - handoff 대상 workflow만 `handoff_keywords`를 가진다.
-- 키워드는 `api/workflows/start_chat/routing.py`에서 substring으로 판별된다.
-- child workflow가 `complete`하거나, `reply` 후 `next_node_id`가 `None` 또는 `"done"`이면 부모로 복귀할 수 있다.
-- `start_chat`로 복귀한 뒤에는 다음 사용자 턴을 새 진입점처럼 다시 처리한다.
+- 키워드는 `start_chat/lg_graph.py`에서 `_get_handoff_subgraph_builders()`로 동적 탐색되어 서브그래프 노드로 추가된다.
+- 서브그래프가 `END`에 도달하면 `start_chat` 루트 그래프도 `END`로 종료된다.
+- 다음 사용자 턴은 새 진입점처럼 다시 처리된다.
 
 실무 팁:
 
@@ -263,39 +244,28 @@ def build_graph() -> dict[str, object]:
 - 환경 변수는 `api/config.py`에 추가하고 코드에서 하드코딩하지 않는다.
 - 파일 경로는 `pathlib.Path`를 사용한다.
 - 사용자 노출 문구는 한국어 워크플로에 맞게 유지한다.
-- 기본 workflow 로그는 `logs/workflows/<workflow_id>/events.jsonl`에 자동으로 제공된다.
-- workflow 내부에서 추가 구조화 로그가 필요하면 `api.utils.logger.log_workflow_activity(workflow_id, event, ...)`를 사용한다.
-- 외부 연동 코드는 node 내부에 직접 퍼뜨리지 말고 필요하면 workflow 하위 `agent/`, `rag/`, 또는 별도 서비스 모듈로 분리한다.
-- 여러 workflow에서 공통으로 쓰는 로직이 생기면 각 workflow에 복붙하지 말고 `api/workflows/common/` 또는 infra/service 계층으로 승격한다.
-- state에 connection 객체, client 객체, 함수 객체 같은 비직렬화 값을 넣지 않는다.
+- LangGraph 상태 정의는 `api/workflows/lg_state.py`에 추가한다.
+- 외부 연동 코드는 노드 내부에 직접 퍼뜨리지 말고 필요하면 workflow 하위 `tools.py`, `rag/`, 또는 별도 서비스 모듈로 분리한다.
+- 여러 workflow에서 공통으로 쓰는 로직이 생기면 각 workflow에 복붙하지 말고 공용 계층으로 승격한다.
 - 테스트 없이 workflow만 추가하지 않는다.
 
 ## 가급적 건드리지 말아야 할 파일
 
 아래 파일은 workflow를 "추가"하는 작업만 할 때는 수정하지 않는 것을 원칙으로 한다.
-이 파일들은 현재 저장소의 공통 진입점, 자동 탐색, 상태 복원, 전체 오케스트레이션 규약을 잡고 있어서, 개별 업무 workflow를 붙이는 수준의 작업이 여기로 번지면 구조가 빠르게 흔들린다.
 
 - `api/__init__.py`
 - `api/blueprint_loader.py`
 - `api/workflows/registry.py`
-- `api/workflows/orchestrator.py`
-- `api/workflows/state_service.py`
+- `api/workflows/lg_orchestrator.py`
+- `api/workflows/langgraph_checkpoint.py`
 - 기존 workflow 패키지 전체
 - `api/workflows/start_chat/`
-- `api/workflows/common/`
-
-즉, 새 업무를 붙일 때의 기본 원칙은 다음과 같다.
-
-- 기존 공통 엔진을 고치지 말고 `api/workflows/<new_workflow_id>/`만 추가한다.
-- workflow 등록을 위해 `registry.py`에 수동 코드를 넣지 않는다.
-- handoff를 위해 오케스트레이터 구조를 바꾸지 않는다.
-- 기존 workflow의 node 흐름을 새 업무 때문에 직접 수정하지 않는다.
 
 예외는 아래처럼 명확한 경우만 허용한다.
 
 - 공통 버그를 수정해야 해서 모든 workflow에 영향을 주는 문제를 해결할 때
 - `start_chat`의 분류 정책 자체를 변경해야 할 때
-- 공용 상태 복원/저장 규약을 바꿔야 할 정도의 구조 변경을 팀이 합의했을 때
+- 공용 상태 저장 규약을 바꿔야 할 정도의 구조 변경을 팀이 합의했을 때
 - 기존 workflow를 실제로 개선하거나 유지보수하는 명시적 작업을 맡았을 때
 
 예외 작업을 할 때는 아래를 같이 남기는 것을 권장한다.
@@ -309,8 +279,8 @@ def build_graph() -> dict[str, object]:
 새 workflow를 추가하면 최소한 아래를 검증한다.
 
 - 등록 테스트: registry가 workflow를 발견하는지
-- 기본 흐름 테스트: entry부터 완료까지 기대한 node 흐름을 타는지
-- 재질문 테스트: `wait` 후 다음 턴에서 이어지는지
+- 기본 흐름 테스트: entry부터 완료까지 기대한 노드 흐름을 타는지
+- interrupt 테스트: `interrupt()` 후 `Command(resume=...)` 로 이어지는지
 - handoff 테스트: `start_chat`에서 해당 workflow로 분기되는지
 - 외부 의존성 테스트: API, Redis, 파일 시스템 호출을 mock 했는지
 
@@ -333,133 +303,120 @@ pytest tests/test_workflow_registry.py tests/test_start_chat_workflow.py tests/t
 ## 구현 순서 추천
 
 1. 업무 범위와 상태 필드를 먼저 정한다.
-2. `api/workflows/<workflow_id>/` 패키지와 4개 기본 파일을 만든다.
-3. `__init__.py`에서 workflow 정의를 export 한다.
-4. `state.py`에 workflow 전용 상태를 추가한다.
-5. `nodes.py`에서 `wait`, `resume`, `complete` 기준의 대화 흐름을 먼저 만든다.
-6. `graph.py`에 node id와 edge를 정리한다.
-7. `handoff_keywords`가 필요하면 추가한다.
-8. 테스트를 먼저 붙여 기본 흐름과 재진입을 고정한다.
-9. 그 다음 외부 API, RAG, agent 같은 실제 capability를 연결한다.
+2. `api/workflows/lg_state.py`에 workflow 전용 `TypedDict` 상태를 추가한다.
+3. `api/workflows/<workflow_id>/` 패키지를 만든다.
+4. `lg_graph.py`에서 노드 함수와 `StateGraph`를 정의한다.
+5. `__init__.py`에서 `build_lg_graph()`와 `get_workflow_definition()`을 export 한다.
+6. `handoff_keywords`가 필요하면 추가한다.
+7. 테스트를 붙여 기본 흐름과 interrupt/resume을 고정한다.
+8. 그 다음 외부 API, RAG, MCP 도구 같은 실제 capability를 연결한다.
+9. (선택) devtools 호환이 필요하면 `lg_adapter.py`, `nodes.py`, `state.py`를 추가한다.
 
 ## 최소 스캐폴드 예시
 
 ```text
 api/workflows/my_flow/
   __init__.py
-  graph.py
-  nodes.py
-  state.py
+  lg_graph.py
 ```
 
-`__init__.py`
+`api/workflows/lg_state.py`에 추가:
 
 ```python
-from __future__ import annotations
+class MyFlowState(ChatState, total=False):
+    request_text: str
+```
+
+`__init__.py`:
+
+```python
+def build_lg_graph():
+    from api.workflows.my_flow.lg_graph import build_lg_graph as builder
+    return builder()
 
 
 def get_workflow_definition() -> dict[str, object]:
-    from api.workflows.my_flow.graph import build_graph
-    from api.workflows.my_flow.state import MyFlowState
-
     return {
         "workflow_id": "my_flow",
         "entry_node_id": "entry",
-        "build_graph": build_graph,
-        "state_cls": MyFlowState,
+        "build_graph": None,
+        "build_lg_graph": build_lg_graph,
         "handoff_keywords": ("my flow", "내 업무"),
     }
 ```
 
-`state.py`
+`lg_graph.py`:
 
 ```python
-from dataclasses import dataclass
+from langchain_core.messages import AIMessage
+from langgraph.graph import END, StateGraph
+from langgraph.types import interrupt
 
-from api.workflows.models import WorkflowState
-
-
-@dataclass
-class MyFlowState(WorkflowState):
-    request_text: str = ""
-```
-
-`nodes.py`
-
-```python
-from api.workflows.models import NodeResult
-from api.workflows.my_flow.state import MyFlowState
+from api.workflows.lg_state import MyFlowState
 
 
-def entry_node(state: MyFlowState, user_message: str) -> NodeResult:
-    text = user_message.strip()
+def entry_node(state: MyFlowState) -> dict:
+    text = state.get("user_message", "").strip()
     if not text:
-        return NodeResult(
-            action="wait",
-            reply="처리할 요청을 알려주세요.",
-            next_node_id="collect_request",
-        )
-
-    return NodeResult(
-        action="complete",
-        reply=f"요청을 접수했습니다: {text}",
-        data_updates={"request_text": text},
-    )
+        return {"request_text": ""}
+    return {"request_text": text}
 
 
-def collect_request_node(state: MyFlowState, user_message: str) -> NodeResult:
-    text = user_message.strip()
-    return NodeResult(
-        action="complete",
-        reply=f"요청을 접수했습니다: {text}",
-        data_updates={"request_text": text},
-    )
-```
-
-`graph.py`
-
-```python
-from api.workflows.my_flow import nodes
+def collect_request_node(state: MyFlowState) -> dict:
+    user_input = interrupt({"reply": "처리할 요청을 알려주세요."})
+    return {"user_message": user_input, "request_text": user_input}
 
 
-def build_graph() -> dict[str, object]:
-    return {
-        "workflow_id": "my_flow",
-        "entry_node_id": "entry",
-        "nodes": {
-            "entry": nodes.entry_node,
-            "collect_request": nodes.collect_request_node,
-        },
-        "edges": [
-            ("entry", "collect_request", "입력 없음"),
-        ],
-}
+def process_request_node(state: MyFlowState) -> dict:
+    text = state.get("request_text", "")
+    return {"messages": [AIMessage(content=f"요청을 접수했습니다: {text}")]}
+
+
+def _route_after_entry(state: MyFlowState) -> str:
+    if not state.get("request_text"):
+        return "collect_request"
+    return "process_request"
+
+
+def build_lg_graph() -> StateGraph:
+    builder = StateGraph(MyFlowState)
+
+    builder.add_node("entry", entry_node)
+    builder.add_node("collect_request", collect_request_node)
+    builder.add_node("process_request", process_request_node)
+
+    builder.set_entry_point("entry")
+    builder.add_conditional_edges("entry", _route_after_entry)
+    builder.add_edge("collect_request", "entry")
+    builder.add_edge("process_request", END)
+
+    return builder
 ```
 
 ## 실전 샘플 참고
 
 실제 동작하는 샘플이 필요하면 아래 구현을 그대로 열어보면 된다.
 
-- `api/workflows/travel_planner/`
-- `tests/test_travel_planner_workflow.py`
+- `api/workflows/translator/lg_graph.py` — interrupt 기반 슬롯 수집 + MCP 도구 호출
+- `api/workflows/travel_planner/lg_graph.py` — 조건부 라우팅 + 다단계 정보 수집
+- `api/workflows/chart_maker/lg_graph.py` — 순차 interrupt 패턴
 
-이 샘플은 아래 흐름을 모두 포함한다.
+이 샘플들은 아래 패턴을 모두 포함한다.
 
-- 첫 턴에서 목적지, 일정, 여행 스타일 추출
-- 정보가 부족할 때 `wait`로 재질문
-- 스타일만 있으면 목적지 후보 추천
-- 목적지가 정해지면 방문 장소 추천으로 `complete`
-
-즉, 동료가 새 workflow를 만들 때 가장 자주 필요한 "상태 필드 정의 -> node 분기 -> handoff 키워드 -> multi-turn 테스트"를 한 번에 참고할 수 있다.
+- `interrupt()`로 부족한 정보 재질문
+- `Command(resume=...)`로 다음 턴에서 재개
+- `AIMessage`로 최종 응답 반환
+- 조건부 엣지로 상태 기반 라우팅
 
 ## 자주 생기는 실수
 
-- workflow 패키지를 만들고도 `get_workflow_definition()`을 export하지 않음
+- workflow 패키지를 만들고도 `build_lg_graph()`를 export하지 않음
 - `workflow_id`를 패키지명과 다르게 정해 놓고 테스트를 안 함
-- `wait`를 반환하면서 사용자 안내 문구를 주지 않음
-- `NodeResult.data_updates` 없이 상태를 로컬 변수로만 들고 감
+- `interrupt()`를 호출하면서 사용자 안내 문구를 주지 않음
+- 노드 함수가 dict 대신 다른 타입을 반환함
+- `AIMessage`를 `messages` 키에 넣지 않아 응답이 전달되지 않음
 - handoff 키워드를 너무 넓게 잡아 엉뚱한 업무로 분기됨
-- 상태에 비직렬화 객체를 넣어 저장 단계에서 깨짐
+- LangGraph 상태를 `lg_state.py`에 추가하지 않고 별도 파일에 정의함
 - registry에 수동 등록 코드를 추가해 자동 탐색 규약을 깨뜨림
 - 외부 API 호출을 테스트에서 직접 때려 flaky test를 만듦
 
@@ -477,4 +434,4 @@ def build_graph() -> dict[str, object]:
 - 아직 stub 인 부분
 ```
 
-이 문서를 기준으로 추가하면 동료 workflow도 현재 registry, state 저장, start_chat handoff, 시각화 페이지와 자연스럽게 맞물린다.
+이 문서를 기준으로 추가하면 동료 workflow도 현재 registry, LangGraph checkpointer, start_chat handoff, 시각화 페이지와 자연스럽게 맞물린다.

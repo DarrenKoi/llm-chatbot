@@ -11,6 +11,7 @@ import sys
 import time
 from dataclasses import asdict
 
+from api import conversation_service
 from api.workflows.models import NodeResult, WorkflowState
 from api.workflows.registry import discover_workflows
 from api.workflows.state_service import (
@@ -272,8 +273,21 @@ def handle_dev_message(
 
     save_state(state)
 
+    final_reply = reply or f"[{workflow_id}] 처리 완료."
+
+    conversation_service.append_message(
+        resolved_user_id,
+        {"role": "user", "content": user_message},
+        conversation_id=workflow_id,
+    )
+    conversation_service.append_message(
+        resolved_user_id,
+        {"role": "assistant", "content": final_reply},
+        conversation_id=workflow_id,
+    )
+
     return {
-        "reply": reply or f"[{workflow_id}] 처리 완료.",
+        "reply": final_reply,
         "state": _serialize_state_safe(state),
         "trace": trace,
     }

@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 
 UWSGI_LOG_MAX_AGE_DAYS = 7
 _UWSGI_LOG_NAME_PATTERN = re.compile(r"^uws(?:g)?i-(\d{4}-\d{2}-\d{2})\.log$")
+_DEFAULT_FILE_DELIVERY_CLEANUP_HOUR = 1
+_DEFAULT_FILE_DELIVERY_CLEANUP_MINUTE = 0
 
 
 def _extract_log_date(log_file: Path) -> date | None:
@@ -61,6 +63,31 @@ def _cleanup_expired_file_delivery_files(lock_lease: SchedulerJobLockLease | Non
         logger.info("Deleted %s expired file delivery item(s).", deleted_count)
 
 
+def _resolve_file_delivery_cleanup_schedule() -> tuple[int, int]:
+    hour = config.FILE_DELIVERY_CLEANUP_HOUR
+    minute = config.FILE_DELIVERY_CLEANUP_MINUTE
+
+    resolved_hour = hour
+    if not 0 <= hour <= 23:
+        logger.warning(
+            "Invalid FILE_DELIVERY_CLEANUP_HOUR=%s. Falling back to %s.",
+            hour,
+            _DEFAULT_FILE_DELIVERY_CLEANUP_HOUR,
+        )
+        resolved_hour = _DEFAULT_FILE_DELIVERY_CLEANUP_HOUR
+
+    resolved_minute = minute
+    if not 0 <= minute <= 59:
+        logger.warning(
+            "Invalid FILE_DELIVERY_CLEANUP_MINUTE=%s. Falling back to %s.",
+            minute,
+            _DEFAULT_FILE_DELIVERY_CLEANUP_MINUTE,
+        )
+        resolved_minute = _DEFAULT_FILE_DELIVERY_CLEANUP_MINUTE
+
+    return resolved_hour, resolved_minute
+
+
 def register(scheduler) -> None:
     def _run_uwsgi_cleanup() -> None:
         run_locked_job("cleanup_uwsgi_logs", _cleanup_uwsgi_logs)
@@ -97,11 +124,12 @@ def register(scheduler) -> None:
             "use_distributed_lock": True,
         },
     )
+    cleanup_hour, cleanup_minute = _resolve_file_delivery_cleanup_schedule()
     scheduler.add_job(
         _run_file_delivery_cleanup,
         id="cleanup_file_delivery",
         trigger="cron",
-        hour=2,
-        minute=0,
+        hour=cleanup_hour,
+        minute=cleanup_minute,
         replace_existing=True,
     )

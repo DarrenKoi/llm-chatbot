@@ -56,7 +56,9 @@ tests/
 - `logs/`: 활동 로그 저장 위치
   - `logs/activity/`: 일자별 활동 로그 파일
 - `var/`: 애플리케이션 런타임 상태 저장소
-  - `var/workflow_state/`: 사용자별 워크플로우 상태 저장 위치
+  - `var/mcp_cache/`: MCP 캐시 디렉터리
+
+> 워크플로 상태는 LangGraph checkpointer(MongoDB)가 관리한다. 이전의 `var/workflow_state/` JSON 파일 방식은 폐기되었다.
 
 ## 추천 탐색 순서
 

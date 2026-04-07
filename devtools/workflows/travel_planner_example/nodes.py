@@ -174,14 +174,16 @@ def build_plan_node(state: TravelPlannerExampleState, user_message: str) -> Node
     note = _build_companion_note(companion_type)
     reply_lines = [
         f"{destination} {duration_text} 여행은 {travel_style} 중심으로 시작하면 좋습니다.",
-        f"추천 방문지: {', '.join(recommended_places)}",
-        (
+    ]
+    if recommended_places:
+        reply_lines.append(f"추천 방문지: {', '.join(recommended_places)}")
+    if len(recommended_places) >= 3:
+        reply_lines.append(
             f"추천 흐름: 첫날은 {recommended_places[0]} 주변, "
             f"다음 일정은 {recommended_places[1]}와 {recommended_places[2]}를 묶어보세요."
-        ),
-        note,
-        "원하시면 다음 단계에서 숙소 지역이나 일자별 상세 동선도 이어서 정리할 수 있습니다.",
-    ]
+        )
+    reply_lines.append(note)
+    reply_lines.append("원하시면 다음 단계에서 숙소 지역이나 일자별 상세 동선도 이어서 정리할 수 있습니다.")
     reply = "\n".join(reply_lines)
 
     log.info(
