@@ -77,13 +77,6 @@ def retrieve_context_node(state: StartChatState) -> dict:
     return {"retrieved_contexts": contexts}
 
 
-def plan_response_node(state: StartChatState) -> dict:
-    """응답 생성 계획을 만든다."""
-
-    user_message = state.get("user_message", "")
-    return {"agent_plan": [f"answer:{user_message}"]}
-
-
 def generate_reply_node(state: StartChatState) -> dict:
     """LLM을 호출하여 응답을 생성한다."""
 
@@ -133,27 +126,26 @@ def build_lg_graph() -> StateGraph:
     자식 워크플로(translator, chart_maker, travel_planner)는 서브그래프로 포함된다.
     """
 
+    handoff_subgraphs = _get_handoff_subgraph_builders()
     builder = StateGraph(StartChatState)
 
     # 메인 노드
     builder.add_node("entry", entry_node)
     builder.add_node("classify", classify_node)
     builder.add_node("retrieve_context", retrieve_context_node)
-    builder.add_node("plan_response", plan_response_node)
     builder.add_node("generate_reply", generate_reply_node)
 
     # 자식 워크플로 서브그래프
-    for workflow_id, subgraph_builder in _get_handoff_subgraph_builders().items():
+    for workflow_id, subgraph_builder in handoff_subgraphs.items():
         builder.add_node(workflow_id, subgraph_builder().compile())
 
     # 엣지
     builder.set_entry_point("entry")
     builder.add_edge("entry", "classify")
     builder.add_conditional_edges("classify", _route_after_classify)
-    builder.add_edge("retrieve_context", "plan_response")
-    builder.add_edge("plan_response", "generate_reply")
+    builder.add_edge("retrieve_context", "generate_reply")
     builder.add_edge("generate_reply", END)
-    for workflow_id in _get_handoff_subgraph_builders():
+    for workflow_id in handoff_subgraphs:
         builder.add_edge(workflow_id, END)
 
     return builder

@@ -1,4 +1,8 @@
-"""워크플로 상태의 저장·조회·삭제 스텁을 제공한다."""
+"""워크플로 상태의 저장·조회·삭제를 제공한다.
+
+현재 production LangGraph 경로에서는 직접 사용하지 않지만,
+devtools workflow runner가 기존 상태 파일 포맷을 유지하므로 남겨둔다.
+"""
 
 import json
 from dataclasses import fields

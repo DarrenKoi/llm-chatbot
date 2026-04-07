@@ -52,7 +52,6 @@ class StartChatState(ChatState, total=False):
 
     detected_intent: str
     retrieved_contexts: list[str]
-    agent_plan: list[str]
     profile_loaded: bool
     profile_source: str
     profile_summary: str

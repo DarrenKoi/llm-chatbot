@@ -39,7 +39,7 @@ def _make_config(thread_id: str = "test-start-chat"):
 @patch("api.llm.service._get_llm")
 @patch("api.conversation_service.get_history", return_value=[])
 def test_casual_conversation_completes(mock_history, mock_llm, mock_profile):
-    """일반 대화는 entry → classify → retrieve → plan → generate → END 순으로 완료된다."""
+    """일반 대화는 entry → classify → retrieve → generate → END 순으로 완료된다."""
 
     mock_llm.return_value.invoke.return_value.content = "테스트 응답입니다."
 

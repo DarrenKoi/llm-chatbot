@@ -5,7 +5,7 @@ from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
 
 from api import config
-from api.conversation_service import ConversationStoreError, append_message, get_history
+from api.conversation_service import ConversationStoreError, append_message
 from api.cube.client import CubeClientError, send_multimessage
 from api.cube.models import CubeAcceptedMessage, CubeHandledMessage, CubeIncomingMessage, CubeQueuedMessage
 from api.cube.payload import extract_cube_request_fields
@@ -230,7 +230,6 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
     )
 
     try:
-        history = get_history(incoming.user_id, conversation_id=incoming.channel_id)
         append_message(
             incoming.user_id,
             {"role": "user", "content": incoming.message},
@@ -257,7 +256,6 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
             "channel_id": incoming.channel_id,
             "message_id": incoming.message_id,
             "user_message": incoming.message,
-            "history_length": len(history),
             "status": "received",
             "processor": "llm",
             "queue_attempt": attempt,
@@ -270,7 +268,6 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
         channel_id=incoming.channel_id,
         message_id=incoming.message_id,
         processor="llm",
-        conversation_length=len(history) + 1,
         queue_attempt=attempt,
     )
 

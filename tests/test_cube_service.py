@@ -122,9 +122,7 @@ def test_accept_cube_empty_event_is_ignored(mock_enqueue):
     return_value=WorkflowReply(reply="nice to meet you", workflow_id="start_chat"),
 )
 @patch("api.cube.service.append_message")
-@patch("api.cube.service.get_history", return_value=[{"role": "assistant", "content": "previous"}])
 def test_handle_cube_message_success(
-    mock_get_history,
     mock_append_message,
     mock_handle_workflow_message,
     mock_send_multimessage,
@@ -155,7 +153,6 @@ def test_handle_cube_message_success(
     assert result.message_id == "m1"
     assert result.user_message == "hello"
     assert result.llm_reply == "nice to meet you"
-    mock_get_history.assert_called_once_with("u1", conversation_id="c1")
     assert mock_handle_workflow_message.call_count == 1
     incoming = mock_handle_workflow_message.call_args.args[0]
     assert incoming.user_id == "u1"
@@ -199,9 +196,7 @@ def test_handle_cube_message_success(
 @patch("api.cube.service.log_request")
 @patch("api.cube.service.send_multimessage")
 @patch("api.cube.service.append_message")
-@patch("api.cube.service.get_history", return_value=[{"role": "assistant", "content": "previous"}])
 def test_handle_cube_message_sends_thinking_message_only_when_reply_is_slow(
-    mock_get_history,
     mock_append_message,
     mock_send_multimessage,
     mock_log_request,
@@ -233,7 +228,6 @@ def test_handle_cube_message_sends_thinking_message_only_when_reply_is_slow(
 
     assert result.user_id == "u1"
     assert result.llm_reply == "nice to meet you"
-    mock_get_history.assert_called_once_with("u1", conversation_id="c1")
     assert mock_handle_workflow_message.call_count == 1
     assert mock_append_message.call_args_list == [
         call(
@@ -308,9 +302,7 @@ def test_handle_cube_message_raises_when_message_missing(
 @patch("api.cube.service.send_multimessage")
 @patch("api.cube.service.handle_workflow_message")
 @patch("api.cube.service.append_message")
-@patch("api.cube.service.get_history", return_value=[])
 def test_handle_cube_message_raises_when_llm_fails(
-    mock_get_history,
     mock_append_message,
     mock_handle_workflow_message,
     mock_send_multimessage,
@@ -335,7 +327,6 @@ def test_handle_cube_message_raises_when_llm_fails(
                 }
             )
 
-    mock_get_history.assert_called_once_with("u1", conversation_id="c1")
     mock_append_message.assert_called_once_with(
         "u1",
         {"role": "user", "content": "hello"},
@@ -353,9 +344,7 @@ def test_handle_cube_message_raises_when_llm_fails(
 
 @patch("api.cube.service.send_multimessage")
 @patch("api.cube.service.append_message")
-@patch("api.cube.service.get_history", return_value=[])
 def test_handle_cube_message_sends_thinking_message_when_slow_reply_then_fails(
-    mock_get_history,
     mock_append_message,
     mock_send_multimessage,
 ):
@@ -382,7 +371,6 @@ def test_handle_cube_message_sends_thinking_message_when_slow_reply_then_fails(
                     }
                 )
 
-    mock_get_history.assert_called_once_with("u1", conversation_id="c1")
     mock_append_message.assert_called_once_with(
         "u1",
         {"role": "user", "content": "hello"},
