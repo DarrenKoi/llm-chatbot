@@ -21,3 +21,20 @@ def app():
 def client(app):
     """Flask test client."""
     return app.test_client()
+
+
+@pytest.fixture()
+def file_delivery_env(monkeypatch, tmp_path):
+    import api.file_delivery.file_delivery_service as file_delivery_service
+    from api import config
+
+    storage_dir = tmp_path / "file_delivery"
+
+    monkeypatch.setattr(config, "FILE_DELIVERY_STORAGE_DIR", storage_dir)
+    monkeypatch.setattr(config, "FILE_DELIVERY_REDIS_URL", "")
+    monkeypatch.setattr(config, "FILE_DELIVERY_BASE_URL", "http://testserver/file-delivery/files")
+    monkeypatch.setattr(file_delivery_service, "_metadata_backend", None)
+
+    yield storage_dir
+
+    file_delivery_service._metadata_backend = None
