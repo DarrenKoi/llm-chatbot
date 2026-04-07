@@ -8,6 +8,7 @@ import json
 import re
 import shutil
 import sys
+from importlib import import_module
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -165,7 +166,10 @@ def _validate_promoted_workflow(workflow_id: str) -> dict[str, object]:
     _invalidate_import_cache(workflow_module_path)
     _invalidate_import_cache(mcp_module_path)
 
-    module = __import__(workflow_module_path, fromlist=["get_workflow_definition"])
+    if _resolve_prod_mcp_target_for_validation(workflow_id).exists():
+        import_module(mcp_module_path)
+
+    module = import_module(workflow_module_path)
     return module.get_workflow_definition()
 
 
@@ -174,6 +178,14 @@ def _invalidate_import_cache(module_path: str) -> None:
     prefix = module_path + "."
     for loaded_module in [name for name in sys.modules if name.startswith(prefix)]:
         sys.modules.pop(loaded_module, None)
+
+
+def _resolve_prod_mcp_target_for_validation(workflow_id: str) -> Path:
+    file_candidate = PROD_MCP_DIR / f"{workflow_id}.py"
+    dir_candidate = PROD_MCP_DIR / workflow_id
+    if file_candidate.exists():
+        return file_candidate
+    return dir_candidate
 
 
 def _cleanup_dev_state(workflow_id: str) -> None:

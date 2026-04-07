@@ -13,6 +13,14 @@
             <select id="workflow-select">
                 <option value="">워크플로 선택...</option>
             </select>
+            <input
+                type="text"
+                id="user-id-input"
+                value="{{ default_user_id }}"
+                placeholder="dev_pc_name"
+                autocomplete="off"
+                spellcheck="false"
+            >
             <button id="btn-reset" title="State 초기화">Reset</button>
             <button id="btn-reload" title="워크플로 목록 새로고침">Reload</button>
             <div class="export-group">

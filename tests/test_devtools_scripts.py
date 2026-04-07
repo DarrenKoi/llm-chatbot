@@ -20,6 +20,13 @@ def test_new_workflow_scaffold_creates_matching_dev_mcp_module(tmp_path, monkeyp
         "class __STATE_CLASS__:\n    pass\n",
         encoding="utf-8",
     )
+    (template_dir / "graph.py").write_text(
+        "from devtools.mcp.__WORKFLOW_ID__ import register_tools\n"
+        "def build_graph():\n"
+        "    register_tools()\n"
+        "    return {'workflow_id': '__WORKFLOW_ID__'}\n",
+        encoding="utf-8",
+    )
     mcp_template_file.write_text(
         'WORKFLOW_ID = "__WORKFLOW_ID__"\n',
         encoding="utf-8",
@@ -39,6 +46,9 @@ def test_new_workflow_scaffold_creates_matching_dev_mcp_module(tmp_path, monkeyp
     assert scaffolded_mcp.exists()
     assert 'WORKFLOW_ID = "sample_flow"' in (scaffolded_dir / "__init__.py").read_text(encoding="utf-8")
     assert 'STATE = "SampleFlowState"' in (scaffolded_dir / "__init__.py").read_text(encoding="utf-8")
+    assert "from devtools.mcp.sample_flow import register_tools" in (scaffolded_dir / "graph.py").read_text(
+        encoding="utf-8"
+    )
     assert 'WORKFLOW_ID = "sample_flow"' in scaffolded_mcp.read_text(encoding="utf-8")
 
 
@@ -131,3 +141,34 @@ def test_promote_rolls_back_targets_when_validation_fails(tmp_path, monkeypatch)
     assert (dev_mcp_dir / "sample_flow.py").exists()
     assert not (prod_workflows_dir / "sample_flow").exists()
     assert not (prod_mcp_dir / "sample_flow.py").exists()
+
+
+def test_validate_promoted_workflow_imports_matching_mcp_module(tmp_path, monkeypatch):
+    prod_mcp_dir = tmp_path / "api" / "mcp"
+    prod_mcp_dir.mkdir(parents=True)
+    (prod_mcp_dir / "sample_flow.py").write_text("REGISTERED = True\n", encoding="utf-8")
+
+    monkeypatch.setattr(promote, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(promote, "PROD_MCP_DIR", prod_mcp_dir)
+
+    imported_modules: list[str] = []
+
+    class _WorkflowModule:
+        @staticmethod
+        def get_workflow_definition() -> dict[str, object]:
+            return {"workflow_id": "sample_flow", "entry_node_id": "entry"}
+
+    def _fake_import_module(module_path: str):
+        imported_modules.append(module_path)
+        if module_path == "api.workflows.sample_flow":
+            return _WorkflowModule()
+        if module_path == "api.mcp.sample_flow":
+            return object()
+        raise AssertionError(module_path)
+
+    monkeypatch.setattr(promote, "import_module", _fake_import_module)
+
+    definition = promote._validate_promoted_workflow("sample_flow")
+
+    assert definition["workflow_id"] == "sample_flow"
+    assert imported_modules == ["api.mcp.sample_flow", "api.workflows.sample_flow"]

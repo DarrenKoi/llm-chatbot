@@ -20,11 +20,11 @@ from api.workflows.state_service import (
     register_state_class,
     save_state,
 )
+from devtools.workflow_runner.identity import get_default_dev_user_id
 
 log = logging.getLogger(__name__)
 
 MAX_RESUME_STEPS = 20
-DEFAULT_USER_ID = "dev_user"
 
 _dev_workflows: dict[str, dict] | None = None
 
@@ -52,7 +52,11 @@ def _invalidate_dev_workflow_modules() -> None:
 
     importlib.invalidate_caches()
 
-    stale_keys = [key for key in sys.modules if key.startswith("devtools.workflows.") and not key.endswith("__init__")]
+    stale_keys = [
+        key
+        for key in sys.modules
+        if (key.startswith("devtools.workflows.") or key.startswith("devtools.mcp.")) and not key.endswith("__init__")
+    ]
     for key in stale_keys:
         del sys.modules[key]
 
@@ -60,6 +64,10 @@ def _invalidate_dev_workflow_modules() -> None:
     pkg = sys.modules.get("devtools.workflows")
     if pkg is not None:
         importlib.reload(pkg)
+
+    mcp_pkg = sys.modules.get("devtools.mcp")
+    if mcp_pkg is not None:
+        importlib.reload(mcp_pkg)
 
 
 def list_dev_workflow_ids() -> list[str]:
@@ -231,7 +239,7 @@ def _restore_parent_workflow(state: WorkflowState) -> None:
 def handle_dev_message(
     workflow_id: str,
     user_message: str,
-    user_id: str = DEFAULT_USER_ID,
+    user_id: str | None = None,
 ) -> dict:
     """dev runner의 메시지 처리 진입점.
 
@@ -240,12 +248,13 @@ def handle_dev_message(
     """
 
     workflow_def = get_dev_workflow(workflow_id)
+    resolved_user_id = user_id or get_default_dev_user_id()
 
-    loaded_state = load_state(user_id)
+    loaded_state = load_state(resolved_user_id)
     if loaded_state is None or loaded_state.workflow_id != workflow_id:
         state = build_state(
             {
-                "user_id": user_id,
+                "user_id": resolved_user_id,
                 "workflow_id": workflow_id,
                 "node_id": workflow_def["entry_node_id"],
                 "status": "active",
@@ -270,19 +279,20 @@ def handle_dev_message(
     }
 
 
-def get_dev_state(user_id: str = DEFAULT_USER_ID) -> dict | None:
+def get_dev_state(user_id: str | None = None) -> dict | None:
     """현재 dev workflow state를 반환한다."""
 
-    state = load_state(user_id)
+    resolved_user_id = user_id or get_default_dev_user_id()
+    state = load_state(resolved_user_id)
     if state is None:
         return None
     return _serialize_state_safe(state)
 
 
-def reset_dev_state(user_id: str = DEFAULT_USER_ID) -> None:
+def reset_dev_state(user_id: str | None = None) -> None:
     """dev workflow state를 초기화한다."""
 
-    clear_state(user_id)
+    clear_state(user_id or get_default_dev_user_id())
 
 
 def _apply_result(state: WorkflowState, result: NodeResult) -> None:

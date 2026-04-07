@@ -5,9 +5,11 @@
  * 서버에는 workflow 실행 결과와 상태 JSON만 요청한다.
  */
 
-const STORAGE_KEY = "dev_runner_transcript";
+const STORAGE_KEY_PREFIX = "dev_runner_transcript";
+const STATE_STORAGE_KEY = "dev_runner_user_id";
 
 const $select = document.getElementById("workflow-select");
+const $userIdInput = document.getElementById("user-id-input");
 const $form = document.getElementById("message-form");
 const $input = document.getElementById("message-input");
 const $transcript = document.getElementById("transcript");
@@ -20,16 +22,30 @@ const $btnExportTxt = document.getElementById("btn-export-txt");
 
 /* ── Transcript (localStorage) ── */
 
+function normalizeUserId(value) {
+  return (value || "").trim();
+}
+
+function getActiveUserId() {
+  return normalizeUserId($userIdInput.value);
+}
+
+function getTranscriptStorageKey() {
+  const workflowId = $select.value || "_default";
+  const userId = getActiveUserId() || "dev_local";
+  return `${STORAGE_KEY_PREFIX}:${userId}:${workflowId}`;
+}
+
 function loadTranscript() {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    return JSON.parse(localStorage.getItem(getTranscriptStorageKey())) || [];
   } catch {
     return [];
   }
 }
 
 function saveTranscript(entries) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  localStorage.setItem(getTranscriptStorageKey(), JSON.stringify(entries));
 }
 
 function appendTranscript(role, text) {
@@ -40,7 +56,7 @@ function appendTranscript(role, text) {
 }
 
 function clearTranscript() {
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(getTranscriptStorageKey());
   renderTranscript();
 }
 
@@ -105,22 +121,30 @@ async function fetchWorkflows() {
 }
 
 async function sendMessage(workflowId, message) {
+  const userId = getActiveUserId();
   const res = await fetch("/api/send", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ workflow_id: workflowId, message }),
+    body: JSON.stringify({ workflow_id: workflowId, message, user_id: userId }),
   });
   return res.json();
 }
 
 async function fetchState() {
-  const res = await fetch("/api/state");
+  const userId = getActiveUserId();
+  const res = await fetch(`/api/state?user_id=${encodeURIComponent(userId)}`);
   const data = await res.json();
+  const selectedWorkflowId = $select.value;
+  if (selectedWorkflowId && data.state && data.state.workflow_id !== selectedWorkflowId) {
+    renderState(null);
+    return;
+  }
   renderState(data.state);
 }
 
 async function resetState() {
-  await fetch("/api/state", { method: "DELETE" });
+  const userId = getActiveUserId();
+  await fetch(`/api/state?user_id=${encodeURIComponent(userId)}`, { method: "DELETE" });
   clearTranscript();
   renderState(null);
   $traceView.innerHTML = "<p>trace 없음</p>";
@@ -168,6 +192,22 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+function syncUserIdFromStorage() {
+  const storedUserId = normalizeUserId(localStorage.getItem(STATE_STORAGE_KEY));
+  if (storedUserId) {
+    $userIdInput.value = storedUserId;
+  }
+}
+
+function persistUserId() {
+  const userId = getActiveUserId();
+  if (!userId) {
+    localStorage.removeItem(STATE_STORAGE_KEY);
+    return;
+  }
+  localStorage.setItem(STATE_STORAGE_KEY, userId);
+}
+
 /* ── Event handlers ── */
 
 $form.addEventListener("submit", async (e) => {
@@ -203,6 +243,18 @@ $form.addEventListener("submit", async (e) => {
   }
 });
 
+$select.addEventListener("change", () => {
+  renderTranscript();
+  fetchState();
+});
+
+$userIdInput.addEventListener("change", () => {
+  $userIdInput.value = getActiveUserId();
+  persistUserId();
+  renderTranscript();
+  fetchState();
+});
+
 $btnReset.addEventListener("click", () => {
   if (confirm("State와 대화 기록을 모두 초기화할까요?")) {
     resetState();
@@ -215,6 +267,8 @@ $btnExportTxt.addEventListener("click", exportTxt);
 
 /* ── Init ── */
 
+syncUserIdFromStorage();
+persistUserId();
 renderTranscript();
 fetchWorkflows();
 fetchState();
