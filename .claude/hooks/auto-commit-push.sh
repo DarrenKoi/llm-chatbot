@@ -22,9 +22,4 @@ else
   git push -u origin HEAD > /dev/null 2>&1
 fi
 
-# Warn if there are uncommitted changes
-if ! git diff --quiet || ! git diff --cached --quiet || [ -n "$(git ls-files --others --exclude-standard)" ]; then
-  echo '{"systemMessage":"⚠️ 커밋되지 않은 변경사항이 있습니다. /commit 또는 /review-and-push 를 사용하세요."}'
-fi
-
 exit 0
