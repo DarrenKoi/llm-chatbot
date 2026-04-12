@@ -37,6 +37,8 @@ INCLUDE = [
     # 애플리케이션 패키지
     "api/",
     "devtools/",
+    # 하네스 설정
+    "HARNESS.md",
     # 엔트리포인트
     "index.py",
     "cube_worker.py",
@@ -57,10 +59,7 @@ EXCLUDE_PATTERNS = [
     "*.pyc",
 ]
 
-DEFAULT_EXCLUDE_PATHS = [
-    "api/mcp/",
-    "api/workflows/",
-]
+DEFAULT_EXCLUDE_PATHS = []
 
 
 def normalize_entry_path(entry: str) -> Path:
@@ -152,7 +151,7 @@ def main():
     parser.add_argument(
         "--no-default-excludes",
         action="store_true",
-        help="기본 제외 경로(api/mcp/, api/workflows/) 없이 전체 동기화",
+        help="기본 제외 경로 없이 전체 동기화",
     )
     args = parser.parse_args()
 
