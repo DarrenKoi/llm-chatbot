@@ -60,7 +60,32 @@ def test_travel_planner_llm_decision_normalizes_values(monkeypatch):
 
     assert decision.action == "recommend_destination"
     assert decision.travel_style == "휴양"
+    assert decision.duration_text == ""
     assert decision.companion_type == "친구"
+
+
+def test_travel_planner_llm_decision_preserves_duration_on_recommend(monkeypatch):
+    monkeypatch.setattr(
+        "api.workflows.travel_planner.llm_decision.generate_json_reply",
+        lambda **kwargs: {
+            "action": "recommend_destination",
+            "destination": "",
+            "travel_style": "휴양",
+            "duration_text": "",
+            "companion_type": "",
+            "missing_slot": "",
+            "reply": "",
+        },
+    )
+
+    decision = decide_travel_planner_turn(
+        user_message="휴양으로 여행 추천해줘",
+        duration_text="2박 3일",
+    )
+
+    assert decision.action == "recommend_destination"
+    assert decision.travel_style == "휴양"
+    assert decision.duration_text == "2박 3일"
 
 
 def test_travel_planner_llm_decision_fills_default_duration_question(monkeypatch):

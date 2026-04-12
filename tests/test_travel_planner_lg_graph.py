@@ -73,6 +73,29 @@ def test_recommends_destinations_after_style():
     assert "싱가포르" in reply
 
 
+def test_keeps_duration_when_recommending_destination():
+    """스타일과 기간을 먼저 말해도 목적지 선택 뒤 기간을 다시 묻지 않는다."""
+
+    graph = _compile_graph()
+    config = _make_config("style-duration-to-destination")
+
+    graph.invoke(
+        {"user_message": "휴양으로 2박 3일 여행 추천해줘", "workflow_id": "travel_planner"},
+        config,
+    )
+
+    state = graph.get_state(config)
+    assert state.tasks
+    assert state.values["duration_text"] == "2박 3일"
+    reply = state.tasks[0].interrupts[0].value["reply"]
+    assert "제주" in reply
+
+    result = graph.invoke(Command(resume="제주"), config)
+
+    assert "제주 2박 3일 여행" in result["messages"][-1].content
+    assert result["duration_text"] == "2박 3일"
+
+
 def test_multi_turn_full_flow():
     """스타일 → 추천 → 목적지 선택 → 일정 → 계획 완성 전체 흐름."""
 

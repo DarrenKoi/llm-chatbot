@@ -188,6 +188,7 @@ def _coerce_decision(
         return TravelPlannerTurnDecision(
             action="recommend_destination",
             travel_style=merged_style,
+            duration_text=merged_duration,
             companion_type=merged_companion,
         )
 
@@ -211,6 +212,7 @@ def _coerce_decision(
         return TravelPlannerTurnDecision(
             action="recommend_destination",
             travel_style=merged_style,
+            duration_text=merged_duration,
             companion_type=merged_companion,
         )
 
@@ -301,6 +303,7 @@ def _fallback_travel_planner_turn(
         return TravelPlannerTurnDecision(
             action="recommend_destination",
             travel_style=resolved_style,
+            duration_text=resolved_duration,
             companion_type=resolved_companion,
         )
 
