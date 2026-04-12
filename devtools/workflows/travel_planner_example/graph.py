@@ -27,5 +27,6 @@ def build_graph() -> dict[str, object]:
             ("collect_destination", "collect_trip_context", "목적지 선택"),
             ("collect_destination", "build_plan", "목적지와 일정 한 번에 입력"),
             ("collect_trip_context", "build_plan", "일정 수집 완료"),
+            ("build_plan", "done", "계획 완료"),
         ],
     }

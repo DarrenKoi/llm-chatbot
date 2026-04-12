@@ -7,11 +7,13 @@
 import logging
 import re
 
+from api.workflows.intent_utils import is_stop_conversation_message
 from api.workflows.models import NodeResult
 
 from .state import TravelPlannerExampleState
 
 log = logging.getLogger(__name__)
+_STOP_REPLY = "여행 계획은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
 
 _DESTINATION_ALIASES = {
     "서울": "서울",
@@ -147,7 +149,8 @@ def recommend_destination_node(state: TravelPlannerExampleState, user_message: s
     companion_text = f"{companion}와 함께 가는 일정이라면 " if companion else ""
     reply = (
         f"{companion_text}{style} 여행으로는 {', '.join(suggestions)}를 먼저 고려해보세요.\n"
-        "마음에 드는 곳을 하나 골라 말씀해주시면 그 목적지 기준으로 일정과 방문지를 추천해드릴게요."
+        "마음에 드는 곳을 하나 골라 말씀해주시면 그 목적지 기준으로 일정과 방문지를 추천해드릴게요.\n"
+        '원하시면 "취소"라고 말씀하셔도 됩니다.'
     )
     return NodeResult(
         action="wait",
@@ -197,8 +200,12 @@ def build_plan_node(state: TravelPlannerExampleState, user_message: str) -> Node
     return NodeResult(
         action="complete",
         reply=reply,
+        next_node_id="entry",
         data_updates={
+            "destination": destination,
             "travel_style": travel_style,
+            "duration_text": duration_text,
+            "companion_type": companion_type,
             "recommended_places": recommended_places,
             "last_asked_slot": "",
         },
@@ -206,6 +213,22 @@ def build_plan_node(state: TravelPlannerExampleState, user_message: str) -> Node
 
 
 def _resolve_request(state: TravelPlannerExampleState, user_message: str) -> NodeResult:
+    if is_stop_conversation_message(user_message):
+        return NodeResult(
+            action="complete",
+            reply=_STOP_REPLY,
+            next_node_id="entry",
+            data_updates={
+                "destination": "",
+                "travel_style": "",
+                "duration_text": "",
+                "companion_type": "",
+                "suggested_destinations": [],
+                "recommended_places": [],
+                "last_asked_slot": "",
+            },
+        )
+
     current_destination = state.destination
     current_style = state.travel_style
     current_duration = state.duration_text
@@ -242,7 +265,10 @@ def _resolve_request(state: TravelPlannerExampleState, user_message: str) -> Nod
         if not current_style:
             return NodeResult(
                 action="wait",
-                reply=("여행 계획을 같이 잡아볼게요. 어떤 스타일의 여행을 원하시나요?\n예: 도시, 휴양, 자연, 먹거리"),
+                reply=(
+                    "여행 계획을 같이 잡아볼게요. 어떤 스타일의 여행을 원하시나요?\n"
+                    '예: 도시, 휴양, 자연, 먹거리\n원하시면 "취소"라고 말씀하셔도 됩니다.'
+                ),
                 next_node_id="collect_preference",
                 data_updates={**base_updates, "last_asked_slot": "travel_style"},
             )
@@ -255,7 +281,10 @@ def _resolve_request(state: TravelPlannerExampleState, user_message: str) -> Nod
     if not current_duration:
         return NodeResult(
             action="wait",
-            reply=f"{current_destination} 좋습니다. 일정은 며칠인가요? 예: 2박 3일",
+            reply=(
+                f"{current_destination} 좋습니다. 일정은 며칠인가요? 예: 2박 3일\n"
+                '원하시면 "취소"라고 말씀하셔도 됩니다.'
+            ),
             next_node_id="collect_trip_context",
             data_updates={**base_updates, "last_asked_slot": "duration_text"},
         )

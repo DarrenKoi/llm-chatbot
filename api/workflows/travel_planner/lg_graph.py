@@ -10,6 +10,7 @@ from langchain_core.messages import AIMessage
 from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
 
+from api.workflows.intent_utils import is_stop_conversation_message
 from api.workflows.lg_state import TravelPlannerState as LGTravelPlannerState
 from api.workflows.travel_planner.nodes import (
     _build_companion_note,
@@ -18,6 +19,7 @@ from api.workflows.travel_planner.nodes import (
 )
 
 log = logging.getLogger(__name__)
+_STOP_REPLY = "여행 계획은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
 
 _DESTINATION_DEFAULT_STYLE = {
     "서울": "도시",
@@ -48,6 +50,20 @@ def resolve_node(state: LGTravelPlannerState) -> dict:
     """사용자 메시지에서 여행 정보를 추출해 상태를 갱신한다."""
 
     user_message = state.get("user_message", "")
+
+    if is_stop_conversation_message(user_message):
+        return {
+            "messages": [AIMessage(content=_STOP_REPLY)],
+            "destination": "",
+            "travel_style": "",
+            "duration_text": "",
+            "companion_type": "",
+            "suggested_destinations": [],
+            "recommended_places": [],
+            "last_asked_slot": "",
+            "conversation_ended": True,
+        }
+
     current_destination = state.get("destination", "")
     current_style = state.get("travel_style", "")
     current_duration = state.get("duration_text", "")
@@ -78,6 +94,7 @@ def resolve_node(state: LGTravelPlannerState) -> dict:
         "travel_style": current_style,
         "duration_text": current_duration,
         "companion_type": current_companion,
+        "conversation_ended": False,
     }
 
 
@@ -85,7 +102,12 @@ def collect_preference_node(state: LGTravelPlannerState) -> dict:
     """여행 스타일을 사용자에게 요청하고 응답을 수집한다."""
 
     user_input = interrupt(
-        {"reply": "여행 계획을 같이 잡아볼게요. 어떤 스타일의 여행을 원하시나요?\n예: 도시, 휴양, 자연, 먹거리"}
+        {
+            "reply": (
+                "여행 계획을 같이 잡아볼게요. 어떤 스타일의 여행을 원하시나요?\n"
+                '예: 도시, 휴양, 자연, 먹거리\n원하시면 "취소"라고 말씀하셔도 됩니다.'
+            )
+        }
     )
     return {"user_message": user_input, "last_asked_slot": "travel_style"}
 
@@ -102,7 +124,8 @@ def recommend_destination_node(state: LGTravelPlannerState) -> dict:
     companion_text = f"{companion}와 함께 가는 일정이라면 " if companion else ""
     reply = (
         f"{companion_text}{style} 여행으로는 {', '.join(suggestions)}를 먼저 고려해보세요.\n"
-        "마음에 드는 곳을 하나 골라 말씀해주시면 그 목적지 기준으로 일정과 방문지를 추천해드릴게요."
+        "마음에 드는 곳을 하나 골라 말씀해주시면 그 목적지 기준으로 일정과 방문지를 추천해드릴게요.\n"
+        '원하시면 "취소"라고 말씀하셔도 됩니다.'
     )
 
     user_input = interrupt({"reply": reply})
@@ -117,7 +140,9 @@ def collect_trip_context_node(state: LGTravelPlannerState) -> dict:
     """일정(기간)을 사용자에게 요청하고 응답을 수집한다."""
 
     destination = state.get("destination", "")
-    user_input = interrupt({"reply": f"{destination} 좋습니다. 일정은 며칠인가요? 예: 2박 3일"})
+    user_input = interrupt(
+        {"reply": (f'{destination} 좋습니다. 일정은 며칠인가요? 예: 2박 3일\n원하시면 "취소"라고 말씀하셔도 됩니다.')}
+    )
     return {"user_message": user_input, "last_asked_slot": "duration_text"}
 
 
@@ -162,6 +187,8 @@ def build_plan_node(state: LGTravelPlannerState) -> dict:
 def _route_after_resolve(state: LGTravelPlannerState) -> str:
     """resolve 후 다음 노드를 결정한다."""
 
+    if state.get("conversation_ended"):
+        return END
     if not state.get("destination"):
         if not state.get("travel_style"):
             return "collect_preference"

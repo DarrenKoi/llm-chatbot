@@ -12,10 +12,12 @@ from langgraph.types import interrupt
 
 from api.mcp.executor import execute_tool_call
 from api.mcp.models import MCPToolCall
+from api.workflows.intent_utils import is_stop_conversation_message
 from api.workflows.lg_state import TranslatorState
 from api.workflows.translator.nodes import _parse_translation_request
 
 log = logging.getLogger(__name__)
+_STOP_REPLY = "번역은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
 
 
 def resolve_node(state: TranslatorState) -> dict:
@@ -24,43 +26,63 @@ def resolve_node(state: TranslatorState) -> dict:
     user_message = state.get("user_message", "")
     previous_source_text = state.get("source_text", "")
     previous_target_language = state.get("target_language", "")
-    last_asked_slot = state.get("last_asked_slot", "")
+
+    if is_stop_conversation_message(user_message):
+        return {
+            "messages": [AIMessage(content=_STOP_REPLY)],
+            "source_text": "",
+            "source_language": "",
+            "target_language": "",
+            "translation_direction": "",
+            "translated": "",
+            "pronunciation_ko": "",
+            "last_asked_slot": "",
+            "conversation_ended": True,
+        }
 
     parsed_source, parsed_target = _parse_translation_request(user_message)
 
     source_text = previous_source_text
     target_language = previous_target_language
 
-    if last_asked_slot == "source_text":
-        if parsed_source:
-            source_text = parsed_source
-    elif last_asked_slot == "target_language":
-        if parsed_target:
-            target_language = parsed_target
-    else:
-        if parsed_source:
-            source_text = parsed_source
-        if parsed_target:
-            target_language = parsed_target
+    if parsed_source:
+        source_text = parsed_source
+    elif parsed_target and previous_source_text:
+        source_text = previous_source_text
+
+    if parsed_target:
+        target_language = parsed_target
+    elif parsed_source and previous_target_language:
+        target_language = previous_target_language
 
     return {
         "source_text": source_text,
         "target_language": target_language,
         "last_asked_slot": "",
+        "conversation_ended": False,
     }
 
 
 def collect_source_text_node(state: TranslatorState) -> dict:
     """번역할 원문을 사용자에게 요청하고 응답을 수집한다."""
 
-    user_input = interrupt({"reply": '번역할 문장을 알려주세요. 예: "안녕하세요"'})
+    user_input = interrupt(
+        {"reply": '번역할 문장을 알려주세요. 예: "안녕하세요"\n원하시면 "취소"라고 말씀하셔도 됩니다.'}
+    )
     return {"user_message": user_input, "last_asked_slot": "source_text"}
 
 
 def collect_target_language_node(state: TranslatorState) -> dict:
     """목표 언어를 사용자에게 요청하고 응답을 수집한다."""
 
-    user_input = interrupt({"reply": "어떤 언어로 번역할까요? 영어 또는 일본어 중 하나를 말씀해주세요."})
+    user_input = interrupt(
+        {
+            "reply": (
+                "어떤 언어로 번역할까요? 영어 또는 일본어 중 하나를 말씀해주세요.\n"
+                '원하시면 문장과 언어를 함께 다시 보내거나 "취소"라고 말씀하셔도 됩니다.'
+            )
+        }
+    )
     return {"user_message": user_input, "last_asked_slot": "target_language"}
 
 
@@ -105,6 +127,8 @@ def translate_node(state: TranslatorState) -> dict:
 def _route_after_resolve(state: TranslatorState) -> str:
     """resolve 후 다음 노드를 결정한다."""
 
+    if state.get("conversation_ended"):
+        return END
     if not state.get("source_text"):
         return "collect_source_text"
     if not state.get("target_language"):

@@ -13,6 +13,7 @@ class ChatState(TypedDict, total=False):
     channel_id: str
     user_message: str
     workflow_id: str
+    conversation_ended: bool
 
 
 class TranslatorState(ChatState, total=False):

@@ -138,6 +138,42 @@ def test_double_interrupt_source_then_target():
     assert result["translation_direction"] == "ko→ja"
 
 
+def test_source_prompt_accepts_full_translation_request():
+    """원문 질문에 문장과 언어를 함께 답하면 추가 질문 없이 번역한다."""
+
+    graph = _compile_graph()
+    config = _make_config("source-with-language")
+
+    graph.invoke(
+        {"user_message": "번역해줘", "workflow_id": "translator"},
+        config,
+    )
+
+    result = graph.invoke(Command(resume='"감사합니다"를 영어로 번역해줘'), config)
+
+    assert result["translated"] == "Thank you"
+    assert result["source_text"] == "감사합니다"
+    assert result["target_language"] == "en"
+
+
+def test_stop_message_ends_translation_conversation():
+    """중간 단계에서 stop 의도가 들어오면 정중히 종료한다."""
+
+    graph = _compile_graph()
+    config = _make_config("translator-stop")
+
+    graph.invoke(
+        {"user_message": '"안녕하세요" 번역해줘', "workflow_id": "translator"},
+        config,
+    )
+
+    result = graph.invoke(Command(resume="stop"), config)
+
+    assert result["messages"][-1].content == "번역은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
+    assert result["source_text"] == ""
+    assert result["target_language"] == ""
+
+
 def test_english_translation_request():
     """영문 요청도 올바르게 파싱해 번역을 완료한다."""
 

@@ -25,5 +25,6 @@ def build_graph() -> dict[str, object]:
             ("collect_source_text", "collect_target_language", "언어 없음"),
             ("collect_source_text", "translate", "정보 충분"),
             ("collect_target_language", "translate"),
+            ("translate", "done", "번역 완료"),
         ],
     }

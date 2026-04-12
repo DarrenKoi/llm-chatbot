@@ -116,3 +116,21 @@ def test_asks_duration_when_destination_known_but_no_duration():
     reply = state.tasks[0].interrupts[0].value["reply"]
     assert "제주" in reply
     assert "며칠" in reply
+
+
+def test_stop_message_ends_travel_planner_conversation():
+    """중간 단계에서 stop 의도가 들어오면 여행 계획 수집을 종료한다."""
+
+    graph = _compile_graph()
+    config = _make_config("travel-stop")
+
+    graph.invoke(
+        {"user_message": "여행 계획 짜줘", "workflow_id": "travel_planner"},
+        config,
+    )
+
+    result = graph.invoke(Command(resume="bye"), config)
+
+    assert result["messages"][-1].content == "여행 계획은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
+    assert result["destination"] == ""
+    assert result["travel_style"] == ""

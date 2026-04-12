@@ -9,6 +9,7 @@ import re
 
 from api.mcp.executor import execute_tool_call
 from api.mcp.models import MCPToolCall
+from api.workflows.intent_utils import is_stop_conversation_message
 from api.workflows.models import NodeResult
 from api.workflows.translator.state import TranslatorWorkflowState
 
@@ -60,6 +61,7 @@ _FOLLOW_UP_SOURCE_TOKENS = {
     "이번에는",
     "정도",
 }
+_STOP_REPLY = "번역은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
 
 
 def entry_node(state: TranslatorWorkflowState, user_message: str) -> NodeResult:
@@ -128,30 +130,38 @@ def translate_node(state: TranslatorWorkflowState, user_message: str) -> NodeRes
 
 
 def _resolve_translation_request(state: TranslatorWorkflowState, user_message: str) -> NodeResult:
+    if is_stop_conversation_message(user_message):
+        return NodeResult(
+            action="complete",
+            reply=_STOP_REPLY,
+            next_node_id="entry",
+            data_updates={
+                "source_text": "",
+                "source_language": "",
+                "target_language": "",
+                "translated": "",
+                "pronunciation_ko": "",
+                "translation_direction": "",
+                "last_asked_slot": "",
+            },
+        )
+
     previous_source_text = state.source_text
     previous_target_language = state.target_language
-    last_asked_slot = state.last_asked_slot
     source_text = previous_source_text
     target_language = previous_target_language
 
     parsed_source_text, parsed_target_language = _parse_translation_request(user_message)
 
-    if last_asked_slot == "source_text":
-        if parsed_source_text:
-            source_text = parsed_source_text
-    elif last_asked_slot == "target_language":
-        if parsed_target_language:
-            target_language = parsed_target_language
-    elif state.status == "completed":
+    if parsed_source_text:
         source_text = parsed_source_text
+    elif state.status == "completed" and parsed_target_language and previous_source_text:
+        source_text = previous_source_text
+
+    if parsed_target_language:
         target_language = parsed_target_language
-        if not source_text and target_language and previous_source_text:
-            source_text = previous_source_text
-    else:
-        if parsed_source_text:
-            source_text = parsed_source_text
-        if parsed_target_language:
-            target_language = parsed_target_language
+    elif state.status == "completed" and parsed_source_text and previous_target_language:
+        target_language = previous_target_language
 
     data_updates = {
         "source_text": source_text,
@@ -161,7 +171,7 @@ def _resolve_translation_request(state: TranslatorWorkflowState, user_message: s
     if not source_text:
         return NodeResult(
             action="wait",
-            reply='번역할 문장을 알려주세요. 예: "안녕하세요"',
+            reply=('번역할 문장을 알려주세요. 예: "안녕하세요"\n원하시면 "취소"라고 말씀하셔도 됩니다.'),
             next_node_id="collect_source_text",
             data_updates={**data_updates, "last_asked_slot": "source_text"},
         )
@@ -169,7 +179,10 @@ def _resolve_translation_request(state: TranslatorWorkflowState, user_message: s
     if not target_language:
         return NodeResult(
             action="wait",
-            reply="어떤 언어로 번역할까요? 영어 또는 일본어 중 하나를 말씀해주세요.",
+            reply=(
+                "어떤 언어로 번역할까요? 영어 또는 일본어 중 하나를 말씀해주세요.\n"
+                '원하시면 문장과 언어를 함께 다시 보내거나 "취소"라고 말씀하셔도 됩니다.'
+            ),
             next_node_id="collect_target_language",
             data_updates={**data_updates, "last_asked_slot": "target_language"},
         )
