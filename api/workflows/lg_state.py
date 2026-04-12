@@ -14,6 +14,7 @@ class ChatState(TypedDict, total=False):
     user_message: str
     workflow_id: str
     conversation_ended: bool
+    pending_reply: str
 
 
 class TranslatorState(ChatState, total=False):

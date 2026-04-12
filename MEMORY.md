@@ -70,3 +70,10 @@
 - LangGraph 체크포인트는 MongoDB `checkpoints` / `checkpoint_writes` 컬렉션을 사용하며 기본 TTL은 3일(`CHECKPOINT_TTL_SECONDS=259200`)이다.
 - 대화 이력 보관용 컬렉션은 `conversation_history`를 기본값으로 사용하고, 기본 TTL 없이 영구 보관한다(`CONVERSATION_TTL_SECONDS=0`).
 - 체크포인트는 단기 실행 상태와 resume 용도, 대화 이력 컬렉션은 감사/모니터링/장기 조회 용도로 분리한다.
+
+## Workflow 결정 패턴
+- `translator`와 `travel_planner` 계열 워크플로는 규칙 기반 슬롯 파싱 대신 LLM 결정 레이어를 우선 사용한다.
+- LLM 결정 레이어는 `api/llm/service.py`의 `generate_json_reply()`를 통해 현재 `LLM_MODEL`로 JSON 액션을 반환받는다.
+- 워크플로 노드는 LLM이 판단한 `action`만 해석하고, 실제 실행(번역 도구 호출, 추천 문구 생성, 계획 생성)은 결정적 코드 경로로 유지한다.
+- LLM 호출 실패나 JSON 파싱 실패 시에는 워크플로 전용 fallback 규칙으로 안전하게 복구한다.
+- devtools 예제 워크플로도 production과 동일한 LLM 결정 모듈을 재사용해 흐름 차이를 최소화한다.

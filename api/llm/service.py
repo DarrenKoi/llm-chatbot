@@ -1,3 +1,5 @@
+import json
+import re
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
@@ -9,6 +11,9 @@ from api.llm.prompt import get_system_prompt
 
 class LLMServiceError(RuntimeError):
     """Raised when the OpenAI-compatible LLM endpoint cannot provide a reply."""
+
+
+_JSON_BLOCK_PATTERN = re.compile(r"```(?:json)?\s*(\{.*\})\s*```", re.DOTALL)
 
 
 def generate_reply(
@@ -32,6 +37,33 @@ def generate_reply(
     if not reply:
         raise LLMServiceError("LLM reply is empty.")
     return reply
+
+
+def generate_json_reply(
+    *,
+    system_prompt: str,
+    user_prompt: str,
+) -> dict[str, Any]:
+    """Call the configured LLM and parse a single JSON object reply."""
+
+    llm = _get_llm()
+    messages = [
+        SystemMessage(content=system_prompt.strip()),
+        HumanMessage(content=user_prompt.strip()),
+    ]
+    try:
+        response = llm.invoke(messages)
+    except Exception as exc:
+        raise LLMServiceError(f"LLM request failed: {exc}") from exc
+
+    raw_reply = _extract_content(response.content)
+    if not raw_reply:
+        raise LLMServiceError("LLM JSON reply is empty.")
+
+    try:
+        return _extract_json_object(raw_reply)
+    except ValueError as exc:
+        raise LLMServiceError(f"LLM JSON reply is invalid: {exc}") from exc
 
 
 def _get_llm() -> ChatOpenAI:
@@ -95,3 +127,25 @@ def _extract_content(content: Any) -> str:
         return "".join(parts).strip()
 
     return ""
+
+
+def _extract_json_object(raw_text: str) -> dict[str, Any]:
+    stripped = raw_text.strip()
+
+    match = _JSON_BLOCK_PATTERN.search(stripped)
+    if match:
+        stripped = match.group(1).strip()
+    elif not stripped.startswith("{"):
+        start = stripped.find("{")
+        end = stripped.rfind("}")
+        if start >= 0 and end > start:
+            stripped = stripped[start : end + 1]
+
+    try:
+        payload = json.loads(stripped)
+    except json.JSONDecodeError as exc:
+        raise ValueError("expected a JSON object") from exc
+
+    if not isinstance(payload, dict):
+        raise ValueError("expected a JSON object")
+    return payload

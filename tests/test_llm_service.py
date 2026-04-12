@@ -1,8 +1,9 @@
+import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from api import config
 from api.llm.prompt import DEFAULT_SYSTEM_PROMPT, get_system_prompt
-from api.llm.service import _build_messages, _extract_content
+from api.llm.service import LLMServiceError, _build_messages, _extract_content, generate_json_reply
 
 
 def test_build_messages_includes_system_prompt_and_history(monkeypatch):
@@ -85,3 +86,41 @@ def test_extract_content_supports_string_and_list():
         == "안녕하세요"
     )
     assert _extract_content(None) == ""
+
+
+def test_generate_json_reply_parses_json_object(mocker, monkeypatch):
+    monkeypatch.setattr("api.config.LLM_BASE_URL", "https://llm.example.com/v1")
+    monkeypatch.setattr("api.config.LLM_MODEL", "gpt-test")
+
+    mock_llm = mocker.Mock()
+    mock_llm.invoke.return_value = mocker.Mock(content='{"action":"translate","target_language":"en"}')
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    payload = generate_json_reply(system_prompt="system", user_prompt="user")
+
+    assert payload == {"action": "translate", "target_language": "en"}
+
+
+def test_generate_json_reply_accepts_fenced_json(mocker, monkeypatch):
+    monkeypatch.setattr("api.config.LLM_BASE_URL", "https://llm.example.com/v1")
+    monkeypatch.setattr("api.config.LLM_MODEL", "gpt-test")
+
+    mock_llm = mocker.Mock()
+    mock_llm.invoke.return_value = mocker.Mock(content='```json\n{"action":"ask_user"}\n```')
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    payload = generate_json_reply(system_prompt="system", user_prompt="user")
+
+    assert payload == {"action": "ask_user"}
+
+
+def test_generate_json_reply_raises_for_invalid_json(mocker, monkeypatch):
+    monkeypatch.setattr("api.config.LLM_BASE_URL", "https://llm.example.com/v1")
+    monkeypatch.setattr("api.config.LLM_MODEL", "gpt-test")
+
+    mock_llm = mocker.Mock()
+    mock_llm.invoke.return_value = mocker.Mock(content="not json")
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    with pytest.raises(LLMServiceError, match="LLM JSON reply is invalid"):
+        generate_json_reply(system_prompt="system", user_prompt="user")

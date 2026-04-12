@@ -7,12 +7,11 @@
 import logging
 import re
 
-from api.workflows.intent_utils import is_stop_conversation_message
 from api.workflows.models import NodeResult
+from api.workflows.travel_planner.llm_decision import decide_travel_planner_turn
 from api.workflows.travel_planner.state import TravelPlannerState
 
 log = logging.getLogger(__name__)
-_STOP_REPLY = "여행 계획은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
 
 _DESTINATION_ALIASES = {
     "서울": "서울",
@@ -205,10 +204,20 @@ def build_plan_node(state: TravelPlannerState, user_message: str) -> NodeResult:
 
 
 def _resolve_request(state: TravelPlannerState, user_message: str) -> NodeResult:
-    if is_stop_conversation_message(user_message):
+    decision = decide_travel_planner_turn(
+        user_message=user_message,
+        destination=state.destination,
+        travel_style=state.travel_style,
+        duration_text=state.duration_text,
+        companion_type=state.companion_type,
+        last_asked_slot=state.last_asked_slot,
+        status=state.status,
+    )
+
+    if decision.action == "end_conversation":
         return NodeResult(
             action="complete",
-            reply=_STOP_REPLY,
+            reply=decision.reply,
             next_node_id="entry",
             data_updates={
                 "destination": "",
@@ -221,64 +230,36 @@ def _resolve_request(state: TravelPlannerState, user_message: str) -> NodeResult
             },
         )
 
-    current_destination = state.destination
-    current_style = state.travel_style
-    current_duration = state.duration_text
-    current_companion = state.companion_type
-
-    parsed_destination, parsed_style, parsed_duration, parsed_companion = _parse_request(user_message)
-
-    if parsed_destination:
-        current_destination = parsed_destination
-    if parsed_style:
-        current_style = parsed_style
-    if parsed_duration:
-        current_duration = parsed_duration
-    if parsed_companion:
-        current_companion = parsed_companion
-
     log.info(
-        "[travel_planner] 요청 해석: destination=%s style=%s duration=%s companion=%s message=%s",
-        current_destination,
-        current_style,
-        current_duration,
-        current_companion,
+        "[travel_planner] LLM 판단: action=%s destination=%s style=%s duration=%s companion=%s message=%s",
+        decision.action,
+        decision.destination,
+        decision.travel_style,
+        decision.duration_text,
+        decision.companion_type,
         user_message,
     )
 
     base_updates = {
-        "destination": current_destination,
-        "travel_style": current_style,
-        "duration_text": current_duration,
-        "companion_type": current_companion,
+        "destination": decision.destination,
+        "travel_style": decision.travel_style,
+        "duration_text": decision.duration_text,
+        "companion_type": decision.companion_type,
     }
 
-    if not current_destination:
-        if not current_style:
-            return NodeResult(
-                action="wait",
-                reply=(
-                    "여행 계획을 같이 잡아볼게요. 어떤 스타일의 여행을 원하시나요?\n"
-                    '예: 도시, 휴양, 자연, 먹거리\n원하시면 "취소"라고 말씀하셔도 됩니다.'
-                ),
-                next_node_id="collect_preference",
-                data_updates={**base_updates, "last_asked_slot": "travel_style"},
-            )
+    if decision.action == "ask_user":
+        return NodeResult(
+            action="wait",
+            reply=decision.reply,
+            next_node_id=("collect_trip_context" if decision.missing_slot == "duration_text" else "collect_preference"),
+            data_updates={**base_updates, "last_asked_slot": decision.missing_slot},
+        )
+
+    if decision.action == "recommend_destination":
         return NodeResult(
             action="resume",
             next_node_id="recommend_destination",
             data_updates={**base_updates, "last_asked_slot": ""},
-        )
-
-    if not current_duration:
-        return NodeResult(
-            action="wait",
-            reply=(
-                f"{current_destination} 좋습니다. 일정은 며칠인가요? 예: 2박 3일\n"
-                '원하시면 "취소"라고 말씀하셔도 됩니다.'
-            ),
-            next_node_id="collect_trip_context",
-            data_updates={**base_updates, "last_asked_slot": "duration_text"},
         )
 
     return NodeResult(
