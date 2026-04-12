@@ -49,12 +49,11 @@ def test_get_checkpointer_returns_mongo_saver_when_uri_set(monkeypatch):
 
     mock_client = MagicMock()
     with (
-        patch("pymongo.MongoClient", return_value=mock_client),
+        patch("api.mongo.get_mongo_client", return_value=mock_client),
         patch("langgraph.checkpoint.mongodb.MongoDBSaver", autospec=True) as mock_saver_cls,
     ):
         checkpointer = get_checkpointer()
         assert checkpointer is mock_saver_cls.return_value
-        mock_client.admin.command.assert_called_once_with("ping")
         mock_saver_cls.assert_called_once_with(
             mock_client,
             db_name="test-db",

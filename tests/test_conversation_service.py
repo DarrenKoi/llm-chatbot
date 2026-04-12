@@ -127,7 +127,7 @@ class TestMongoBackend:
         mock_client = MagicMock()
         mock_client.__getitem__ = MagicMock(return_value=mock_db)
 
-        with patch("pymongo.MongoClient", return_value=mock_client):
+        with patch("api.mongo.get_mongo_client", return_value=mock_client):
             import importlib
 
             import api.conversation_service as mod
@@ -165,7 +165,7 @@ class TestMongoBackend:
         mock_client = MagicMock()
         mock_client.__getitem__ = MagicMock(return_value=mock_db)
 
-        with patch("pymongo.MongoClient", return_value=mock_client):
+        with patch("api.mongo.get_mongo_client", return_value=mock_client):
             import importlib
 
             import api.conversation_service as mod
@@ -201,7 +201,7 @@ class TestMongoBackend:
         mock_client = MagicMock()
         mock_client.__getitem__ = MagicMock(return_value=mock_db)
 
-        with patch("pymongo.MongoClient", return_value=mock_client):
+        with patch("api.mongo.get_mongo_client", return_value=mock_client):
             import importlib
 
             import api.conversation_service as mod
@@ -236,7 +236,7 @@ class TestMongoBackend:
         mock_client = MagicMock()
         mock_client.__getitem__ = MagicMock(return_value=mock_db)
 
-        with patch("pymongo.MongoClient", return_value=mock_client):
+        with patch("api.mongo.get_mongo_client", return_value=mock_client):
             import importlib
 
             import api.conversation_service as mod
@@ -264,7 +264,7 @@ class TestMongoBackend:
         mock_client = MagicMock()
         mock_client.__getitem__ = MagicMock(return_value=mock_db)
 
-        with patch("pymongo.MongoClient", return_value=mock_client):
+        with patch("api.mongo.get_mongo_client", return_value=mock_client):
             import importlib
 
             import api.conversation_service as mod
@@ -286,11 +286,7 @@ class TestMongoBackend:
     def test_raises_when_configured_mongo_is_unavailable(self):
         from pymongo.errors import ConnectionFailure
 
-        with patch("pymongo.MongoClient") as mock_cls:
-            mock_client = MagicMock()
-            mock_client.admin.command.side_effect = ConnectionFailure("unreachable")
-            mock_cls.return_value = mock_client
-
+        with patch("api.mongo.get_mongo_client", side_effect=ConnectionFailure("unreachable")):
             import importlib
 
             import api.conversation_service as mod
@@ -307,10 +303,8 @@ class TestMongoBackend:
     @patch.object(config, "AFM_DB_NAME", "test-db")
     @patch.object(config, "AFM_MONGO_URI", "mongodb://fake:27017")
     def test_raises_when_mongo_collection_names_overlap(self):
-        with patch("pymongo.MongoClient") as mock_cls:
-            mock_client = MagicMock()
-            mock_cls.return_value = mock_client
-
+        mock_client = MagicMock()
+        with patch("api.mongo.get_mongo_client", return_value=mock_client):
             import importlib
 
             import api.conversation_service as mod

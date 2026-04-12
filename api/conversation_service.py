@@ -21,11 +21,10 @@ def _get_backend():
         return _backend
     backend_name = _resolve_backend_name()
     if backend_name == "mongo":
-        from pymongo import MongoClient
+        from api.mongo import get_mongo_client
 
         try:
-            client = MongoClient(config.AFM_MONGO_URI, serverSelectionTimeoutMS=3000)
-            client.admin.command("ping")
+            client = get_mongo_client()
             db = client[config.AFM_DB_NAME]
             _backend = _MongoBackend(db)
         except Exception as exc:

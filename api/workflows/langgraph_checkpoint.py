@@ -60,11 +60,11 @@ def get_checkpointer(*, persistent: bool = True):
 
     if persistent and config.AFM_MONGO_URI:
         from langgraph.checkpoint.mongodb import MongoDBSaver
-        from pymongo import MongoClient
+
+        from api.mongo import get_mongo_client
 
         collections = validate_mongo_storage_config()
-        client = MongoClient(config.AFM_MONGO_URI, serverSelectionTimeoutMS=3000)
-        client.admin.command("ping")
+        client = get_mongo_client()
         return MongoDBSaver(
             client,
             db_name=config.AFM_DB_NAME,
