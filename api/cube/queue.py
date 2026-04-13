@@ -47,7 +47,9 @@ def _get_backend() -> "_RedisCubeQueueBackend":
     try:
         import redis
 
-        client = redis.from_url(redis_url, socket_connect_timeout=5, socket_timeout=5)
+        block_timeout = config.CUBE_QUEUE_BLOCK_TIMEOUT_SECONDS
+        socket_timeout = block_timeout + 5
+        client = redis.from_url(redis_url, socket_connect_timeout=5, socket_timeout=socket_timeout)
         client.ping()
     except Exception as exc:
         raise CubeQueueError(f"Cube queue Redis connection failed: {exc}") from exc
