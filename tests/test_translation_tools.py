@@ -1,15 +1,15 @@
 """번역 도구의 회귀 동작을 검증한다."""
 
 import pytest
+from langgraph.checkpoint.memory import MemorySaver
 
 from api.llm.service import LLMServiceError
 from api.mcp import local_tools
 from api.mcp import registry as mcp_registry
+from api.workflows.translator.llm_decision import TranslationTurnDecision
 from api.workflows.translator.tools import _translate as translate_tool
 from api.workflows.translator.translation_engine import translate_text
-from devtools.workflows.translator_example.graph import build_graph as build_translator_example_graph
-from devtools.workflows.translator_example.nodes import translate_node as translate_example_node
-from devtools.workflows.translator_example.state import TranslatorExampleState
+from devtools.workflows.translator_example import build_lg_graph as build_translator_example_graph
 
 
 @pytest.fixture(autouse=True)
@@ -59,19 +59,26 @@ def test_translator_example_returns_explicit_error_when_llm_fails(monkeypatch):
         raise LLMServiceError("endpoint unavailable")
 
     monkeypatch.setattr("api.workflows.translator.translation_engine.generate_json_reply", _raise_llm_error)
-    build_translator_example_graph()
+    monkeypatch.setattr(
+        "devtools.workflows.translator_example.lg_graph.decide_translation_turn",
+        lambda **kwargs: TranslationTurnDecision(
+            action="translate",
+            source_text=kwargs["source_text"],
+            target_language=kwargs["target_language"],
+        ),
+    )
+    graph = build_translator_example_graph().compile(checkpointer=MemorySaver())
 
-    state = TranslatorExampleState(
-        user_id="dev-user",
-        workflow_id="translator_example",
-        node_id="translate",
-        source_text="How are you?",
-        target_language="ja",
+    result = graph.invoke(
+        {
+            "user_id": "dev-user",
+            "workflow_id": "translator_example",
+            "user_message": "ignored",
+            "source_text": "How are you?",
+            "target_language": "ja",
+        },
+        {"configurable": {"thread_id": "translator-example-error"}},
     )
 
-    result = translate_example_node(state, "ignored")
-
-    assert result.action == "complete"
-    assert result.next_node_id == "entry"
-    assert "LLM 번역 설정" in result.reply
-    assert result.data_updates["translated"] == ""
+    assert "LLM 번역 설정" in result["messages"][-1].content
+    assert result["translated"] == ""

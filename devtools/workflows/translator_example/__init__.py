@@ -4,8 +4,15 @@
 동일한 파일 분리를 유지한 예제다.
 """
 
-from .graph import build_graph
-from .state import TranslatorExampleState
+
+def build_lg_graph():
+    """translator_example LangGraph 빌더를 반환한다."""
+
+    from .lg_graph import build_lg_graph as builder
+    from .tools import register_translator_tools
+
+    register_translator_tools()
+    return builder()
 
 
 def get_workflow_definition() -> dict[str, object]:
@@ -13,7 +20,5 @@ def get_workflow_definition() -> dict[str, object]:
 
     return {
         "workflow_id": "translator_example",
-        "entry_node_id": "entry",
-        "build_graph": build_graph,
-        "state_cls": TranslatorExampleState,
+        "build_lg_graph": build_lg_graph,
     }

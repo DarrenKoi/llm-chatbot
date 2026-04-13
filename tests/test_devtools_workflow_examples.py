@@ -1,98 +1,87 @@
-"""devtools 워크플로 예제의 회귀 동작을 검증한다."""
+"""devtools LangGraph 워크플로 예제의 회귀 동작을 검증한다."""
 
-from devtools.workflows.translator_example.graph import build_graph as build_translator_graph
-from devtools.workflows.translator_example.nodes import collect_source_text_node as translator_collect_source_text_node
-from devtools.workflows.translator_example.nodes import (
-    collect_target_language_node as translator_collect_target_language_node,
-)
-from devtools.workflows.translator_example.state import TranslatorExampleState
-from devtools.workflows.travel_planner_example.graph import build_graph as build_travel_graph
-from devtools.workflows.travel_planner_example.nodes import build_plan_node as travel_build_plan_node
-from devtools.workflows.travel_planner_example.nodes import collect_preference_node as travel_collect_preference_node
-from devtools.workflows.travel_planner_example.state import TravelPlannerExampleState
+from unittest.mock import patch
+
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.types import Command
+
+from devtools.workflows.translator_example import build_lg_graph as build_translator_graph
+from devtools.workflows.travel_planner_example import build_lg_graph as build_travel_graph
+
+
+def _compile_graph(builder):
+    return builder().compile(checkpointer=MemorySaver())
+
+
+def _make_config(thread_id: str) -> dict[str, dict[str, str]]:
+    return {"configurable": {"thread_id": thread_id}}
 
 
 def test_translator_example_accepts_full_answer_while_waiting_for_source():
-    """문장과 언어를 한 번에 다시 보내면 곧바로 번역 단계로 넘어간다."""
+    graph = _compile_graph(build_translator_graph)
+    config = _make_config("translator-source")
 
-    state = TranslatorExampleState(
-        user_id="dev-user",
-        workflow_id="translator_example",
-        node_id="collect_source_text",
-        status="waiting_user_input",
-    )
+    graph.invoke({"user_message": "번역해줘", "user_id": "dev-user", "workflow_id": "translator_example"}, config)
 
-    result = translator_collect_source_text_node(state, '"감사합니다"를 영어로 번역해줘')
+    result = graph.invoke(Command(resume='"감사합니다"를 영어로 번역해줘'), config)
 
-    assert result.action == "resume"
-    assert result.next_node_id == "translate"
-    assert result.data_updates["source_text"] == "감사합니다"
-    assert result.data_updates["target_language"] == "en"
+    assert result["messages"][-1].content == "Thank you"
 
 
 def test_translator_example_stop_message_completes_cleanly():
-    """stop 의도가 들어오면 예제 워크플로도 종료 응답을 반환한다."""
+    graph = _compile_graph(build_translator_graph)
+    config = _make_config("translator-stop")
 
-    state = TranslatorExampleState(
-        user_id="dev-user",
-        workflow_id="translator_example",
-        node_id="collect_target_language",
-        status="waiting_user_input",
-        source_text="안녕하세요",
-        last_asked_slot="target_language",
+    graph.invoke(
+        {"user_message": "안녕하세요를 번역해줘", "user_id": "dev-user", "workflow_id": "translator_example"},
+        config,
     )
 
-    result = translator_collect_target_language_node(state, "취소")
+    result = graph.invoke(Command(resume="취소"), config)
 
-    assert result.action == "complete"
-    assert result.next_node_id == "entry"
-    assert result.reply == "번역은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
-    assert result.data_updates["source_text"] == ""
+    assert result["messages"][-1].content == "번역은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
 
 
-def test_travel_planner_example_complete_resets_to_entry():
-    """완료 후 다음 턴이 새 요청으로 시작되도록 entry로 되돌린다."""
+def test_travel_planner_example_completes_after_collecting_missing_info():
+    graph = _compile_graph(build_travel_graph)
+    config = _make_config("travel-complete")
 
-    state = TravelPlannerExampleState(
-        user_id="dev-user",
-        workflow_id="travel_planner_example",
-        node_id="build_plan",
-        destination="오사카",
-        travel_style="먹거리",
-        duration_text="2박 3일",
-        companion_type="친구",
+    graph.invoke(
+        {"user_message": "오사카 여행 계획 짜줘", "user_id": "dev-user", "workflow_id": "travel_planner_example"},
+        config,
     )
 
-    result = travel_build_plan_node(state, "ignored")
+    result = graph.invoke(Command(resume="2박 3일"), config)
 
-    assert result.action == "complete"
-    assert result.next_node_id == "entry"
+    assert "오사카 2박 3일 여행" in result["messages"][-1].content
 
 
 def test_travel_planner_example_stop_message_completes_cleanly():
-    """여행 계획 예제도 stop 의도를 종료로 처리한다."""
+    graph = _compile_graph(build_travel_graph)
+    config = _make_config("travel-stop")
 
-    state = TravelPlannerExampleState(
-        user_id="dev-user",
-        workflow_id="travel_planner_example",
-        node_id="collect_preference",
-        status="waiting_user_input",
-        last_asked_slot="travel_style",
+    graph.invoke(
+        {"user_message": "여행 계획 짜줘", "user_id": "dev-user", "workflow_id": "travel_planner_example"},
+        config,
     )
 
-    result = travel_collect_preference_node(state, "bye")
+    result = graph.invoke(Command(resume="bye"), config)
 
-    assert result.action == "complete"
-    assert result.next_node_id == "entry"
-    assert result.reply == "여행 계획은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
-    assert result.data_updates["travel_style"] == ""
+    assert result["messages"][-1].content == "여행 계획은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
 
 
-def test_devtools_graphs_expose_done_edges():
-    """예제 그래프가 종료 지점을 시각적으로 드러낸다."""
+@patch("devtools.workflows.travel_planner_example.lg_graph.recommend_destinations", return_value=["제주", "삿포로"])
+def test_travel_planner_example_interrupts_with_recommendation(mock_recommend):
+    del mock_recommend
 
-    translator_edges = build_translator_graph()["edges"]
-    travel_edges = build_travel_graph()["edges"]
+    graph = _compile_graph(build_travel_graph)
+    config = _make_config("travel-recommend")
 
-    assert ("translate", "done", "번역 완료") in translator_edges
-    assert ("build_plan", "done", "계획 완료") in travel_edges
+    graph.invoke(
+        {"user_message": "휴양 여행 계획 짜줘", "user_id": "dev-user", "workflow_id": "travel_planner_example"},
+        config,
+    )
+
+    state = graph.get_state(config)
+    assert state.tasks
+    assert "제주, 삿포로" in state.tasks[0].interrupts[0].value["reply"]

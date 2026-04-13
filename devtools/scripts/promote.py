@@ -4,7 +4,6 @@
     python -m devtools.scripts.promote my_workflow
 """
 
-import json
 import re
 import shutil
 import sys
@@ -16,7 +15,6 @@ DEV_WORKFLOWS_DIR = PROJECT_ROOT / "devtools" / "workflows"
 DEV_MCP_DIR = PROJECT_ROOT / "devtools" / "mcp"
 PROD_WORKFLOWS_DIR = PROJECT_ROOT / "api" / "workflows"
 PROD_MCP_DIR = PROJECT_ROOT / "api" / "mcp"
-DEV_STATE_DIR = PROJECT_ROOT / "devtools" / "var" / "workflow_state"
 
 WORKFLOW_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -80,7 +78,7 @@ def promote(workflow_id: str) -> None:
     try:
         definition = _validate_promoted_workflow(workflow_id)
         print(f"  workflow_id: {definition.get('workflow_id')}")
-        print(f"  entry_node_id: {definition.get('entry_node_id')}")
+        print(f"  build_lg_graph: {callable(definition.get('build_lg_graph'))}")
         print("  import 검증 통과")
     except Exception as exc:
         # 검증 실패 시 롤백
@@ -97,9 +95,6 @@ def promote(workflow_id: str) -> None:
     if mcp_source:
         _remove_path(mcp_source)
         print(f"dev MCP 삭제 완료: {mcp_source}")
-
-    # 6. Dev state 정리
-    _cleanup_dev_state(workflow_id)
 
     print()
     print("다음 단계:")
@@ -186,26 +181,6 @@ def _resolve_prod_mcp_target_for_validation(workflow_id: str) -> Path:
     if file_candidate.exists():
         return file_candidate
     return dir_candidate
-
-
-def _cleanup_dev_state(workflow_id: str) -> None:
-    """dev 전용 state 파일을 정리한다."""
-
-    if not DEV_STATE_DIR.exists():
-        return
-
-    cleaned = 0
-    for state_file in DEV_STATE_DIR.glob("*.json"):
-        try:
-            data = json.loads(state_file.read_text(encoding="utf-8"))
-            if data.get("workflow_id") == workflow_id:
-                state_file.unlink()
-                cleaned += 1
-        except Exception:
-            pass
-
-    if cleaned:
-        print(f"dev state {cleaned}개 정리 완료.")
 
 
 def main() -> None:

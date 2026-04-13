@@ -125,8 +125,8 @@ LangGraph 기반 대화 처리 계층이다.
 - `registry.py`: workflow 패키지를 동적 탐색하고 `handoff_keywords`, `tool_tags`, `state_cls`를 정규화한다.
 - `lg_state.py`: LangGraph에서 사용하는 `TypedDict` 상태 정의 모음이다.
 - `langgraph_checkpoint.py`: thread_id 생성과 MongoDB/Memory 체크포인터 선택을 담당한다.
-- `models.py`: `WorkflowReply`, 레거시 호환용 `WorkflowState`, `NodeResult` 등을 정의한다.
-- `state_service.py`: 현재 production 본선이 아니라 devtools runner 호환용 상태 저장 계층이다.
+- `models.py`: `WorkflowReply`와 일부 레거시 호환용 dataclass를 정의한다.
+- `state_service.py`: 과거 파일 기반 상태 포맷을 다루는 보조 유틸리티다. 현재 production과 devtools runner 본선은 LangGraph 체크포인터를 사용한다.
 
 ## 워크플로우 디렉터리
 
@@ -143,7 +143,7 @@ api/workflows/
 - `travel_planner/`: 여행 목적지/스타일/일정을 수집하고 규칙 기반 추천을 만든다.
 - `chart_maker/`: 차트 유형과 입력 데이터를 수집한 뒤 차트 스펙 스켈레톤을 만든다.
 
-현재 본선 흐름은 모두 LangGraph 기준이다. 예전 `build_graph`/`NodeResult` 기반 구조는 devtools 호환과 workflow 시각화 페이지 지원 때문에 일부 정의만 남아 있다.
+현재 본선 흐름은 모두 LangGraph 기준이다. 예전 `build_graph`/`NodeResult` 기반 구조는 일부 레거시 보조 코드에만 남아 있다.
 
 ## 메시지 플로우
 

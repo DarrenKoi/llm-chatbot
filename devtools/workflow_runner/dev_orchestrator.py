@@ -1,49 +1,43 @@
-"""로컬 개발용 워크플로 오케스트레이터.
-
-Production orchestrator의 run_graph()와 동일한 실행 루프를 사용하되,
-각 step마다 trace 데이터를 수집하여 dev UI에서 확인할 수 있게 한다.
-"""
+"""로컬 개발용 LangGraph 워크플로 오케스트레이터."""
 
 import importlib
 import json
 import logging
 import sys
 import time
-from dataclasses import asdict
+from collections.abc import Mapping, Sequence
+from typing import Any
+
+from langchain_core.messages import BaseMessage
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.types import Command
 
 from api import conversation_service
-from api.workflows.models import NodeResult, WorkflowState
 from api.workflows.registry import discover_workflows
-from api.workflows.state_service import (
-    build_state,
-    clear_state,
-    load_state,
-    register_state_class,
-    save_state,
-)
 from devtools.workflow_runner.identity import get_default_dev_user_id
 
 log = logging.getLogger(__name__)
 
-MAX_RESUME_STEPS = 20
+_dev_workflows: dict[str, dict[str, object]] | None = None
+_compiled_graphs: dict[str, Any] = {}
+_checkpointers: dict[str, MemorySaver] = {}
+_thread_generations: dict[tuple[str, str], int] = {}
 
-_dev_workflows: dict[str, dict] | None = None
 
-
-def load_dev_workflows(*, force_reload: bool = False) -> dict[str, dict]:
-    """devtools/workflows/ 패키지에서 워크플로를 탐색하고 state class를 등록한다."""
+def load_dev_workflows(*, force_reload: bool = False) -> dict[str, dict[str, object]]:
+    """devtools/workflows 패키지에서 LangGraph 워크플로를 탐색한다."""
 
     global _dev_workflows
 
-    if force_reload or _dev_workflows is None:
-        if force_reload:
-            _invalidate_dev_workflow_modules()
+    if force_reload:
+        _invalidate_dev_workflow_modules()
+        _compiled_graphs.clear()
+        _checkpointers.clear()
+        _thread_generations.clear()
+        _dev_workflows = None
 
+    if _dev_workflows is None:
         _dev_workflows = discover_workflows(package_name="devtools.workflows")
-        for workflow_id, definition in _dev_workflows.items():
-            state_cls = definition.get("state_cls", WorkflowState)
-            register_state_class(workflow_id, state_cls)
-            log.info("dev workflow 등록: %s (state_cls=%s)", workflow_id, state_cls.__name__)
 
     return _dev_workflows
 
@@ -61,7 +55,6 @@ def _invalidate_dev_workflow_modules() -> None:
     for key in stale_keys:
         del sys.modules[key]
 
-    # devtools.workflows 패키지 자체도 재로드
     pkg = sys.modules.get("devtools.workflows")
     if pkg is not None:
         importlib.reload(pkg)
@@ -77,7 +70,7 @@ def list_dev_workflow_ids() -> list[str]:
     return sorted(load_dev_workflows().keys())
 
 
-def get_dev_workflow(workflow_id: str) -> dict:
+def get_dev_workflow(workflow_id: str) -> dict[str, object]:
     """dev workflow 정의를 반환한다."""
 
     workflows = load_dev_workflows()
@@ -87,193 +80,60 @@ def get_dev_workflow(workflow_id: str) -> dict:
         raise KeyError(f"등록되지 않은 dev workflow입니다: {workflow_id}") from exc
 
 
-def run_graph_with_trace(
-    graph: dict,
-    state: WorkflowState,
-    user_message: str,
-) -> tuple[str, list[dict]]:
-    """run_graph와 동일한 실행 루프 + step별 trace 수집.
+def _get_compiled_graph(workflow_id: str):
+    graph = _compiled_graphs.get(workflow_id)
+    if graph is not None:
+        return graph
 
-    Production의 handoff/parent-restore 로직도 포함하여
-    로컬에서 다중 워크플로 구성을 정확히 검증할 수 있다.
-
-    Returns:
-        (reply, trace) 튜플. trace는 step별 실행 정보 리스트.
-    """
-
-    nodes = graph["nodes"]
-    reply = ""
-    trace: list[dict] = []
-    last_result: NodeResult | None = None
-
-    for step in range(MAX_RESUME_STEPS):
-        node_fn = nodes.get(state.node_id)
-        if node_fn is None:
-            log.warning("노드를 찾을 수 없습니다: %s", state.node_id)
-            trace.append(
-                {
-                    "step": step,
-                    "node_id": state.node_id,
-                    "workflow_id": state.workflow_id,
-                    "error": f"노드를 찾을 수 없음: {state.node_id}",
-                }
-            )
-            break
-
-        current_node_id = state.node_id
-        start_time = time.perf_counter()
-
-        try:
-            result = node_fn(state, user_message)
-        except Exception as exc:
-            elapsed_ms = int((time.perf_counter() - start_time) * 1000)
-            trace.append(
-                {
-                    "step": step,
-                    "node_id": current_node_id,
-                    "workflow_id": state.workflow_id,
-                    "error": str(exc),
-                    "elapsed_ms": elapsed_ms,
-                }
-            )
-            raise
-
-        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
-        last_result = result
-        _apply_result(state, result)
-
-        trace.append(
-            {
-                "step": step,
-                "node_id": current_node_id,
-                "workflow_id": state.workflow_id,
-                "action": result.action,
-                "reply_preview": result.reply[:100] if result.reply else "",
-                "next_node_id": result.next_node_id,
-                "next_workflow_id": result.next_workflow_id,
-                "data_updates": sorted(result.data_updates.keys()),
-                "elapsed_ms": elapsed_ms,
-                "state_snapshot": _serialize_state_safe(state),
-            }
-        )
-
-        if result.reply:
-            reply = result.reply
-
-        # handoff: 대상 워크플로로 전환 후 그 그래프를 이어서 실행
-        if result.action == "handoff":
-            handoff_reply, handoff_trace = _handle_handoff(state, result, user_message)
-            trace.extend(handoff_trace)
-            if handoff_reply:
-                reply = handoff_reply
-            break
-
-        if result.action != "resume":
-            break
-    else:
-        log.warning("MAX_RESUME_STEPS(%d) 도달", MAX_RESUME_STEPS)
-
-    # Production과 동일하게 parent workflow 복원
-    if last_result and state.stack and _should_restore_parent(last_result):
-        _restore_parent_workflow(state)
-
-    return reply, trace
+    workflow_def = get_dev_workflow(workflow_id)
+    checkpointer = _checkpointers.setdefault(workflow_id, MemorySaver())
+    graph = workflow_def["build_lg_graph"]().compile(checkpointer=checkpointer)
+    _compiled_graphs[workflow_id] = graph
+    return graph
 
 
-def _handle_handoff(
-    state: WorkflowState,
-    result: NodeResult,
-    user_message: str,
-) -> tuple[str, list[dict]]:
-    """현재 워크플로를 중단하고 대상 워크플로로 전환한다."""
-
-    target_workflow_id = result.next_workflow_id
-    if not target_workflow_id:
-        log.warning("handoff 대상 워크플로가 지정되지 않았습니다.")
-        return "", []
-
-    # 현재 위치를 스택에 저장 (복귀용)
-    state.stack.append(
-        {
-            "workflow_id": state.workflow_id,
-            "node_id": state.node_id,
-        }
-    )
-
-    # 대상 워크플로 로드 (dev workflows에서 먼저, 없으면 production에서)
-    try:
-        target_def = get_dev_workflow(target_workflow_id)
-    except KeyError:
-        from api.workflows.registry import get_workflow
-
-        target_def = get_workflow(target_workflow_id)
-
-    # 대상 워크플로로 전환
-    state.workflow_id = target_workflow_id
-    state.node_id = target_def["entry_node_id"]
-    state.status = "active"
-
-    target_graph = target_def["build_graph"]()
-    return run_graph_with_trace(target_graph, state, user_message)
+def _build_thread_id(workflow_id: str, user_id: str) -> str:
+    generation = _thread_generations.get((workflow_id, user_id), 0)
+    return f"devtools::{workflow_id}::{user_id}::{generation}"
 
 
-def _should_restore_parent(result: NodeResult) -> bool:
-    """현재 결과가 handoff된 자식 워크플로의 종료 지점인지 판단한다."""
-
-    if result.action == "complete":
-        return True
-    return result.action == "reply" and result.next_node_id in {None, "done"}
-
-
-def _restore_parent_workflow(state: WorkflowState) -> None:
-    """자식 워크플로 종료 후 부모 워크플로 준비 상태로 복귀한다."""
-
-    if not state.stack:
-        return
-
-    return_point = state.stack.pop()
-    state.workflow_id = return_point["workflow_id"]
-    state.node_id = return_point["node_id"]
-    state.status = "active"
+def _build_config(workflow_id: str, user_id: str) -> dict[str, dict[str, str]]:
+    return {"configurable": {"thread_id": _build_thread_id(workflow_id, user_id)}}
 
 
 def handle_dev_message(
     workflow_id: str,
     user_message: str,
     user_id: str | None = None,
-) -> dict:
-    """dev runner의 메시지 처리 진입점.
+) -> dict[str, object]:
+    """dev runner의 메시지 처리 진입점."""
 
-    Returns:
-        {"reply": str, "state": dict, "trace": list[dict]}
-    """
-
-    workflow_def = get_dev_workflow(workflow_id)
+    get_dev_workflow(workflow_id)
     resolved_user_id = user_id or get_default_dev_user_id()
 
-    loaded_state = load_state(resolved_user_id)
-    if loaded_state is None or loaded_state.workflow_id != workflow_id:
-        state = build_state(
-            {
-                "user_id": resolved_user_id,
-                "workflow_id": workflow_id,
-                "node_id": workflow_def["entry_node_id"],
-                "status": "active",
-                "data": {},
-                "stack": [],
-            }
-        )
+    graph = _get_compiled_graph(workflow_id)
+    config = _build_config(workflow_id, resolved_user_id)
+    before_state = graph.get_state(config)
+    started_at = time.perf_counter()
+
+    if before_state.tasks:
+        graph.invoke(Command(resume=user_message), config)
+        mode = "resume"
     else:
-        state = loaded_state
+        graph.invoke(
+            {
+                "user_message": user_message,
+                "user_id": resolved_user_id,
+                "channel_id": workflow_id,
+                "workflow_id": workflow_id,
+            },
+            config,
+        )
+        mode = "invoke"
 
-    state.data["latest_user_message"] = user_message
-
-    graph = workflow_def["build_graph"]()
-    reply, trace = run_graph_with_trace(graph, state, user_message)
-
-    save_state(state)
-
-    final_reply = reply or f"[{workflow_id}] 처리 완료."
+    elapsed_ms = int((time.perf_counter() - started_at) * 1000)
+    after_state = graph.get_state(config)
+    final_reply = _extract_reply(after_state, fallback=f"[{workflow_id}] 처리 완료.")
 
     conversation_service.append_message(
         resolved_user_id,
@@ -288,54 +148,125 @@ def handle_dev_message(
 
     return {
         "reply": final_reply,
-        "state": _serialize_state_safe(state),
-        "trace": trace,
+        "state": _serialize_snapshot(after_state, workflow_id=workflow_id, user_id=resolved_user_id),
+        "trace": [
+            {
+                "step": 0,
+                "node_id": _detect_node_id(after_state, workflow_id),
+                "action": _detect_action(before_state=before_state, after_state=after_state, mode=mode),
+                "reply_preview": final_reply[:100],
+                "elapsed_ms": elapsed_ms,
+            }
+        ],
     }
 
 
-def get_dev_state(user_id: str | None = None) -> dict | None:
+def get_dev_state(*, workflow_id: str, user_id: str | None = None) -> dict[str, object] | None:
     """현재 dev workflow state를 반환한다."""
 
     resolved_user_id = user_id or get_default_dev_user_id()
-    state = load_state(resolved_user_id)
-    if state is None:
+    graph = _compiled_graphs.get(workflow_id)
+    if graph is None:
         return None
-    return _serialize_state_safe(state)
+
+    snapshot = graph.get_state(_build_config(workflow_id, resolved_user_id))
+    if not snapshot.values and not snapshot.tasks:
+        return None
+
+    return _serialize_snapshot(snapshot, workflow_id=workflow_id, user_id=resolved_user_id)
 
 
-def reset_dev_state(user_id: str | None = None) -> None:
-    """dev workflow state를 초기화한다."""
+def reset_dev_state(*, workflow_id: str, user_id: str | None = None) -> None:
+    """특정 workflow/user 조합의 dev state를 초기화한다."""
 
-    clear_state(user_id or get_default_dev_user_id())
-
-
-def _apply_result(state: WorkflowState, result: NodeResult) -> None:
-    """NodeResult를 WorkflowState에 반영한다."""
-
-    for key, value in result.data_updates.items():
-        state.data[key] = value
-        setattr(state, key, value)
-
-    if result.next_node_id:
-        state.node_id = result.next_node_id
-
-    if result.action == "complete":
-        state.status = "completed"
-    elif result.action == "wait":
-        state.status = "waiting_user_input"
-    else:
-        state.status = "active"
+    resolved_user_id = user_id or get_default_dev_user_id()
+    key = (workflow_id, resolved_user_id)
+    _thread_generations[key] = _thread_generations.get(key, 0) + 1
 
 
-def _serialize_state_safe(state: WorkflowState) -> dict:
-    """상태를 JSON 직렬화 가능한 dict로 변환한다.
+def _extract_reply(snapshot, *, fallback: str) -> str:
+    tasks = getattr(snapshot, "tasks", ())
+    if tasks:
+        first_task = tasks[0]
+        interrupts = getattr(first_task, "interrupts", ())
+        if interrupts:
+            value = getattr(interrupts[0], "value", interrupts[0])
+            if isinstance(value, dict):
+                reply = value.get("reply", "")
+                if reply:
+                    return str(reply)
+            return str(value)
 
-    Path, datetime 등 비원시 타입이 있을 수 있으므로 default=str로 처리한다.
-    """
+    values = getattr(snapshot, "values", {}) or {}
+    messages = values.get("messages", [])
+    if messages:
+        last_message = messages[-1]
+        content = getattr(last_message, "content", "")
+        if content:
+            return str(content)
+
+    pending_reply = values.get("pending_reply", "")
+    if pending_reply:
+        return str(pending_reply)
+
+    return fallback
+
+
+def _detect_action(*, before_state, after_state, mode: str) -> str:
+    del before_state
+
+    if getattr(after_state, "tasks", ()):
+        return "interrupt"
+    if mode == "resume":
+        return "resume_complete"
+    return "complete"
+
+
+def _detect_node_id(snapshot, workflow_id: str) -> str:
+    values = getattr(snapshot, "values", {}) or {}
+    return str(values.get("detected_intent") or values.get("workflow_id") or workflow_id)
+
+
+def _serialize_snapshot(snapshot, *, workflow_id: str, user_id: str) -> dict[str, object]:
+    return {
+        "workflow_id": workflow_id,
+        "user_id": user_id,
+        "thread_id": _build_thread_id(workflow_id, user_id),
+        "waiting_for_input": bool(getattr(snapshot, "tasks", ())),
+        "values": _json_safe(getattr(snapshot, "values", {})),
+        "next": _json_safe(getattr(snapshot, "next", ())),
+        "tasks": _serialize_tasks(getattr(snapshot, "tasks", ())),
+    }
+
+
+def _serialize_tasks(tasks: Sequence[Any]) -> list[dict[str, object]]:
+    serialized: list[dict[str, object]] = []
+    for task in tasks:
+        interrupts = []
+        for interrupt in getattr(task, "interrupts", ()) or ():
+            interrupts.append(_json_safe(getattr(interrupt, "value", interrupt)))
+        serialized.append(
+            {
+                "name": str(getattr(task, "name", "")),
+                "interrupts": interrupts,
+            }
+        )
+    return serialized
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, BaseMessage):
+        return {
+            "type": value.__class__.__name__,
+            "content": value.content,
+        }
+    if isinstance(value, Mapping):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [_json_safe(item) for item in value]
 
     try:
-        raw = asdict(state)
-    except Exception:
-        raw = dict(vars(state))
-
-    return json.loads(json.dumps(raw, default=str))
+        json.dumps(value)
+        return value
+    except TypeError:
+        return str(value)

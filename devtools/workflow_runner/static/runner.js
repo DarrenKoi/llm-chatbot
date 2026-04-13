@@ -132,19 +132,31 @@ async function sendMessage(workflowId, message) {
 
 async function fetchState() {
   const userId = getActiveUserId();
-  const res = await fetch(`/api/state?user_id=${encodeURIComponent(userId)}`);
-  const data = await res.json();
-  const selectedWorkflowId = $select.value;
-  if (selectedWorkflowId && data.state && data.state.workflow_id !== selectedWorkflowId) {
+  const workflowId = $select.value;
+  if (!workflowId) {
     renderState(null);
     return;
   }
+
+  const res = await fetch(
+    `/api/state?user_id=${encodeURIComponent(userId)}&workflow_id=${encodeURIComponent(workflowId)}`
+  );
+  const data = await res.json();
   renderState(data.state);
 }
 
 async function resetState() {
   const userId = getActiveUserId();
-  await fetch(`/api/state?user_id=${encodeURIComponent(userId)}`, { method: "DELETE" });
+  const workflowId = $select.value;
+  if (!workflowId) {
+    renderState(null);
+    return;
+  }
+
+  await fetch(
+    `/api/state?user_id=${encodeURIComponent(userId)}&workflow_id=${encodeURIComponent(workflowId)}`,
+    { method: "DELETE" }
+  );
   clearTranscript();
   renderState(null);
   $traceView.innerHTML = "<p>trace 없음</p>";

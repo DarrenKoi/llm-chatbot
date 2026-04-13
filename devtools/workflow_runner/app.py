@@ -18,7 +18,6 @@ if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
 _dev_root = Path(__file__).resolve().parent.parent / "var"
-_dev_workflow_state_dir = _dev_root / "workflow_state"
 _dev_conversation_dir = _dev_root / "conversation_history"
 
 from flask import Flask  # noqa: E402
@@ -28,15 +27,11 @@ from devtools.workflow_runner.routes import dev_bp  # noqa: E402
 
 def _configure_dev_runtime() -> None:
     from api import config, conversation_service
-    from api.workflows import state_service
 
-    config.WORKFLOW_STATE_DIR = _dev_workflow_state_dir
     config.CONVERSATION_BACKEND = "local"
     config.CONVERSATION_LOCAL_DIR = _dev_conversation_dir
-    state_service.WORKFLOW_STATE_DIR = _dev_workflow_state_dir
     conversation_service._backend = None
 
-    _dev_workflow_state_dir.mkdir(parents=True, exist_ok=True)
     _dev_conversation_dir.mkdir(parents=True, exist_ok=True)
 
 
@@ -64,7 +59,6 @@ def main() -> None:
 
     print("=== Dev Workflow Runner ===")
     print(f"http://localhost:{port}")
-    print(f"State dir: {_dev_workflow_state_dir}")
     print(f"Conversation dir: {_dev_conversation_dir}")
     print()
 

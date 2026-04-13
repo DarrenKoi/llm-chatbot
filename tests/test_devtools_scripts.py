@@ -16,13 +16,13 @@ def test_new_workflow_scaffold_creates_matching_dev_mcp_module(tmp_path, monkeyp
         'WORKFLOW_ID = "__WORKFLOW_ID__"\nSTATE = "__STATE_CLASS__"\n',
         encoding="utf-8",
     )
-    (template_dir / "state.py").write_text(
+    (template_dir / "lg_state.py").write_text(
         "class __STATE_CLASS__:\n    pass\n",
         encoding="utf-8",
     )
-    (template_dir / "graph.py").write_text(
+    (template_dir / "lg_graph.py").write_text(
         "from devtools.mcp.__WORKFLOW_ID__ import register_tools\n"
-        "def build_graph():\n"
+        "def build_lg_graph():\n"
         "    register_tools()\n"
         "    return {'workflow_id': '__WORKFLOW_ID__'}\n",
         encoding="utf-8",
@@ -46,7 +46,7 @@ def test_new_workflow_scaffold_creates_matching_dev_mcp_module(tmp_path, monkeyp
     assert scaffolded_mcp.exists()
     assert 'WORKFLOW_ID = "sample_flow"' in (scaffolded_dir / "__init__.py").read_text(encoding="utf-8")
     assert 'STATE = "SampleFlowState"' in (scaffolded_dir / "__init__.py").read_text(encoding="utf-8")
-    assert "from devtools.mcp.sample_flow import register_tools" in (scaffolded_dir / "graph.py").read_text(
+    assert "from devtools.mcp.sample_flow import register_tools" in (scaffolded_dir / "lg_graph.py").read_text(
         encoding="utf-8"
     )
     assert 'WORKFLOW_ID = "sample_flow"' in scaffolded_mcp.read_text(encoding="utf-8")
@@ -58,34 +58,29 @@ def test_promote_moves_matching_dev_mcp_module_and_rewrites_imports(tmp_path, mo
     dev_mcp_dir = project_root / "devtools" / "mcp"
     prod_workflows_dir = project_root / "api" / "workflows"
     prod_mcp_dir = project_root / "api" / "mcp"
-    dev_state_dir = project_root / "devtools" / "var" / "workflow_state"
-
     workflow_source = dev_workflows_dir / "sample_flow"
     workflow_source.mkdir(parents=True)
     dev_mcp_dir.mkdir(parents=True)
-    dev_state_dir.mkdir(parents=True)
 
     (workflow_source / "__init__.py").write_text(
         "from devtools.mcp.sample_flow import register_tools\n",
         encoding="utf-8",
     )
-    (workflow_source / "graph.py").write_text("def build_graph():\n    return {}\n", encoding="utf-8")
+    (workflow_source / "lg_graph.py").write_text("def build_lg_graph():\n    return {}\n", encoding="utf-8")
     (dev_mcp_dir / "sample_flow.py").write_text(
         'IMPORT_PATH = "devtools.mcp.sample_flow"\n',
         encoding="utf-8",
     )
-    (dev_state_dir / "sample.json").write_text('{"workflow_id": "sample_flow"}\n', encoding="utf-8")
 
     monkeypatch.setattr(promote, "PROJECT_ROOT", project_root)
     monkeypatch.setattr(promote, "DEV_WORKFLOWS_DIR", dev_workflows_dir)
     monkeypatch.setattr(promote, "DEV_MCP_DIR", dev_mcp_dir)
     monkeypatch.setattr(promote, "PROD_WORKFLOWS_DIR", prod_workflows_dir)
     monkeypatch.setattr(promote, "PROD_MCP_DIR", prod_mcp_dir)
-    monkeypatch.setattr(promote, "DEV_STATE_DIR", dev_state_dir)
     monkeypatch.setattr(
         promote,
         "_validate_promoted_workflow",
-        lambda workflow_id: {"workflow_id": workflow_id, "entry_node_id": "entry"},
+        lambda workflow_id: {"workflow_id": workflow_id, "build_lg_graph": object()},
     )
 
     promote.promote("sample_flow")
@@ -97,7 +92,6 @@ def test_promote_moves_matching_dev_mcp_module_and_rewrites_imports(tmp_path, mo
     assert mcp_target.exists()
     assert not workflow_source.exists()
     assert not (dev_mcp_dir / "sample_flow.py").exists()
-    assert not (dev_state_dir / "sample.json").exists()
     assert "from api.mcp.sample_flow import register_tools" in (workflow_target / "__init__.py").read_text(
         encoding="utf-8"
     )
@@ -126,7 +120,6 @@ def test_promote_rolls_back_targets_when_validation_fails(tmp_path, monkeypatch)
     monkeypatch.setattr(promote, "DEV_MCP_DIR", dev_mcp_dir)
     monkeypatch.setattr(promote, "PROD_WORKFLOWS_DIR", prod_workflows_dir)
     monkeypatch.setattr(promote, "PROD_MCP_DIR", prod_mcp_dir)
-    monkeypatch.setattr(promote, "DEV_STATE_DIR", project_root / "devtools" / "var" / "workflow_state")
 
     def _raise_validation_error(_workflow_id: str) -> dict[str, object]:
         raise RuntimeError("boom")
@@ -156,7 +149,7 @@ def test_validate_promoted_workflow_imports_matching_mcp_module(tmp_path, monkey
     class _WorkflowModule:
         @staticmethod
         def get_workflow_definition() -> dict[str, object]:
-            return {"workflow_id": "sample_flow", "entry_node_id": "entry"}
+            return {"workflow_id": "sample_flow", "build_lg_graph": object()}
 
     def _fake_import_module(module_path: str):
         imported_modules.append(module_path)

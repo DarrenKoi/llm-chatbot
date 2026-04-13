@@ -4,8 +4,13 @@
 거의 동일한 형태로 옮긴 예제다.
 """
 
-from .graph import build_graph
-from .state import TravelPlannerExampleState
+
+def build_lg_graph():
+    """travel_planner_example LangGraph 빌더를 반환한다."""
+
+    from .lg_graph import build_lg_graph as builder
+
+    return builder()
 
 
 def get_workflow_definition() -> dict[str, object]:
@@ -13,7 +18,5 @@ def get_workflow_definition() -> dict[str, object]:
 
     return {
         "workflow_id": "travel_planner_example",
-        "entry_node_id": "entry",
-        "build_graph": build_graph,
-        "state_cls": TravelPlannerExampleState,
+        "build_lg_graph": build_lg_graph,
     }

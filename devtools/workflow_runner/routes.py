@@ -79,7 +79,11 @@ def api_state():
 
     default_user_id = get_default_dev_user_id()
     user_id = str(request.args.get("user_id", default_user_id)).strip() or default_user_id
-    state = get_dev_state(user_id=user_id)
+    workflow_id = str(request.args.get("workflow_id", "")).strip()
+    if not workflow_id:
+        return jsonify({"state": None})
+
+    state = get_dev_state(workflow_id=workflow_id, user_id=user_id)
     if state is None:
         return jsonify({"state": None})
     return jsonify({"state": state})
@@ -91,7 +95,11 @@ def api_state_reset():
 
     default_user_id = get_default_dev_user_id()
     user_id = str(request.args.get("user_id", default_user_id)).strip() or default_user_id
-    reset_dev_state(user_id=user_id)
+    workflow_id = str(request.args.get("workflow_id", "")).strip()
+    if not workflow_id:
+        return jsonify({"error": "workflow_id가 필요합니다."}), 400
+
+    reset_dev_state(workflow_id=workflow_id, user_id=user_id)
     return jsonify({"ok": True})
 
 

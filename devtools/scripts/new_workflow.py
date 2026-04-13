@@ -68,10 +68,9 @@ def scaffold(workflow_id: str) -> None:
     print(f"dev MCP 모듈을 생성했습니다: {target_mcp_file}")
     print()
     print("다음 단계:")
-    print(f"  1. {target_dir / 'state.py'} 에서 상태 필드를 정의하세요.")
-    print(f"  2. {target_dir / 'nodes.py'} 에서 노드 함수를 구현하세요.")
+    print(f"  1. {target_dir / 'lg_state.py'} 에서 LangGraph 상태 필드를 정의하세요.")
+    print(f"  2. {target_dir / 'lg_graph.py'} 에서 노드와 StateGraph를 구현하세요.")
     print(f"  3. {target_mcp_file} 에서 MCP 도구 등록 함수를 구현하세요.")
-    print(f"  4. {target_dir / 'graph.py'} 에서 그래프에 노드를 등록하세요.")
     print("  5. python -m devtools.workflow_runner.app 으로 실행 후 테스트하세요.")
     print(f"  6. 완료 후 python -m devtools.scripts.promote {workflow_id} 로 운영 반영하세요.")
 
