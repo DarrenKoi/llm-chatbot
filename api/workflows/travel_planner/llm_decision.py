@@ -2,11 +2,17 @@
 
 import json
 import logging
-import re
 from dataclasses import dataclass
 
 from api.llm.service import LLMServiceError, generate_json_reply
 from api.workflows.intent_utils import is_stop_conversation_message
+from api.workflows.travel_planner.constants import (
+    COMPANION_ALIASES,
+    DESTINATION_ALIASES,
+    STYLE_ALIASES,
+    extract_duration,
+    parse_request,
+)
 
 log = logging.getLogger(__name__)
 
@@ -17,56 +23,6 @@ _ASK_STYLE_REPLY = (
 )
 _ASK_DURATION_REPLY = f"일정은 며칠인가요? 예: 2박 3일\n{CANCEL_GUIDE_REPLY}"
 _STOP_REPLY = "여행 계획은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
-
-_DESTINATION_ALIASES = {
-    "서울": "서울",
-    "seoul": "서울",
-    "부산": "부산",
-    "busan": "부산",
-    "제주": "제주",
-    "제주도": "제주",
-    "jeju": "제주",
-    "도쿄": "도쿄",
-    "tokyo": "도쿄",
-    "오사카": "오사카",
-    "osaka": "오사카",
-    "교토": "교토",
-    "kyoto": "교토",
-    "타이베이": "타이베이",
-    "taipei": "타이베이",
-    "방콕": "방콕",
-    "bangkok": "방콕",
-    "싱가포르": "싱가포르",
-    "singapore": "싱가포르",
-}
-_STYLE_ALIASES = {
-    "도시": "도시",
-    "city": "도시",
-    "휴양": "휴양",
-    "힐링": "휴양",
-    "휴식": "휴양",
-    "relax": "휴양",
-    "자연": "자연",
-    "nature": "자연",
-    "먹거리": "먹거리",
-    "맛집": "먹거리",
-    "food": "먹거리",
-}
-_COMPANION_ALIASES = {
-    "혼자": "혼자",
-    "solo": "혼자",
-    "친구": "친구",
-    "friends": "친구",
-    "가족": "가족",
-    "family": "가족",
-    "연인": "연인",
-    "커플": "연인",
-    "couple": "연인",
-}
-_DESTINATION_ALIASES_SORTED = sorted(_DESTINATION_ALIASES.items(), key=lambda item: len(item[0]), reverse=True)
-_STYLE_ALIASES_SORTED = sorted(_STYLE_ALIASES.items(), key=lambda item: len(item[0]), reverse=True)
-_COMPANION_ALIASES_SORTED = sorted(_COMPANION_ALIASES.items(), key=lambda item: len(item[0]), reverse=True)
-_DURATION_PATTERN = re.compile(r"(?:(\d+)\s*박\s*(\d+)\s*일)|(\d+)\s*일")
 _WORKFLOW_SYSTEM_PROMPT = """
 당신은 여행 계획 워크플로를 제어하는 판단기입니다.
 최신 사용자 메시지와 현재 상태를 보고 다음 행동만 결정하세요.
@@ -161,10 +117,10 @@ def _coerce_decision(
     companion_type: str,
 ) -> TravelPlannerTurnDecision:
     action = str(raw_decision.get("action", "")).strip().lower()
-    resolved_destination = _normalize_alias(raw_decision.get("destination", ""), _DESTINATION_ALIASES)
-    resolved_style = _normalize_alias(raw_decision.get("travel_style", ""), _STYLE_ALIASES)
+    resolved_destination = _normalize_alias(raw_decision.get("destination", ""), DESTINATION_ALIASES)
+    resolved_style = _normalize_alias(raw_decision.get("travel_style", ""), STYLE_ALIASES)
     resolved_duration = _normalize_duration(raw_decision.get("duration_text", ""))
-    resolved_companion = _normalize_alias(raw_decision.get("companion_type", ""), _COMPANION_ALIASES)
+    resolved_companion = _normalize_alias(raw_decision.get("companion_type", ""), COMPANION_ALIASES)
     missing_slot = str(raw_decision.get("missing_slot", "")).strip()
     reply = str(raw_decision.get("reply", "")).strip()
 
@@ -260,7 +216,7 @@ def _normalize_duration(raw_value: object) -> str:
     value = str(raw_value).strip()
     if not value:
         return ""
-    return _extract_duration(value)
+    return extract_duration(value)
 
 
 def _fallback_travel_planner_turn(
@@ -279,7 +235,7 @@ def _fallback_travel_planner_turn(
     resolved_duration = duration_text
     resolved_companion = companion_type
 
-    parsed_destination, parsed_style, parsed_duration, parsed_companion = _parse_request(user_message)
+    parsed_destination, parsed_style, parsed_duration, parsed_companion = parse_request(user_message)
     if parsed_destination:
         resolved_destination = parsed_destination
     if parsed_style:
@@ -326,31 +282,3 @@ def _fallback_travel_planner_turn(
         duration_text=resolved_duration,
         companion_type=resolved_companion,
     )
-
-
-def _parse_request(user_message: str) -> tuple[str, str, str, str]:
-    normalized = user_message.strip()
-    destination = _match_alias(normalized, _DESTINATION_ALIASES_SORTED)
-    travel_style = _match_alias(normalized, _STYLE_ALIASES_SORTED)
-    duration_text = _extract_duration(normalized)
-    companion_type = _match_alias(normalized, _COMPANION_ALIASES_SORTED)
-    return destination, travel_style, duration_text, companion_type
-
-
-def _match_alias(user_message: str, sorted_aliases: list[tuple[str, str]]) -> str:
-    lowered = user_message.lower()
-    for alias, canonical in sorted_aliases:
-        if alias.lower() in lowered:
-            return canonical
-    return ""
-
-
-def _extract_duration(user_message: str) -> str:
-    match = _DURATION_PATTERN.search(user_message)
-    if not match:
-        return ""
-
-    nights, days, days_only = match.groups()
-    if nights and days:
-        return f"{nights}박 {days}일"
-    return f"{days_only}일"

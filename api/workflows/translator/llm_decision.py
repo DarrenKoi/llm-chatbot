@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from api.llm.service import LLMServiceError, generate_json_reply
 from api.workflows.intent_utils import is_stop_conversation_message
+from api.workflows.translator.translation_engine import LANGUAGE_ALIASES
 
 log = logging.getLogger(__name__)
 
@@ -17,17 +18,9 @@ _ASK_TARGET_REPLY = (
 )
 _STOP_REPLY = "번역은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
 
-_LANGUAGE_ALIASES = {
-    "english": "en",
-    "eng": "en",
-    "en": "en",
-    "영어": "en",
-    "일본어": "ja",
-    "일어": "ja",
-    "japanese": "ja",
-    "ja": "ja",
-}
-_LANGUAGE_ALIASES_SORTED = sorted(_LANGUAGE_ALIASES.items(), key=lambda item: len(item[0]), reverse=True)
+_TARGET_LANGUAGES = {"en", "ja"}
+_TARGET_LANGUAGE_ALIASES = {k: v for k, v in LANGUAGE_ALIASES.items() if v in _TARGET_LANGUAGES}
+_TARGET_LANGUAGE_ALIASES_SORTED = sorted(_TARGET_LANGUAGE_ALIASES.items(), key=lambda item: len(item[0]), reverse=True)
 _LANGUAGE_LABELS = {
     "en": "영어",
     "ja": "일본어",
@@ -206,7 +199,7 @@ def _default_reply_for_missing_slot(missing_slot: str) -> str:
 
 def _normalize_target_language(raw_value: object) -> str:
     normalized = str(raw_value).strip().lower()
-    return _LANGUAGE_ALIASES.get(normalized, "")
+    return _TARGET_LANGUAGE_ALIASES.get(normalized, "")
 
 
 def _fallback_translation_turn(
@@ -268,7 +261,7 @@ def _parse_translation_request(user_message: str) -> tuple[str, str]:
 
 def _extract_target_language(user_message: str) -> str:
     stripped = _QUOTED_TEXT_PATTERN.sub("", user_message)
-    for alias, language_code in _LANGUAGE_ALIASES_SORTED:
+    for alias, language_code in _TARGET_LANGUAGE_ALIASES_SORTED:
         if re.search(_build_language_alias_pattern(alias), stripped, flags=re.IGNORECASE):
             return language_code
     return ""
@@ -286,7 +279,7 @@ def _extract_source_text(user_message: str, *, target_language: str) -> str:
     cleaned = re.sub(r"번역(해줘|해주세요|해 줘|해 주세요)?", " ", cleaned)
     cleaned = re.sub(r"바꿔(줘|주세요)?", " ", cleaned)
 
-    for alias, _ in _LANGUAGE_ALIASES_SORTED:
+    for alias, _ in _TARGET_LANGUAGE_ALIASES_SORTED:
         cleaned = re.sub(_build_language_alias_pattern(alias), " ", cleaned, flags=re.IGNORECASE)
 
     cleaned = re.sub(r"[?.,!]", " ", cleaned)

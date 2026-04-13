@@ -11,37 +11,15 @@ from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
 
 from api.workflows.lg_state import TravelPlannerState as LGTravelPlannerState
-from api.workflows.travel_planner.llm_decision import CANCEL_GUIDE_REPLY, decide_travel_planner_turn
-from api.workflows.travel_planner.nodes import (
-    _build_companion_note,
-    _recommend_destinations,
+from api.workflows.travel_planner.constants import (
+    DESTINATION_DEFAULT_STYLE,
+    DESTINATION_TO_PLACES,
+    build_companion_note,
+    recommend_destinations,
 )
+from api.workflows.travel_planner.llm_decision import CANCEL_GUIDE_REPLY, decide_travel_planner_turn
 
 log = logging.getLogger(__name__)
-
-_DESTINATION_DEFAULT_STYLE = {
-    "서울": "도시",
-    "부산": "먹거리",
-    "제주": "휴양",
-    "도쿄": "도시",
-    "오사카": "먹거리",
-    "교토": "자연",
-    "타이베이": "먹거리",
-    "방콕": "휴양",
-    "싱가포르": "도시",
-}
-
-_DESTINATION_TO_PLACES = {
-    "서울": ["경복궁", "북촌한옥마을", "성수동", "한강공원"],
-    "부산": ["해운대", "광안리", "감천문화마을", "자갈치시장"],
-    "제주": ["함덕해변", "성산일출봉", "협재해변", "동문시장"],
-    "도쿄": ["시부야", "아사쿠사", "메이지신궁", "긴자"],
-    "오사카": ["도톤보리", "오사카성", "우메다", "신세카이"],
-    "교토": ["후시미 이나리 신사", "기요미즈데라", "아라시야마", "니시키시장"],
-    "타이베이": ["타이베이 101", "중정기념당", "스린 야시장", "용캉제"],
-    "방콕": ["왓 아룬", "아이콘시암", "짜뚜짝 시장", "차오프라야 강변"],
-    "싱가포르": ["마리나 베이", "가든스 바이 더 베이", "하지 레인", "센토사"],
-}
 
 
 def resolve_node(state: LGTravelPlannerState) -> dict:
@@ -102,7 +80,7 @@ def recommend_destination_node(state: LGTravelPlannerState) -> dict:
 
     style = state.get("travel_style", "")
     companion = state.get("companion_type", "")
-    suggestions = _recommend_destinations(style=style)
+    suggestions = recommend_destinations(style=style)
 
     log.info("[travel_planner] 목적지 후보 추천: style=%s companion=%s suggestions=%s", style, companion, suggestions)
 
@@ -133,11 +111,11 @@ def build_plan_node(state: LGTravelPlannerState) -> dict:
 
     destination = state.get("destination", "")
     duration_text = state.get("duration_text", "")
-    travel_style = state.get("travel_style") or _DESTINATION_DEFAULT_STYLE.get(destination, "도시")
+    travel_style = state.get("travel_style") or DESTINATION_DEFAULT_STYLE.get(destination, "도시")
     companion_type = state.get("companion_type", "")
 
-    recommended_places = _DESTINATION_TO_PLACES.get(destination, [])[:3]
-    note = _build_companion_note(companion_type)
+    recommended_places = DESTINATION_TO_PLACES.get(destination, [])[:3]
+    note = build_companion_note(companion_type)
     reply_lines = [
         f"{destination} {duration_text} 여행은 {travel_style} 중심으로 시작하면 좋습니다.",
         f"추천 방문지: {', '.join(recommended_places)}",

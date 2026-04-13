@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+from dataclasses import dataclass
 
 from api.llm.service import LLMServiceError, generate_json_reply
 
@@ -10,7 +11,7 @@ log = logging.getLogger(__name__)
 
 _KOREAN_CHAR = re.compile(r"[\uac00-\ud7a3]")
 _JAPANESE_CHAR = re.compile(r"[\u3040-\u30ff\u4e00-\u9faf]")
-_LANGUAGE_ALIASES = {
+LANGUAGE_ALIASES = {
     "english": "en",
     "eng": "en",
     "en": "en",
@@ -73,7 +74,7 @@ _TRANSLATION_SYSTEM_PROMPT = """
 
 
 def normalize_language(language: str) -> str:
-    return _LANGUAGE_ALIASES.get(language.strip().lower(), "")
+    return LANGUAGE_ALIASES.get(language.strip().lower(), "")
 
 
 def detect_language(text: str) -> str:
@@ -165,3 +166,58 @@ def _get_korean_pronunciation(*, text: str, language: str) -> str:
     if language != "ja":
         return ""
     return _JAPANESE_PRONUNCIATIONS_KO.get(text.strip(), "")
+
+
+@dataclass
+class TranslationResult:
+    success: bool
+    translated: str = ""
+    source_language: str = ""
+    direction: str = ""
+    pronunciation_ko: str = ""
+    reply: str = ""
+    error: str = ""
+
+
+def execute_translation(source_text: str, target_language: str, *, tool_id: str = "translate") -> TranslationResult:
+    """MCP translate 도구를 호출하고 정규화된 결과를 반환한다."""
+
+    from api.mcp.executor import execute_tool_call
+    from api.mcp.models import MCPToolCall
+
+    log.info("[translator] %s 도구 호출: text=%s target_language=%s", tool_id, source_text, target_language)
+    result = execute_tool_call(
+        MCPToolCall(
+            tool_id=tool_id,
+            arguments={"text": source_text, "target_language": target_language},
+        )
+    )
+    log.info("[translator] %s 도구 결과: %s", tool_id, result)
+
+    if not result.success:
+        return TranslationResult(
+            success=False,
+            error=result.error or "번역 중 오류가 발생했습니다.",
+        )
+
+    translated = result.output.get("result", "") if isinstance(result.output, dict) else ""
+    source_language = ""
+    direction = ""
+    pronunciation_ko = ""
+    if isinstance(result.output, dict):
+        source_language = result.output.get("source", "")
+        direction = f"{source_language}\u2192{result.output.get('target', '')}"
+        pronunciation_ko = result.output.get("pronunciation_ko", "")
+
+    reply = translated
+    if pronunciation_ko:
+        reply = f"{translated}\n(한국어 발음: {pronunciation_ko})"
+
+    return TranslationResult(
+        success=True,
+        translated=translated,
+        source_language=source_language,
+        direction=direction,
+        pronunciation_ko=pronunciation_ko,
+        reply=reply,
+    )

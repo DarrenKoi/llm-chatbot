@@ -2,11 +2,10 @@
 
 import logging
 
-from api.mcp.executor import execute_tool_call
-from api.mcp.models import MCPToolCall
 from api.workflows.models import NodeResult
 from api.workflows.translator.llm_decision import decide_translation_turn
 from api.workflows.translator.state import TranslatorWorkflowState
+from api.workflows.translator.translation_engine import execute_translation
 
 log = logging.getLogger(__name__)
 
@@ -34,25 +33,12 @@ def translate_node(state: TranslatorWorkflowState, user_message: str) -> NodeRes
 
     del user_message
 
-    source_text = state.source_text
-    target_language = state.target_language
-
-    log.info("[translator] translate 도구 호출: text=%s target_language=%s", source_text, target_language)
-    result = execute_tool_call(
-        MCPToolCall(
-            tool_id="translate",
-            arguments={
-                "text": source_text,
-                "target_language": target_language,
-            },
-        )
-    )
-    log.info("[translator] translate 도구 결과: %s", result)
+    result = execute_translation(state.source_text, state.target_language)
 
     if not result.success:
         return NodeResult(
             action="complete",
-            reply=result.error or "번역 중 오류가 발생했습니다.",
+            reply=result.error,
             next_node_id="entry",
             data_updates={
                 "translated": "",
@@ -62,28 +48,15 @@ def translate_node(state: TranslatorWorkflowState, user_message: str) -> NodeRes
             },
         )
 
-    translated = result.output.get("result", "") if isinstance(result.output, dict) else ""
-    source_language = ""
-    direction = ""
-    pronunciation_ko = ""
-    if isinstance(result.output, dict):
-        source_language = result.output.get("source", "")
-        direction = f"{source_language}→{result.output.get('target', '')}"
-        pronunciation_ko = result.output.get("pronunciation_ko", "")
-
-    reply = translated
-    if pronunciation_ko:
-        reply = f"{translated}\n(한국어 발음: {pronunciation_ko})"
-
     return NodeResult(
         action="complete",
-        reply=reply,
+        reply=result.reply,
         next_node_id="entry",
         data_updates={
-            "source_language": source_language,
-            "translation_direction": direction,
-            "translated": translated,
-            "pronunciation_ko": pronunciation_ko,
+            "source_language": result.source_language,
+            "translation_direction": result.direction,
+            "translated": result.translated,
+            "pronunciation_ko": result.pronunciation_ko,
             "last_asked_slot": "",
         },
     )

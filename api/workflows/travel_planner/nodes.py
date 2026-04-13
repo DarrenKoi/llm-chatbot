@@ -5,103 +5,18 @@
 """
 
 import logging
-import re
 
 from api.workflows.models import NodeResult
+from api.workflows.travel_planner.constants import (
+    DESTINATION_DEFAULT_STYLE,
+    DESTINATION_TO_PLACES,
+    build_companion_note,
+    recommend_destinations,
+)
 from api.workflows.travel_planner.llm_decision import CANCEL_GUIDE_REPLY, decide_travel_planner_turn
 from api.workflows.travel_planner.state import TravelPlannerState
 
 log = logging.getLogger(__name__)
-
-_DESTINATION_ALIASES = {
-    "서울": "서울",
-    "seoul": "서울",
-    "부산": "부산",
-    "busan": "부산",
-    "제주": "제주",
-    "제주도": "제주",
-    "jeju": "제주",
-    "도쿄": "도쿄",
-    "tokyo": "도쿄",
-    "오사카": "오사카",
-    "osaka": "오사카",
-    "교토": "교토",
-    "kyoto": "교토",
-    "타이베이": "타이베이",
-    "taipei": "타이베이",
-    "방콕": "방콕",
-    "bangkok": "방콕",
-    "싱가포르": "싱가포르",
-    "singapore": "싱가포르",
-}
-
-_STYLE_ALIASES = {
-    "도시": "도시",
-    "city": "도시",
-    "휴양": "휴양",
-    "힐링": "휴양",
-    "휴식": "휴양",
-    "relax": "휴양",
-    "자연": "자연",
-    "nature": "자연",
-    "먹거리": "먹거리",
-    "맛집": "먹거리",
-    "food": "먹거리",
-}
-
-_COMPANION_ALIASES = {
-    "혼자": "혼자",
-    "solo": "혼자",
-    "친구": "친구",
-    "friends": "친구",
-    "가족": "가족",
-    "family": "가족",
-    "연인": "연인",
-    "커플": "연인",
-    "couple": "연인",
-}
-
-_STYLE_TO_DESTINATIONS = {
-    "도시": ["서울", "도쿄", "싱가포르"],
-    "휴양": ["제주", "방콕", "싱가포르"],
-    "자연": ["제주", "교토", "부산"],
-    "먹거리": ["오사카", "타이베이", "부산"],
-}
-
-_DESTINATION_TO_PLACES = {
-    "서울": ["경복궁", "북촌한옥마을", "성수동", "한강공원"],
-    "부산": ["해운대", "광안리", "감천문화마을", "자갈치시장"],
-    "제주": ["함덕해변", "성산일출봉", "협재해변", "동문시장"],
-    "도쿄": ["시부야", "아사쿠사", "메이지신궁", "긴자"],
-    "오사카": ["도톤보리", "오사카성", "우메다", "신세카이"],
-    "교토": ["후시미 이나리 신사", "기요미즈데라", "아라시야마", "니시키시장"],
-    "타이베이": ["타이베이 101", "중정기념당", "스린 야시장", "용캉제"],
-    "방콕": ["왓 아룬", "아이콘시암", "짜뚜짝 시장", "차오프라야 강변"],
-    "싱가포르": ["마리나 베이", "가든스 바이 더 베이", "하지 레인", "센토사"],
-}
-
-_DESTINATION_DEFAULT_STYLE = {
-    "서울": "도시",
-    "부산": "먹거리",
-    "제주": "휴양",
-    "도쿄": "도시",
-    "오사카": "먹거리",
-    "교토": "자연",
-    "타이베이": "먹거리",
-    "방콕": "휴양",
-    "싱가포르": "도시",
-}
-
-_DURATION_PATTERN = re.compile(r"(?:(\d+)\s*박\s*(\d+)\s*일)|(\d+)\s*일")
-
-
-def _sorted_aliases(aliases: dict[str, str]) -> list[tuple[str, str]]:
-    return sorted(aliases.items(), key=lambda item: len(item[0]), reverse=True)
-
-
-_DESTINATION_ALIASES_SORTED = _sorted_aliases(_DESTINATION_ALIASES)
-_STYLE_ALIASES_SORTED = _sorted_aliases(_STYLE_ALIASES)
-_COMPANION_ALIASES_SORTED = _sorted_aliases(_COMPANION_ALIASES)
 
 
 def entry_node(state: TravelPlannerState, user_message: str) -> NodeResult:
@@ -135,7 +50,7 @@ def recommend_destination_node(state: TravelPlannerState, user_message: str) -> 
 
     style = state.travel_style
     companion = state.companion_type
-    suggestions = _recommend_destinations(style=style)
+    suggestions = recommend_destinations(style=style)
 
     log.info("[travel_planner] 목적지 후보 추천: style=%s companion=%s suggestions=%s", style, companion, suggestions)
 
@@ -163,11 +78,11 @@ def build_plan_node(state: TravelPlannerState, user_message: str) -> NodeResult:
 
     destination = state.destination
     duration_text = state.duration_text
-    travel_style = state.travel_style or _DESTINATION_DEFAULT_STYLE.get(destination, "도시")
+    travel_style = state.travel_style or DESTINATION_DEFAULT_STYLE.get(destination, "도시")
     companion_type = state.companion_type
 
-    recommended_places = _DESTINATION_TO_PLACES.get(destination, [])[:3]
-    note = _build_companion_note(companion_type)
+    recommended_places = DESTINATION_TO_PLACES.get(destination, [])[:3]
+    note = build_companion_note(companion_type)
     reply_lines = [
         f"{destination} {duration_text} 여행은 {travel_style} 중심으로 시작하면 좋습니다.",
         f"추천 방문지: {', '.join(recommended_places)}",
@@ -267,51 +182,3 @@ def _resolve_request(state: TravelPlannerState, user_message: str) -> NodeResult
         next_node_id="build_plan",
         data_updates={**base_updates, "last_asked_slot": ""},
     )
-
-
-def _parse_request(user_message: str) -> tuple[str, str, str, str]:
-    normalized = user_message.strip()
-    destination = _match_alias(normalized, _DESTINATION_ALIASES_SORTED)
-    travel_style = _match_alias(normalized, _STYLE_ALIASES_SORTED)
-    duration_text = _extract_duration(normalized)
-    companion_type = _match_alias(normalized, _COMPANION_ALIASES_SORTED)
-    return destination, travel_style, duration_text, companion_type
-
-
-def _match_alias(user_message: str, sorted_aliases: list[tuple[str, str]]) -> str:
-    """사전 정렬된 별칭 목록에서 첫 번째 매칭 값을 반환한다."""
-
-    lowered = user_message.lower()
-    for alias, canonical in sorted_aliases:
-        if alias.lower() in lowered:
-            return canonical
-    return ""
-
-
-def _extract_duration(user_message: str) -> str:
-    match = _DURATION_PATTERN.search(user_message)
-    if not match:
-        return ""
-
-    nights, days, days_only = match.groups()
-    if nights and days:
-        return f"{nights}박 {days}일"
-    return f"{days_only}일"
-
-
-def _recommend_destinations(*, style: str) -> list[str]:
-    if style in _STYLE_TO_DESTINATIONS:
-        return list(_STYLE_TO_DESTINATIONS[style])
-    return ["서울", "제주", "도쿄"]
-
-
-def _build_companion_note(companion_type: str) -> str:
-    if companion_type == "가족":
-        return "가족 여행이라면 이동 횟수를 줄이고 휴식 가능한 장소를 중간에 끼워 넣는 편이 좋습니다."
-    if companion_type == "연인":
-        return "연인 여행이라면 야경이나 산책 코스를 한 구간 넣으면 만족도가 높습니다."
-    if companion_type == "친구":
-        return "친구 여행이라면 맛집과 야간 활동을 한 구간 포함하면 일정이 덜 단조롭습니다."
-    if companion_type == "혼자":
-        return "혼자 여행이라면 동선을 단순하게 잡고 오래 머물 곳을 1~2곳 정하는 편이 편합니다."
-    return "동행 정보가 없어 일반 여행자 기준으로 무난한 동선으로 추천했습니다."

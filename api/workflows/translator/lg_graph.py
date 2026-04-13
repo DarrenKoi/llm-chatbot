@@ -10,10 +10,9 @@ from langchain_core.messages import AIMessage
 from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
 
-from api.mcp.executor import execute_tool_call
-from api.mcp.models import MCPToolCall
 from api.workflows.lg_state import TranslatorState
 from api.workflows.translator.llm_decision import decide_translation_turn
+from api.workflows.translator.translation_engine import execute_translation
 
 log = logging.getLogger(__name__)
 
@@ -68,46 +67,23 @@ def collect_target_language_node(state: TranslatorState) -> dict:
 def translate_node(state: TranslatorState) -> dict:
     """MCP translate 도구를 호출해 결과를 반환한다."""
 
-    source_text = state.get("source_text", "")
-    target_language = state.get("target_language", "")
-
-    log.info("[translator] translate 도구 호출: text=%s target_language=%s", source_text, target_language)
-    result = execute_tool_call(
-        MCPToolCall(
-            tool_id="translate",
-            arguments={"text": source_text, "target_language": target_language},
-        )
-    )
-    log.info("[translator] translate 도구 결과: %s", result)
+    result = execute_translation(state.get("source_text", ""), state.get("target_language", ""))
 
     if not result.success:
         return {
-            "messages": [AIMessage(content=result.error or "번역 중 오류가 발생했습니다.")],
+            "messages": [AIMessage(content=result.error)],
             "translated": "",
             "pronunciation_ko": "",
             "translation_direction": "",
             "last_asked_slot": "",
         }
 
-    translated = result.output.get("result", "") if isinstance(result.output, dict) else ""
-    source_language = ""
-    direction = ""
-    pronunciation_ko = ""
-    if isinstance(result.output, dict):
-        source_language = result.output.get("source", "")
-        direction = f"{source_language}\u2192{result.output.get('target', '')}"
-        pronunciation_ko = result.output.get("pronunciation_ko", "")
-
-    reply = translated
-    if pronunciation_ko:
-        reply = f"{translated}\n(한국어 발음: {pronunciation_ko})"
-
     return {
-        "messages": [AIMessage(content=reply)],
-        "source_language": source_language,
-        "translation_direction": direction,
-        "translated": translated,
-        "pronunciation_ko": pronunciation_ko,
+        "messages": [AIMessage(content=result.reply)],
+        "source_language": result.source_language,
+        "translation_direction": result.direction,
+        "translated": result.translated,
+        "pronunciation_ko": result.pronunciation_ko,
         "last_asked_slot": "",
     }
 
