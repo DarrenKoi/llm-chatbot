@@ -10,11 +10,12 @@ from api.workflows.intent_utils import is_stop_conversation_message
 
 log = logging.getLogger(__name__)
 
+CANCEL_GUIDE_REPLY = '중간에 그만하고 싶으시면 "취소"라고 말씀해주세요.'
+
 _ASK_STYLE_REPLY = (
-    "여행 계획을 같이 잡아볼게요. 어떤 스타일의 여행을 원하시나요?\n"
-    '예: 도시, 휴양, 자연, 먹거리\n원하시면 "취소"라고 말씀하셔도 됩니다.'
+    f"여행 계획을 같이 잡아볼게요. 어떤 스타일의 여행을 원하시나요?\n예: 도시, 휴양, 자연, 먹거리\n{CANCEL_GUIDE_REPLY}"
 )
-_ASK_DURATION_REPLY = '일정은 며칠인가요? 예: 2박 3일\n원하시면 "취소"라고 말씀하셔도 됩니다.'
+_ASK_DURATION_REPLY = f"일정은 며칠인가요? 예: 2박 3일\n{CANCEL_GUIDE_REPLY}"
 _STOP_REPLY = "여행 계획은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
 
 _DESTINATION_ALIASES = {
@@ -246,7 +247,7 @@ def _normalize_missing_slot(
 def _default_reply_for_missing_slot(missing_slot: str, *, destination: str) -> str:
     if missing_slot == "duration_text":
         if destination:
-            return f'{destination} 좋습니다. 일정은 며칠인가요? 예: 2박 3일\n원하시면 "취소"라고 말씀하셔도 됩니다.'
+            return f"{destination} 좋습니다. 일정은 며칠인가요? 예: 2박 3일\n{CANCEL_GUIDE_REPLY}"
         return _ASK_DURATION_REPLY
     return _ASK_STYLE_REPLY
 

@@ -11,7 +11,7 @@ from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
 
 from api.workflows.lg_state import TravelPlannerState as LGTravelPlannerState
-from api.workflows.travel_planner.llm_decision import decide_travel_planner_turn
+from api.workflows.travel_planner.llm_decision import CANCEL_GUIDE_REPLY, decide_travel_planner_turn
 from api.workflows.travel_planner.nodes import (
     _build_companion_note,
     _recommend_destinations,
@@ -110,7 +110,7 @@ def recommend_destination_node(state: LGTravelPlannerState) -> dict:
     reply = (
         f"{companion_text}{style} 여행으로는 {', '.join(suggestions)}를 먼저 고려해보세요.\n"
         "마음에 드는 곳을 하나 골라 말씀해주시면 그 목적지 기준으로 일정과 방문지를 추천해드릴게요.\n"
-        '원하시면 "취소"라고 말씀하셔도 됩니다.'
+        f"{CANCEL_GUIDE_REPLY}"
     )
 
     user_input = interrupt({"reply": reply})

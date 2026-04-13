@@ -1,7 +1,7 @@
 """LLM decision helper regression tests for workflow controllers."""
 
 from api.workflows.translator.llm_decision import decide_translation_turn
-from api.workflows.travel_planner.llm_decision import decide_travel_planner_turn
+from api.workflows.travel_planner.llm_decision import CANCEL_GUIDE_REPLY, decide_travel_planner_turn
 
 
 def test_translator_llm_decision_normalizes_language_and_translate(monkeypatch):
@@ -107,3 +107,4 @@ def test_travel_planner_llm_decision_fills_default_duration_question(monkeypatch
     assert decision.action == "ask_user"
     assert decision.missing_slot == "duration_text"
     assert "제주 좋습니다. 일정은 며칠인가요?" in decision.reply
+    assert CANCEL_GUIDE_REPLY in decision.reply
