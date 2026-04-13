@@ -54,6 +54,19 @@ def translate_node(state: TranslatorExampleState, user_message: str) -> NodeResu
     )
     log.info("[translator_example] translate_example 도구 결과: %s", result)
 
+    if not result.success:
+        return NodeResult(
+            action="complete",
+            reply=result.error or "번역 중 오류가 발생했습니다.",
+            next_node_id="entry",
+            data_updates={
+                "translated": "",
+                "pronunciation_ko": "",
+                "translation_direction": "",
+                "last_asked_slot": "",
+            },
+        )
+
     translated = result.output.get("result", "") if isinstance(result.output, dict) else ""
     source_language = ""
     direction = ""

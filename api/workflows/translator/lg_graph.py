@@ -80,6 +80,15 @@ def translate_node(state: TranslatorState) -> dict:
     )
     log.info("[translator] translate 도구 결과: %s", result)
 
+    if not result.success:
+        return {
+            "messages": [AIMessage(content=result.error or "번역 중 오류가 발생했습니다.")],
+            "translated": "",
+            "pronunciation_ko": "",
+            "translation_direction": "",
+            "last_asked_slot": "",
+        }
+
     translated = result.output.get("result", "") if isinstance(result.output, dict) else ""
     source_language = ""
     direction = ""
