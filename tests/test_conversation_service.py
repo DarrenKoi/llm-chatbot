@@ -117,7 +117,7 @@ class TestMongoBackend:
 
     @patch.object(config, "CONVERSATION_MAX_MESSAGES", 5)
     @patch.object(config, "CONVERSATION_TTL_SECONDS", 3600)
-    @patch.object(config, "CONVERSATION_COLLECTION_NAME", "conversation_history")
+    @patch.object(config, "CONVERSATION_COLLECTION_NAME", "cube_conversation_history")
     @patch.object(config, "AFM_DB_NAME", "test-db")
     @patch.object(config, "AFM_MONGO_URI", "mongodb://fake:27017")
     def test_append_inserts_document(self):
@@ -155,7 +155,7 @@ class TestMongoBackend:
 
     @patch.object(config, "CONVERSATION_MAX_MESSAGES", 5)
     @patch.object(config, "CONVERSATION_TTL_SECONDS", 0)
-    @patch.object(config, "CONVERSATION_COLLECTION_NAME", "conversation_history")
+    @patch.object(config, "CONVERSATION_COLLECTION_NAME", "cube_conversation_history")
     @patch.object(config, "AFM_DB_NAME", "test-db")
     @patch.object(config, "AFM_MONGO_URI", "mongodb://fake:27017")
     def test_mongo_backend_skips_ttl_index_when_disabled(self):
@@ -175,7 +175,7 @@ class TestMongoBackend:
 
             mod.get_history("user1", conversation_id="c1")
 
-            assert mock_db.__getitem__.call_args_list[0].args[0] == "conversation_history"
+            assert mock_db.__getitem__.call_args_list[0].args[0] == "cube_conversation_history"
             assert mock_col.create_index.call_count == 2
 
     @patch.object(config, "CONVERSATION_MAX_MESSAGES", 5)
@@ -299,7 +299,7 @@ class TestMongoBackend:
 
     @patch.object(config, "CONVERSATION_COLLECTION_NAME", "shared")
     @patch.object(config, "LANGGRAPH_CHECKPOINT_COLLECTION_NAME", "shared")
-    @patch.object(config, "LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME", "checkpoint_writes")
+    @patch.object(config, "LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME", "cube_checkpoint_writes")
     @patch.object(config, "AFM_DB_NAME", "test-db")
     @patch.object(config, "AFM_MONGO_URI", "mongodb://fake:27017")
     def test_raises_when_mongo_collection_names_overlap(self):

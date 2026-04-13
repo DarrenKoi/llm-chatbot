@@ -219,9 +219,9 @@ def test_check_file_delivery_metadata_reports_fallback_for_memory_backend(monkey
 def test_check_langgraph_checkpoint_store_reports_connected(monkeypatch):
     monkeypatch.setattr(config, "AFM_MONGO_URI", "mongodb://user:secret@db-host:27017/")
     monkeypatch.setattr(config, "AFM_DB_NAME", "test-db")
-    monkeypatch.setattr(config, "CONVERSATION_COLLECTION_NAME", "conversation_history")
-    monkeypatch.setattr(config, "LANGGRAPH_CHECKPOINT_COLLECTION_NAME", "checkpoints")
-    monkeypatch.setattr(config, "LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME", "checkpoint_writes")
+    monkeypatch.setattr(config, "CONVERSATION_COLLECTION_NAME", "cube_conversation_history")
+    monkeypatch.setattr(config, "LANGGRAPH_CHECKPOINT_COLLECTION_NAME", "cube_checkpoints")
+    monkeypatch.setattr(config, "LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME", "cube_checkpoint_writes")
     monkeypatch.setattr(config, "CHECKPOINT_TTL_SECONDS", 259200)
 
     with patch("pymongo.MongoClient") as mock_cls:
@@ -232,7 +232,7 @@ def test_check_langgraph_checkpoint_store_reports_connected(monkeypatch):
 
     assert entry.tone == "ok"
     assert entry.status == "connected"
-    assert "checkpoints / checkpoint_writes" in entry.target
+    assert "cube_checkpoints / cube_checkpoint_writes" in entry.target
     assert "TTL=259200초" in entry.detail
 
 
@@ -262,7 +262,7 @@ def test_check_langgraph_checkpoint_store_reports_config_error(monkeypatch):
     monkeypatch.setattr(config, "AFM_MONGO_URI", "mongodb://user:secret@db-host:27017/")
     monkeypatch.setattr(config, "CONVERSATION_COLLECTION_NAME", "shared")
     monkeypatch.setattr(config, "LANGGRAPH_CHECKPOINT_COLLECTION_NAME", "shared")
-    monkeypatch.setattr(config, "LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME", "checkpoint_writes")
+    monkeypatch.setattr(config, "LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME", "cube_checkpoint_writes")
 
     entry = monitoring_service._check_langgraph_checkpoint_store()
 

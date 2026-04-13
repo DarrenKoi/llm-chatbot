@@ -67,8 +67,8 @@
 - `tool_tags`가 비어 있는 workflow는 기존처럼 전체 도구를 그대로 노출한다.
 
 ## LangGraph 저장 규칙
-- LangGraph 체크포인트는 MongoDB `checkpoints` / `checkpoint_writes` 컬렉션을 사용하며 기본 TTL은 3일(`CHECKPOINT_TTL_SECONDS=259200`)이다.
-- 대화 이력 보관용 컬렉션은 `conversation_history`를 기본값으로 사용하고, 기본 TTL 없이 영구 보관한다(`CONVERSATION_TTL_SECONDS=0`).
+- LangGraph 체크포인트는 MongoDB `cube_checkpoints` / `cube_checkpoint_writes` 컬렉션을 사용하며 기본 TTL은 3일(`CHECKPOINT_TTL_SECONDS=259200`)이다.
+- 대화 이력 보관용 컬렉션은 `cube_conversation_history`를 기본값으로 사용하고, 기본 TTL 없이 영구 보관한다(`CONVERSATION_TTL_SECONDS=0`).
 - 체크포인트는 단기 실행 상태와 resume 용도, 대화 이력 컬렉션은 감사/모니터링/장기 조회 용도로 분리한다.
 
 ## Workflow 결정 패턴

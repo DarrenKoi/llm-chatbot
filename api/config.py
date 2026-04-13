@@ -41,11 +41,11 @@ APP_ENV = os.environ.get("APP_ENV", os.environ.get("FLASK_ENV", "development"))
 # MongoDB (conversation storage; empty = in-memory fallback)
 AFM_MONGO_URI = os.environ.get("AFM_MONGO_URI", "")
 AFM_DB_NAME = os.environ.get("AFM_DB_NAME", "itc-afm-data-platform-mongodb")
-CONVERSATION_COLLECTION_NAME = os.environ.get("CONVERSATION_COLLECTION_NAME", "conversation_history")
-LANGGRAPH_CHECKPOINT_COLLECTION_NAME = os.environ.get("LANGGRAPH_CHECKPOINT_COLLECTION_NAME", "checkpoints")
+CONVERSATION_COLLECTION_NAME = os.environ.get("CONVERSATION_COLLECTION_NAME", "cube_conversation_history")
+LANGGRAPH_CHECKPOINT_COLLECTION_NAME = os.environ.get("LANGGRAPH_CHECKPOINT_COLLECTION_NAME", "cube_checkpoints")
 LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME = os.environ.get(
     "LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME",
-    "checkpoint_writes",
+    "cube_checkpoint_writes",
 )
 CHECKPOINT_TTL_SECONDS = int(os.environ.get("CHECKPOINT_TTL_SECONDS", 3 * 24 * 60 * 60))
 

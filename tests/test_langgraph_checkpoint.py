@@ -66,7 +66,7 @@ def test_get_checkpointer_returns_mongo_saver_when_uri_set(monkeypatch):
 def test_validate_mongo_storage_config_rejects_duplicate_collection_names(monkeypatch):
     monkeypatch.setattr(config, "CONVERSATION_COLLECTION_NAME", "shared")
     monkeypatch.setattr(config, "LANGGRAPH_CHECKPOINT_COLLECTION_NAME", "shared")
-    monkeypatch.setattr(config, "LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME", "checkpoint_writes")
+    monkeypatch.setattr(config, "LANGGRAPH_CHECKPOINT_WRITES_COLLECTION_NAME", "cube_checkpoint_writes")
 
     with pytest.raises(ValueError, match="different MongoDB collections"):
         validate_mongo_storage_config()
