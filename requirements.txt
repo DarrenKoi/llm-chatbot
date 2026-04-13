@@ -4,6 +4,7 @@ redis
 pymongo
 apscheduler
 pillow
+# HTTP client used by Cube/profile integrations
 httpx
 pyvis
 
