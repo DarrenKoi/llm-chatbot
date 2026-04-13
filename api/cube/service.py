@@ -6,7 +6,8 @@ from typing import Any
 
 from api import config
 from api.conversation_service import ConversationStoreError, append_message
-from api.cube.client import CubeClientError, send_multimessage
+from api.cube.chunker import plan_delivery
+from api.cube.client import CubeClientError, send_multimessage, send_richnotification
 from api.cube.models import CubeAcceptedMessage, CubeHandledMessage, CubeIncomingMessage, CubeQueuedMessage
 from api.cube.payload import extract_cube_request_fields
 from api.cube.queue import CubeQueueError, enqueue_incoming_message
@@ -290,10 +291,18 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
         raise CubeUpstreamError("Workflow reply generation failed.") from exc
 
     try:
-        send_multimessage(
-            user_id=incoming.user_id,
-            reply_message=llm_reply,
-        )
+        for item in plan_delivery(llm_reply):
+            if item.method == "rich":
+                send_richnotification(
+                    user_id=incoming.user_id,
+                    channel_id=incoming.channel_id,
+                    reply_message=item.content,
+                )
+            else:
+                send_multimessage(
+                    user_id=incoming.user_id,
+                    reply_message=item.content,
+                )
     except CubeClientError as exc:
         log_activity(
             "cube_reply_failed",
