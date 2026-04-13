@@ -1,5 +1,7 @@
 """번역 예제 LangGraph 워크플로."""
 
+from typing import Literal
+
 from langchain_core.messages import AIMessage
 from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
@@ -83,7 +85,9 @@ def translate_node(state: TranslatorExampleState) -> dict:
     }
 
 
-def _route_after_resolve(state: TranslatorExampleState) -> str:
+def _route_after_resolve(
+    state: TranslatorExampleState,
+) -> Literal["collect_source_text", "collect_target_language", "translate", "__end__"]:
     if state.get("conversation_ended"):
         return END
     if state.get("last_asked_slot") == "source_text":

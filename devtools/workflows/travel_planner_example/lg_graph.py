@@ -1,6 +1,7 @@
 """여행 계획 예제 LangGraph 워크플로."""
 
 import logging
+from typing import Literal
 
 from langchain_core.messages import AIMessage
 from langgraph.graph import END, StateGraph
@@ -148,7 +149,9 @@ def build_plan_node(state: TravelPlannerExampleState) -> dict:
     }
 
 
-def _route_after_resolve(state: TravelPlannerExampleState) -> str:
+def _route_after_resolve(
+    state: TravelPlannerExampleState,
+) -> Literal["collect_preference", "recommend_destination", "collect_trip_context", "build_plan", "__end__"]:
     if state.get("conversation_ended"):
         return END
     if state.get("last_asked_slot") == "travel_style":
