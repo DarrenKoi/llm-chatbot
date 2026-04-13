@@ -60,19 +60,14 @@ def test_discover_workflows_loads_package_definitions(tmp_path):
                 pass
 
 
-            def build_graph():
-                return {
-                    "workflow_id": "alpha_flow",
-                    "entry_node_id": "entry",
-                    "nodes": {"entry": lambda _state, _message: None},
-                }
+            def build_lg_graph():
+                return None
 
 
             def get_workflow_definition():
                 return {
                     "workflow_id": "alpha_flow",
-                    "entry_node_id": "entry",
-                    "build_graph": build_graph,
+                    "build_lg_graph": build_lg_graph,
                     "state_cls": AlphaState,
                     "handoff_keywords": ("Alpha", "신규 업무"),
                     "tool_tags": (" Translation ", "LANGUAGE", "translation"),
@@ -85,18 +80,13 @@ def test_discover_workflows_loads_package_definitions(tmp_path):
     (beta_dir / "__init__.py").write_text(
         dedent(
             """
-            def build_graph():
-                return {
-                    "workflow_id": "beta_flow",
-                    "entry_node_id": "start",
-                    "nodes": {"start": lambda _state, _message: None},
-                }
+            def build_lg_graph():
+                return None
 
 
             WORKFLOW_DEFINITION = {
                 "workflow_id": "beta_flow",
-                "entry_node_id": "start",
-                "build_graph": build_graph,
+                "build_lg_graph": build_lg_graph,
             }
             """
         ).strip()
@@ -114,10 +104,8 @@ def test_discover_workflows_loads_package_definitions(tmp_path):
                 sys.modules.pop(module_name, None)
 
     assert sorted(workflows) == ["alpha_flow", "beta_flow"]
-    assert workflows["alpha_flow"]["entry_node_id"] == "entry"
     assert workflows["alpha_flow"]["handoff_keywords"] == ("alpha", "신규 업무")
     assert workflows["alpha_flow"]["tool_tags"] == ("translation", "language")
-    assert workflows["beta_flow"]["entry_node_id"] == "start"
 
 
 def test_discover_workflows_uses_package_name_as_default_workflow_id(tmp_path):
@@ -132,17 +120,12 @@ def test_discover_workflows_uses_package_name_as_default_workflow_id(tmp_path):
     (gamma_dir / "__init__.py").write_text(
         dedent(
             """
-            def build_graph():
-                return {
-                    "workflow_id": "gamma_flow",
-                    "entry_node_id": "entry",
-                    "nodes": {"entry": lambda _state, _message: None},
-                }
+            def build_lg_graph():
+                return None
 
 
             WORKFLOW_DEFINITION = {
-                "entry_node_id": "entry",
-                "build_graph": build_graph,
+                "build_lg_graph": build_lg_graph,
             }
             """
         ).strip()
@@ -175,18 +158,13 @@ def test_load_workflows_bootstraps_workflow_logs(tmp_path, monkeypatch):
     (alpha_dir / "__init__.py").write_text(
         dedent(
             """
-            def build_graph():
-                return {
-                    "workflow_id": "alpha_flow",
-                    "entry_node_id": "entry",
-                    "nodes": {"entry": lambda _state, _message: None},
-                }
+            def build_lg_graph():
+                return None
 
 
             WORKFLOW_DEFINITION = {
                 "workflow_id": "alpha_flow",
-                "entry_node_id": "entry",
-                "build_graph": build_graph,
+                "build_lg_graph": build_lg_graph,
                 "handoff_keywords": ("Alpha",),
                 "tool_tags": ("translation", "language"),
             }
@@ -219,6 +197,5 @@ def test_load_workflows_bootstraps_workflow_logs(tmp_path, monkeypatch):
     payload = json.loads(workflow_log_file.read_text(encoding="utf-8").splitlines()[0])
     assert payload["event"] == "workflow_registered"
     assert payload["workflow_id"] == "alpha_flow"
-    assert payload["entry_node_id"] == "entry"
     assert payload["handoff_keywords"] == ["alpha"]
     assert payload["tool_tags"] == ["translation", "language"]

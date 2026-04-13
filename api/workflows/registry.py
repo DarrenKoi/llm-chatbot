@@ -134,13 +134,9 @@ def _normalize_workflow_definition(
     definition = dict(raw_definition)
     definition["workflow_id"] = str(definition.get("workflow_id") or default_workflow_id)
 
-    build_graph = definition.get("build_graph")
-    if not callable(build_graph):
-        raise RuntimeError(f"워크플로 build_graph가 필요합니다: {module_name}")
-
-    entry_node_id = definition.get("entry_node_id")
-    if not isinstance(entry_node_id, str) or not entry_node_id:
-        raise RuntimeError(f"워크플로 entry_node_id가 필요합니다: {module_name}")
+    build_lg_graph = definition.get("build_lg_graph")
+    if not callable(build_lg_graph):
+        raise RuntimeError(f"워크플로 build_lg_graph가 필요합니다: {module_name}")
 
     definition["state_cls"] = _normalize_state_cls(definition.get("state_cls"), module_name)
     definition["handoff_keywords"] = _normalize_keywords(
@@ -184,7 +180,6 @@ def _bootstrap_workflow_logging(workflows: dict[str, WorkflowDefinition]) -> Non
         log_workflow_activity(
             workflow_id,
             "workflow_registered",
-            entry_node_id=definition["entry_node_id"],
             state_class=getattr(state_cls, "__name__", str(state_cls)),
             handoff_keywords=list(definition.get("handoff_keywords", ())),
             tool_tags=list(definition.get("tool_tags", ())),

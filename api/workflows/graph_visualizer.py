@@ -1,4 +1,4 @@
-"""워크플로 그래프를 pyvis 네트워크로 변환하여 HTML을 생성한다."""
+"""워크플로 LangGraph 그래프를 pyvis 네트워크로 변환하여 HTML을 생성한다."""
 
 import re
 
@@ -11,9 +11,8 @@ _NODE_COLOR = "#4A90D9"
 _ENTRY_COLOR = "#2ECC71"
 _END_COLOR = "#E74C3C"
 _EDGE_COLOR = "#7f8c8d"
+_CONDITIONAL_EDGE_COLOR = "#e67e22"
 
-_HANDOFF_NODE_ID = "__handoff__"
-_HANDOFF_LABEL = "handoff"
 _BODY_GRAPH_PATTERN = re.compile(
     r"<body>\s*<div class=\"card\" style=\"width: 100%\">\s*"
     r"<div id=\"mynetwork\" class=\"card-body\"></div>\s*</div>",
@@ -90,12 +89,16 @@ _LAYOUT_CSS = """
              }
 """
 
+_LG_START = "__start__"
+_LG_END = "__end__"
+
 
 def build_workflow_html(workflow_id: str) -> str:
-    """주어진 workflow_id의 그래프를 pyvis HTML 문자열로 반환한다."""
+    """주어진 workflow_id의 LangGraph 그래프를 pyvis HTML 문자열로 반환한다."""
 
     workflow_def = get_workflow(workflow_id)
-    graph = workflow_def["build_graph"]()
+    builder = workflow_def["build_lg_graph"]
+    lg_graph = builder().compile().get_graph()
 
     net = Network(
         height="600px",
@@ -128,27 +131,28 @@ def build_workflow_html(workflow_id: str) -> str:
         }
     }""")
 
-    entry_node_id = graph.get("entry_node_id")
-    nodes = graph.get("nodes", {})
-    edges = graph.get("edges", [])
+    entry_targets: set[str] = set()
+    for edge in lg_graph.edges:
+        if edge.source == _LG_START:
+            entry_targets.add(edge.target)
 
-    has_handoff = any(edge[1] is None for edge in edges)
-
-    for node_id in nodes:
-        if node_id == entry_node_id:
+    for node_id in lg_graph.nodes:
+        if node_id in (_LG_START, _LG_END):
+            continue
+        if node_id in entry_targets:
             color = _ENTRY_COLOR
         else:
             color = _NODE_COLOR
         net.add_node(node_id, label=node_id, color=color)
 
-    if has_handoff:
-        net.add_node(_HANDOFF_NODE_ID, label=_HANDOFF_LABEL, color=_END_COLOR)
+    net.add_node(_LG_END, label="END", color=_END_COLOR)
 
-    for edge in edges:
-        source = edge[0]
-        target = edge[1] if edge[1] is not None else _HANDOFF_NODE_ID
-        label = edge[2] if len(edge) > 2 else ""
-        net.add_edge(source, target, label=label, color=_EDGE_COLOR)
+    for edge in lg_graph.edges:
+        if edge.source == _LG_START:
+            continue
+        target = _LG_END if edge.target == _LG_END else edge.target
+        edge_color = _CONDITIONAL_EDGE_COLOR if edge.conditional else _EDGE_COLOR
+        net.add_edge(edge.source, target, color=edge_color)
 
     return _apply_workflow_layout(html=net.generate_html(), workflow_id=workflow_id)
 
