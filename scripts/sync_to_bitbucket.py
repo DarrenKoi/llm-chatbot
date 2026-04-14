@@ -102,6 +102,33 @@ def should_exclude(path: Path, relative_path: Path, exclude_paths: list[Path]) -
     return is_excluded_by_pattern(path) or is_excluded_by_path(relative_path, exclude_paths)
 
 
+def clean_directory(target_dir: Path, dst: Path, preserve_paths: list[Path], dry_run: bool):
+    """디렉토리를 재귀적으로 정리하되, preserve_paths에 해당하는 경로는 보존한다."""
+    for child in sorted(target_dir.iterdir()):
+        rel = child.relative_to(dst)
+
+        # 보존 대상과 정확히 일치 → 전체 보존
+        if any(rel == p for p in preserve_paths):
+            label = "보존" if not dry_run else "보존 예정"
+            print(f"  [{label}] {rel}/")
+            continue
+
+        # 보존 대상의 상위 경로 → 재귀 탐색
+        if child.is_dir() and any(rel in p.parents for p in preserve_paths):
+            clean_directory(child, dst, preserve_paths, dry_run)
+            continue
+
+        # 보존 대상 아님 → 삭제
+        if dry_run:
+            print(f"  [삭제 예정] {rel}{'/' if child.is_dir() else ''}")
+        else:
+            if child.is_dir():
+                shutil.rmtree(child)
+            else:
+                child.unlink()
+            print(f"  [삭제 완료] {rel}{'/' if child.is_dir() else ''}")
+
+
 def copy_entry(src: Path, dst: Path, entry: str, dry_run: bool, exclude_paths: list[Path]) -> int:
     """단일 항목을 복사하고 복사된 파일 수를 반환한다."""
     normalized_entry = normalize_entry_path(entry)
@@ -208,21 +235,8 @@ def main():
                 print(f"  [삭제 완료] {entry}")
             continue
 
-        # 디렉토리: 보존 대상을 제외하고 선택적 삭제
-        for child in sorted(target.iterdir()):
-            rel = child.relative_to(dst)
-            if any(rel == p or p == rel or rel in p.parents for p in preserve_paths):
-                label = "보존" if not args.dry_run else "보존 예정"
-                print(f"  [{label}] {rel}/")
-                continue
-            if args.dry_run:
-                print(f"  [삭제 예정] {rel}{'/' if child.is_dir() else ''}")
-            else:
-                if child.is_dir():
-                    shutil.rmtree(child)
-                else:
-                    child.unlink()
-                print(f"  [삭제 완료] {rel}{'/' if child.is_dir() else ''}")
+        # 디렉토리: 보존 대상을 제외하고 재귀적으로 삭제
+        clean_directory(target, dst, preserve_paths, args.dry_run)
 
     # 파일 복사 (기존 파일 덮어쓰기, 수동 추가 파일은 유지)
     total = 0
