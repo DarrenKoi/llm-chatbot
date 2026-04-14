@@ -46,7 +46,6 @@ def handle_message(incoming: CubeIncomingMessage, attempt: int = 0) -> WorkflowR
                 "user_message": incoming.message,
                 "user_id": incoming.user_id,
                 "channel_id": incoming.channel_id,
-                "workflow_id": "start_chat",
             },
             config,
         )
@@ -61,7 +60,7 @@ def handle_message(incoming: CubeIncomingMessage, attempt: int = 0) -> WorkflowR
         messages = values.get("messages", [])
         reply = messages[-1].content if messages else ""
 
-    workflow_id = result_state.values.get("detected_intent", "start_chat")
+    workflow_id = result_state.values.get("active_workflow", "start_chat")
 
     return WorkflowReply(
         reply=reply or "[start_chat] 처리 완료.",

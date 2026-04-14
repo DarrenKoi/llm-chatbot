@@ -102,7 +102,7 @@ builder.add_edge("complete", END)
 운영 환경에서는 `start_chat`이 모든 대화의 루트 그래프입니다.
 
 - `api/workflows/start_chat/lg_graph.py`는 handoff 가능한 워크플로를 레지스트리에서 읽습니다.
-- `classify_node()`는 메시지와 `handoff_keywords`를 비교해 `detected_intent`를 결정합니다.
+- `classify_node()`는 메시지와 `handoff_keywords`를 비교해 `active_workflow`를 결정합니다.
 - intent가 특정 워크플로와 일치하면 그 서브그래프를 실행합니다.
 
 즉, 새 워크플로를 운영에 붙이려면 서브그래프 형태로 동작할 수 있어야 합니다.

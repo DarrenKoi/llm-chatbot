@@ -84,7 +84,7 @@ def test_dev_runner_send_start_chat(monkeypatch):
 
     def _fake_handle_dev_message(*, workflow_id: str, user_message: str, user_id: str) -> dict:
         captured["workflow_id"] = workflow_id
-        return {"reply": "routed", "state": {"detected_intent": "translator"}, "trace": []}
+        return {"reply": "routed", "state": {"active_workflow": "translator"}, "trace": []}
 
     monkeypatch.setattr(runner_routes, "handle_dev_message", _fake_handle_dev_message)
 
@@ -96,4 +96,4 @@ def test_dev_runner_send_start_chat(monkeypatch):
     assert response.status_code == 200
     assert captured["workflow_id"] == START_CHAT_ID
     data = response.get_json()
-    assert data["state"]["detected_intent"] == "translator"
+    assert data["state"]["active_workflow"] == "translator"

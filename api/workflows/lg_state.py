@@ -12,7 +12,6 @@ class ChatState(TypedDict, total=False):
     user_id: str
     channel_id: str
     user_message: str
-    workflow_id: str
     conversation_ended: bool
     pending_reply: str
 
@@ -52,7 +51,7 @@ class TravelPlannerState(ChatState, total=False):
 class StartChatState(ChatState, total=False):
     """시작 대화 워크플로 전용 상태."""
 
-    detected_intent: str
+    active_workflow: str
     retrieved_contexts: list[str]
     profile_loaded: bool
     profile_source: str

@@ -47,11 +47,14 @@ def test_casual_conversation_completes(mock_history, mock_llm, mock_profile):
     config = _make_config("casual")
 
     result = graph.invoke(
-        {"user_message": "안녕하세요", "user_id": "user1", "workflow_id": "start_chat"},
+        {
+            "user_message": "안녕하세요",
+            "user_id": "user1",
+        },
         config,
     )
 
-    assert result["detected_intent"] == "start_chat"
+    assert result["active_workflow"] == "start_chat"
     assert result["messages"][-1].content == "테스트 응답입니다."
 
 
@@ -63,7 +66,10 @@ def test_handoff_to_translator_subgraph(mock_profile):
     config = _make_config("handoff-translator")
 
     graph.invoke(
-        {"user_message": '"안녕하세요" 번역해줘', "user_id": "user1", "workflow_id": "start_chat"},
+        {
+            "user_message": '"안녕하세요" 번역해줘',
+            "user_id": "user1",
+        },
         config,
     )
 
@@ -71,7 +77,7 @@ def test_handoff_to_translator_subgraph(mock_profile):
     assert state.tasks, "translator 서브그래프에서 interrupt가 발생해야 한다"
     reply = state.tasks[0].interrupts[0].value["reply"]
     assert "영어 또는 일본어" in reply
-    assert state.values["detected_intent"] == "translator"
+    assert state.values["active_workflow"] == "translator"
 
     result = graph.invoke(Command(resume="영어"), config)
 
@@ -86,11 +92,14 @@ def test_handoff_to_travel_planner_subgraph(mock_profile):
     config = _make_config("handoff-travel")
 
     result = graph.invoke(
-        {"user_message": "도쿄 3박 4일 여행 계획 짜줘", "user_id": "user1", "workflow_id": "start_chat"},
+        {
+            "user_message": "도쿄 3박 4일 여행 계획 짜줘",
+            "user_id": "user1",
+        },
         config,
     )
 
-    assert result["detected_intent"] == "travel_planner"
+    assert result["active_workflow"] == "travel_planner"
     assert "도쿄 3박 4일 여행" in result["messages"][-1].content
     assert "시부야" in result["messages"][-1].content
 
@@ -103,7 +112,10 @@ def test_travel_planner_multi_turn_via_start_chat(mock_profile):
     config = _make_config("travel-multi-turn")
 
     graph.invoke(
-        {"user_message": "여행 계획 짜줘", "user_id": "user1", "workflow_id": "start_chat"},
+        {
+            "user_message": "여행 계획 짜줘",
+            "user_id": "user1",
+        },
         config,
     )
 
@@ -137,7 +149,10 @@ def test_handoff_to_chart_maker_subgraph(mock_profile):
     config = _make_config("handoff-chart")
 
     graph.invoke(
-        {"user_message": "차트 만들어줘", "user_id": "user1", "workflow_id": "start_chat"},
+        {
+            "user_message": "차트 만들어줘",
+            "user_id": "user1",
+        },
         config,
     )
 

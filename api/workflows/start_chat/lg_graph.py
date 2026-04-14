@@ -59,15 +59,15 @@ def classify_node(state: StartChatState) -> dict:
 
     user_message = state.get("user_message", "").strip().lower()
     if not user_message:
-        return {"detected_intent": "start_chat"}
+        return {"active_workflow": "start_chat"}
 
     for workflow_def in list_handoff_workflows():
         workflow_id = workflow_def["workflow_id"]
         keywords = workflow_def.get("handoff_keywords", ())
         if any(keyword in user_message for keyword in keywords):
-            return {"detected_intent": workflow_id}
+            return {"active_workflow": workflow_id}
 
-    return {"detected_intent": "start_chat"}
+    return {"active_workflow": "start_chat"}
 
 
 def retrieve_context_node(state: StartChatState) -> dict:
@@ -149,7 +149,7 @@ def generate_reply_node(state: StartChatState) -> dict:
 def _route_after_classify(state: StartChatState) -> str:
     """classify 후 다음 노드를 결정한다."""
 
-    intent = state.get("detected_intent", "start_chat")
+    intent = state.get("active_workflow", "start_chat")
     if intent in _get_handoff_subgraph_builders():
         return intent
     return "retrieve_context"

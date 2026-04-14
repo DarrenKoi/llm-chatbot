@@ -140,7 +140,6 @@ def handle_dev_message(
                 "user_message": user_message,
                 "user_id": resolved_user_id,
                 "channel_id": workflow_id,
-                "workflow_id": workflow_id,
             },
             config,
         )
@@ -239,7 +238,7 @@ def _detect_action(*, before_state, after_state, mode: str) -> str:
 
 def _detect_node_id(snapshot, workflow_id: str) -> str:
     values = getattr(snapshot, "values", {}) or {}
-    return str(values.get("detected_intent") or values.get("workflow_id") or workflow_id)
+    return str(values.get("active_workflow") or workflow_id)
 
 
 def _serialize_snapshot(snapshot, *, workflow_id: str, user_id: str) -> dict[str, object]:
