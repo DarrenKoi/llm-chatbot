@@ -12,12 +12,9 @@ def build_lg_graph():
 def get_workflow_definition() -> dict[str, object]:
     """travel_planner 워크플로 정의를 반환한다."""
 
-    from api.workflows.travel_planner.state import TravelPlannerState
-
     return {
         "workflow_id": "travel_planner",
         "build_lg_graph": build_lg_graph,
-        "state_cls": TravelPlannerState,
         "handoff_keywords": (
             "travel plan",
             "trip plan",

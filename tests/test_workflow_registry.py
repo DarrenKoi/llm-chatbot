@@ -53,13 +53,6 @@ def test_discover_workflows_loads_package_definitions(tmp_path):
     (alpha_dir / "__init__.py").write_text(
         dedent(
             """
-            from api.workflows.models import WorkflowState
-
-
-            class AlphaState(WorkflowState):
-                pass
-
-
             def build_lg_graph():
                 return None
 
@@ -68,7 +61,6 @@ def test_discover_workflows_loads_package_definitions(tmp_path):
                 return {
                     "workflow_id": "alpha_flow",
                     "build_lg_graph": build_lg_graph,
-                    "state_cls": AlphaState,
                     "handoff_keywords": ("Alpha", "신규 업무"),
                     "tool_tags": (" Translation ", "LANGUAGE", "translation"),
                 }

@@ -10,7 +10,6 @@ from typing import Any
 
 from api.mcp.models import normalize_tags
 from api.utils.logger import log_workflow_activity
-from api.workflows.models import WorkflowState
 
 log = logging.getLogger(__name__)
 
@@ -138,7 +137,7 @@ def _normalize_workflow_definition(
     if not callable(build_lg_graph):
         raise RuntimeError(f"워크플로 build_lg_graph가 필요합니다: {module_name}")
 
-    definition["state_cls"] = _normalize_state_cls(definition.get("state_cls"), module_name)
+    definition.pop("state_cls", None)
     definition["handoff_keywords"] = _normalize_keywords(
         definition.get("handoff_keywords", ()),
         module_name=module_name,
@@ -148,14 +147,6 @@ def _normalize_workflow_definition(
         context=module_name,
     )
     return definition
-
-
-def _normalize_state_cls(candidate: object, module_name: str) -> type[WorkflowState]:
-    if candidate is None:
-        return WorkflowState
-    if isinstance(candidate, type) and issubclass(candidate, WorkflowState):
-        return candidate
-    raise RuntimeError(f"워크플로 state_cls는 WorkflowState 하위 클래스여야 합니다: {module_name}")
 
 
 def _normalize_keywords(keywords: object, *, module_name: str) -> tuple[str, ...]:
@@ -176,11 +167,9 @@ def _bootstrap_workflow_logging(workflows: dict[str, WorkflowDefinition]) -> Non
     """Prime per-workflow structured logging for newly discovered workflow packages."""
 
     for workflow_id, definition in workflows.items():
-        state_cls = definition.get("state_cls", WorkflowState)
         log_workflow_activity(
             workflow_id,
             "workflow_registered",
-            state_class=getattr(state_cls, "__name__", str(state_cls)),
             handoff_keywords=list(definition.get("handoff_keywords", ())),
             tool_tags=list(definition.get("tool_tags", ())),
         )
