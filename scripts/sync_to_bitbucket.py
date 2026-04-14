@@ -54,6 +54,17 @@ CLEAN_BEFORE_SYNC = [
     "devtools/",
 ]
 
+# ──────────────────────────────────────────────
+# 삭제 시 보존할 하위 경로 (팀원이 직접 추가한 코드)
+# CLEAN_BEFORE_SYNC 대상이더라도 아래 경로는 유지
+# ──────────────────────────────────────────────
+CLEAN_PRESERVE = [
+    "api/workflows/",
+    "api/mcp/",
+    "devtools/workflows/",
+    "devtools/mcp/",
+]
+
 EXCLUDE_PATTERNS = [
     "__pycache__",
     "*.pyc",
@@ -181,18 +192,37 @@ def main():
         print("제외 경로: 없음")
     print()
 
-    # 지정된 경로 정리
+    # 지정된 경로 정리 (CLEAN_PRESERVE에 해당하는 하위 경로는 보존)
+    preserve_paths = [normalize_entry_path(p) for p in CLEAN_PRESERVE]
+
     for entry in CLEAN_BEFORE_SYNC:
         target = dst / normalize_entry_path(entry)
-        if target.exists():
+        if not target.exists():
+            continue
+
+        if not target.is_dir():
             if args.dry_run:
                 print(f"  [삭제 예정] {entry}")
             else:
-                if target.is_dir():
-                    shutil.rmtree(target)
-                else:
-                    target.unlink()
+                target.unlink()
                 print(f"  [삭제 완료] {entry}")
+            continue
+
+        # 디렉토리: 보존 대상을 제외하고 선택적 삭제
+        for child in sorted(target.iterdir()):
+            rel = child.relative_to(dst)
+            if any(rel == p or p == rel or rel in p.parents for p in preserve_paths):
+                label = "보존" if not args.dry_run else "보존 예정"
+                print(f"  [{label}] {rel}/")
+                continue
+            if args.dry_run:
+                print(f"  [삭제 예정] {rel}{'/' if child.is_dir() else ''}")
+            else:
+                if child.is_dir():
+                    shutil.rmtree(child)
+                else:
+                    child.unlink()
+                print(f"  [삭제 완료] {rel}{'/' if child.is_dir() else ''}")
 
     # 파일 복사 (기존 파일 덮어쓰기, 수동 추가 파일은 유지)
     total = 0
