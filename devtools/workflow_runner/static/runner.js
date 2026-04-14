@@ -115,7 +115,7 @@ async function fetchWorkflows() {
   (data.workflows || []).forEach((id) => {
     const opt = document.createElement("option");
     opt.value = id;
-    opt.textContent = id;
+    opt.textContent = id === "start_chat" ? "start_chat (전체 진입)" : id;
     $select.appendChild(opt);
   });
 }

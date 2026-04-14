@@ -18,6 +18,8 @@ from devtools.workflow_runner.identity import get_default_dev_user_id
 
 log = logging.getLogger(__name__)
 
+START_CHAT_ID = "start_chat"
+
 _dev_workflows: dict[str, dict[str, object]] | None = None
 _compiled_graphs: dict[str, Any] = {}
 _checkpointers: dict[str, MemorySaver] = {}
@@ -65,9 +67,14 @@ def _invalidate_dev_workflow_modules() -> None:
 
 
 def list_dev_workflow_ids() -> list[str]:
-    """등록된 dev workflow ID 목록을 반환한다."""
+    """등록된 dev workflow ID 목록을 반환한다.
 
-    return sorted(load_dev_workflows().keys())
+    프로덕션 라우팅 테스트를 위해 start_chat을 맨 앞에 포함한다.
+    """
+
+    ids = sorted(load_dev_workflows().keys())
+    ids.insert(0, START_CHAT_ID)
+    return ids
 
 
 def get_dev_workflow(workflow_id: str) -> dict[str, object]:
@@ -85,9 +92,16 @@ def _get_compiled_graph(workflow_id: str):
     if graph is not None:
         return graph
 
-    workflow_def = get_dev_workflow(workflow_id)
     checkpointer = _checkpointers.setdefault(workflow_id, MemorySaver())
-    graph = workflow_def["build_lg_graph"]().compile(checkpointer=checkpointer)
+
+    if workflow_id == START_CHAT_ID:
+        from api.workflows.start_chat.lg_graph import build_lg_graph
+
+        graph = build_lg_graph().compile(checkpointer=checkpointer)
+    else:
+        workflow_def = get_dev_workflow(workflow_id)
+        graph = workflow_def["build_lg_graph"]().compile(checkpointer=checkpointer)
+
     _compiled_graphs[workflow_id] = graph
     return graph
 
@@ -108,7 +122,8 @@ def handle_dev_message(
 ) -> dict[str, object]:
     """dev runner의 메시지 처리 진입점."""
 
-    get_dev_workflow(workflow_id)
+    if workflow_id != START_CHAT_ID:
+        get_dev_workflow(workflow_id)
     resolved_user_id = user_id or get_default_dev_user_id()
 
     graph = _get_compiled_graph(workflow_id)

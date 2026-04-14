@@ -34,9 +34,14 @@ def entry_node(state: StartChatState) -> dict:
     if state.get("profile_loaded"):
         return {}
 
-    from api.profile.service import load_user_profile
+    try:
+        from api.profile.service import load_user_profile
 
-    profile = load_user_profile(state.get("user_id", ""))
+        profile = load_user_profile(state.get("user_id", ""))
+    except Exception:
+        log.warning("프로필 로딩 실패 — 빈 프로필로 진행합니다.")
+        profile = None
+
     profile_summary = profile.to_prompt_text() if profile else ""
     profile_source = profile.source if profile else "unavailable"
 
