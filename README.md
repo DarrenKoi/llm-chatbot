@@ -38,6 +38,7 @@ ruff check . --fix
 ## Docs
 
 - Workflow onboarding guide: `doc/guideline/workflow_추가_가이드.md`
+- Workflow registration guide: `doc/guideline/workflow_등록_가이드.md`
 - Router auto-registration guide: `doc/guideline/router_가이드.md`
 
 ## Dedicated Scheduler Worker
