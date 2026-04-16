@@ -3,7 +3,7 @@
 > 최종 업데이트: 2026-04-17
 
 이 문서는 `shared_docs/`에서 프로젝트 구조를 빠르게 공유하기 위한 요약본입니다.
-원문 기준은 `doc/project_structure.md`이며, 현재 저장소의 실제 디렉터리 구조에 맞게 정리했습니다.
+팀원이 실제로 볼 수 있는 경로 기준으로 정리했으며, top-level에서는 `api/`, `devtools/`, `shared_docs/`와 실행 파일만 설명합니다.
 
 ## 1. 한눈에 보는 구조
 
@@ -13,14 +13,9 @@ llm_chatbot/
 ├── cube_worker.py
 ├── scheduler_worker.py
 ├── wsgi.ini
-├── README.md
 ├── requirements.txt
-├── pyproject.toml
 ├── api/
 ├── devtools/
-├── scripts/
-├── tests/
-├── doc/
 └── shared_docs/
 ```
 
@@ -34,6 +29,8 @@ llm_chatbot/
   별도 스케줄러 프로세스 진입점입니다. 실제 구현은 `api.scheduler_worker`에 있습니다.
 - `wsgi.ini`
   uWSGI 배포 설정 파일입니다.
+- `requirements.txt`
+  배포 및 실행 환경에서 사용하는 Python 의존성 목록입니다.
 
 ## 3. 런타임 핵심 패키지: `api/`
 
@@ -119,43 +116,20 @@ llm_chatbot/
 - `devtools/var/`
   dev runner가 사용하는 대화 이력과 상태 저장 경로입니다.
 
-### `scripts/`
+### `shared_docs/`
 
-저장소 루트의 단발성 보조 스크립트입니다.
+공유용 요약 문서를 두는 영역입니다.
 
-- `scripts/check_tool_calling.py`
-  툴 호출 관련 점검 스크립트입니다.
-- `scripts/sync_to_bitbucket.py`
-  저장소 동기화 작업용 스크립트입니다.
+- `shared_docs/file_structure.md`
+  팀원 가시 범위 기준의 구조 설명입니다.
+- `shared_docs/data_pipeline.md`
+  Cube 입력부터 LangGraph 실행과 저장까지의 흐름을 설명합니다.
+- `shared_docs/workflow_build_with_langgraph.md`
+  LangGraph 워크플로 설계와 등록 원칙을 설명합니다.
+- `shared_docs/devtools.md`
+  `devtools/` 기반 개발 절차를 설명합니다.
 
-## 5. 테스트 구조
-
-- `tests/`
-  `pytest` 기반 전체 테스트 스위트입니다.
-- `tests/conftest.py`
-  공통 fixture와 테스트 초기화 로직이 있습니다.
-
-주요 테스트 그룹:
-
-- Cube 입력과 워커
-  `test_cube_router.py`, `test_cube_service.py`, `test_cube_worker.py`
-- 워크플로
-  `test_start_chat_lg_graph.py`, `test_translator_lg_graph.py`, `test_chart_maker_lg_graph.py`, `test_travel_planner_lg_graph.py`, `test_lg_orchestrator.py`
-- 파일 전달
-  `test_file_delivery_routes.py`, `test_file_delivery_service.py`
-- 설정과 인프라
-  `test_config.py`, `test_scheduler.py`, `test_langgraph_checkpoint.py`, `test_router_loader.py`
-- 개발 도구
-  `test_devtools_runner.py`, `test_devtools_scripts.py`, `test_devtools_workflow_examples.py`
-
-## 6. 문서 영역
-
-- `doc/`
-  원문 성격의 구조 설명, 가이드, 작업 기록 문서를 둡니다.
-- `shared_docs/`
-  공유용 요약 문서를 둡니다. 현재는 파일 구조, 데이터 파이프라인, LangGraph 워크플로 작성법, devtools 사용 목적을 정리합니다.
-
-## 7. 추천 읽기 순서
+## 5. 추천 읽기 순서
 
 ### Cube 메시지 처리 흐름을 이해하고 싶을 때
 
@@ -182,13 +156,12 @@ llm_chatbot/
 
 1. `api/file_delivery/router.py`
 2. `api/file_delivery/file_delivery_service.py`
-3. 관련 테스트 파일
 
-## 8. 구조를 이해할 때 기억할 점
+## 6. 구조를 이해할 때 기억할 점
 
 - 웹 서버는 Flask 앱 팩토리 패턴으로 구성되어 있습니다.
 - 실제 기능 라우터는 `api/` 하위에서 자동 등록됩니다.
 - 대화 처리의 중심은 `api/workflows/`의 LangGraph 계층입니다.
-- Cube 입력, 파일 전달, 스케줄러, MCP, 로깅이 각각 독립 패키지로 분리되어 있습니다.
+- Cube 입력, 파일 전달, 스케줄러, MCP, 로깅이 각각 `api/` 아래에서 독립 패키지로 분리되어 있습니다.
 - `devtools/`는 운영 코드와 분리된 실험·개발 지원 영역입니다.
 - `shared_docs/`는 팀 공유용으로 압축한 설명 문서 영역입니다.
