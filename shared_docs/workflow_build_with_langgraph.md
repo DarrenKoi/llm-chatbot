@@ -1,5 +1,7 @@
 # LangGraph 워크플로 핸드북
 
+> 최종 업데이트: 2026-04-17
+
 이 문서는 `shared_docs/`에서 팀원이 공통으로 참고할 수 있도록, 현재 저장소의 워크플로 관련 문서를 하나로 정리한 통합 안내서입니다.
 대상 원문은 `doc/code_explain/workflows.md`, `doc/guideline/workflow_등록_가이드.md`, `doc/guideline/workflow_추가_가이드.md`, `doc/guideline/workflow_상태_관리_가이드.md`이며, 실제 코드 구조에 맞게 중복과 오래된 설명을 정리했습니다.
 

@@ -1,5 +1,7 @@
 # 데이터 파이프라인 가이드
 
+> 최종 업데이트: 2026-04-17
+
 이 문서는 사용자의 메시지가 들어온 뒤 어떤 경로를 거쳐 응답이 생성되고, 어떤 저장소에 무엇이 남는지 설명합니다.
 원문 기준은 `doc/mongo_collections.md`, `doc/project_structure.md`, `doc/code_explain/workflows.md`이며, 현재 코드 구조에 맞게 합쳐 정리했습니다.
 
