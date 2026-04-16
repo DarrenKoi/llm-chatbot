@@ -16,6 +16,10 @@ class ConversationStoreError(RuntimeError):
 
 
 def _get_backend():
+    """설정에 따라 대화 이력 백엔드(MongoDB / 로컬파일 / 메모리)를 초기화하고 반환한다.
+
+    첫 호출 시 백엔드를 생성해 캐시하며, 이후 호출은 캐시된 인스턴스를 재사용한다.
+    """
     global _backend
     if _backend is not None:
         return _backend
@@ -42,10 +46,17 @@ def get_history(
     limit: int | None = None,
     conversation_id: str | None = None,
 ) -> list[dict[str, Any]]:
+    """특정 사용자의 대화 이력을 반환한다.
+
+    conversation_id를 지정하면 해당 채널(채널 ID = conversation_id)의 이력만,
+    생략하면 해당 사용자의 모든 대화 이력을 합쳐서 반환한다.
+    limit을 지정하면 최신 메시지 기준으로 잘라낸다.
+    """
     return _get_backend().get(user_id, limit=limit, conversation_id=conversation_id)
 
 
 def get_recent_messages(*, limit: int = 50) -> list[dict[str, Any]]:
+    """사용자 구분 없이 전체 최근 메시지를 반환한다. 주로 관리자 대시보드에서 사용한다."""
     return _get_backend().get_recent(limit=limit)
 
 
@@ -56,6 +67,11 @@ def append_message(
     conversation_id: str | None = None,
     metadata: dict[str, Any] | None = None,
 ):
+    """대화 이력에 메시지 한 건을 추가한다.
+
+    message는 반드시 role과 content 키를 포함해야 한다.
+    message_id가 있으면 중복 저장을 방지한다.
+    """
     _get_backend().append(user_id, message, conversation_id=conversation_id, metadata=metadata)
 
 
@@ -65,6 +81,7 @@ def append_messages(
     *,
     conversation_id: str | None = None,
 ):
+    """대화 이력에 메시지 여러 건을 순서대로 추가한다."""
     for msg in messages:
         _get_backend().append(user_id, msg, conversation_id=conversation_id)
 
@@ -317,10 +334,12 @@ class _LocalFileBackend:
 
 
 def _normalize_conversation_id(user_id: str, conversation_id: str | None) -> str:
+    """conversation_id가 없으면 user_id를 기본 conversation_id로 사용한다."""
     return conversation_id or user_id
 
 
 def _build_store_key(user_id: str, conversation_id: str | None) -> str:
+    """인메모리 백엔드에서 사용하는 복합 키를 생성한다 (형식: user_id::conversation_id)."""
     return f"{user_id}::{_normalize_conversation_id(user_id, conversation_id)}"
 
 
@@ -335,6 +354,10 @@ def _build_query(user_id: str, conversation_id: str | None) -> dict[str, Any]:
 
 
 def _resolve_backend_name() -> str:
+    """환경 변수 CONVERSATION_BACKEND 값을 읽어 실제 사용할 백엔드 이름을 결정한다.
+
+    auto 모드에서는 AFM_MONGO_URI 존재 여부에 따라 mongo 또는 memory를 선택한다.
+    """
     backend_name = (config.CONVERSATION_BACKEND or "auto").strip().lower()
     if backend_name not in {"auto", "mongo", "local", "memory"}:
         raise ConversationStoreError(f"Unsupported conversation backend: {backend_name}")
@@ -346,20 +369,24 @@ def _resolve_backend_name() -> str:
 
 
 def _serialize_document(document: dict[str, Any]) -> dict[str, Any]:
+    """document를 JSON 직렬화 후 다시 파싱해 datetime 등 비직렬화 타입을 문자열로 변환한다."""
     return json.loads(json.dumps(document, ensure_ascii=False, default=_json_default))
 
 
 def _json_default(value: Any) -> str:
+    """json.dumps의 default 핸들러 — datetime은 ISO 문자열로, 나머지는 str()로 변환한다."""
     if isinstance(value, datetime):
         return value.isoformat()
     return str(value)
 
 
 def _encode_path_segment(value: str) -> str:
+    """파일 시스템 경로 세그먼트로 사용할 수 있도록 값을 URL 인코딩한다."""
     return quote(value, safe="")
 
 
 def _strip_message_metadata(messages: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
+    """메시지 목록에서 role·content만 남기고 내부 메타데이터 필드를 제거한다."""
     return [
         {
             "role": message["role"],

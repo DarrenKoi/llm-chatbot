@@ -35,7 +35,10 @@ class CubeQueueUnavailableError(CubeWorkflowError):
 
 
 def log_request(doc: dict[str, Any]) -> None:
-    """Request logging stub for environments without persistent log store."""
+    """요청 로그를 구조화된 JSON 형태로 Python 로거에 기록한다.
+
+    영속적 로그 저장소가 없는 환경에서도 동작하는 최소 구현이다.
+    """
     logger.info("request_log=%s", json.dumps(doc, ensure_ascii=False, default=str))
 
 
@@ -44,11 +47,19 @@ _WAKEUP_PREFIX = "!@#"
 
 
 def _is_wakeup_message(incoming: CubeIncomingMessage) -> bool:
-    """Detect Cube wake-up signals that should not enter conversation history."""
+    """Cube 플랫폼의 웨이크업 신호 여부를 판별한다.
+
+    웨이크업 메시지는 대화 이력에 저장하지 않고 즉시 무시한다.
+    """
     return incoming.message_id == _WAKEUP_MESSAGE_ID and incoming.message.startswith(_WAKEUP_PREFIX)
 
 
 def accept_cube_message(payload: object) -> CubeAcceptedMessage:
+    """Cube 웹훅 수신 직후 호출되는 빠른 수락 핸들러.
+
+    메시지를 Redis 큐에 enqueue하고 즉시 accepted/duplicate/ignored 상태를 반환한다.
+    실제 LLM 처리는 큐 워커(`cube/worker.py`)가 비동기로 담당한다.
+    """
     incoming = _parse_incoming_message(payload, require_message=False)
 
     if not incoming.message.strip():
@@ -127,14 +138,20 @@ def accept_cube_message(payload: object) -> CubeAcceptedMessage:
 
 
 def handle_cube_message(payload: object) -> CubeHandledMessage:
+    """큐를 거치지 않고 Cube 메시지를 동기로 즉시 처리한다. 테스트나 직접 호출 용도로 사용한다."""
     return process_incoming_message(_parse_incoming_message(payload))
 
 
 def process_queued_message(queued_message: CubeQueuedMessage) -> CubeHandledMessage:
+    """큐에서 꺼낸 메시지를 처리한다. 재시도 횟수(attempt)를 함께 전달해 로그에 기록한다."""
     return process_incoming_message(queued_message.incoming, attempt=queued_message.attempt)
 
 
 def _send_thinking_message(incoming: CubeIncomingMessage) -> None:
+    """LLM 응답 대기 중임을 사용자에게 알리는 '생각 중...' 메시지를 Cube로 전송한다.
+
+    LLM_THINKING_MESSAGE 환경 변수가 비어 있으면 전송하지 않는다.
+    """
     if not config.LLM_THINKING_MESSAGE:
         return
 
@@ -150,6 +167,11 @@ def _send_thinking_message(incoming: CubeIncomingMessage) -> None:
 
 
 def _generate_llm_reply(incoming: CubeIncomingMessage, *, attempt: int = 0) -> WorkflowReply:
+    """LangGraph 워크플로를 실행해 LLM 응답을 생성한다.
+
+    LLM_THINKING_MESSAGE_DELAY_SECONDS가 설정된 경우, 지연 시간 내에 응답이 나오지 않으면
+    먼저 '생각 중...' 메시지를 보내고 계속 대기한다.
+    """
     if not config.LLM_THINKING_MESSAGE:
         return handle_workflow_message(incoming, attempt=attempt)
 
@@ -187,6 +209,10 @@ def _build_conversation_metadata(
     reply_to_message_id: str | None = None,
     workflow_id: str | None = None,
 ) -> dict[str, Any]:
+    """대화 이력 저장 시 함께 기록할 메타데이터 딕셔너리를 구성한다.
+
+    direction은 'inbound'(사용자→봇) 또는 'outbound'(봇→사용자)이다.
+    """
     metadata: dict[str, Any] = {
         "channel_id": incoming.channel_id,
         "source": "cube",
@@ -203,6 +229,11 @@ def _build_conversation_metadata(
 
 
 def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0) -> CubeHandledMessage:
+    """CubeIncomingMessage를 받아 대화 저장 → LLM 호출 → Cube 전송의 전체 파이프라인을 실행한다.
+
+    각 단계에서 실패하면 적절한 CubeWorkflowError를 발생시킨다.
+    응답 전송 후 대화 저장에 실패해도 사용자 경험을 해치지 않도록 re-raise하지 않는다.
+    """
     if _is_wakeup_message(incoming):
         log_activity(
             "cube_wakeup_skipped",
@@ -388,6 +419,11 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
 
 
 def _parse_incoming_message(payload: object, *, require_message: bool = True) -> CubeIncomingMessage:
+    """raw Cube 페이로드(dict)를 파싱해 CubeIncomingMessage로 변환한다.
+
+    필수 필드가 없거나 형식이 올바르지 않으면 CubePayloadError를 발생시킨다.
+    require_message=False이면 빈 메시지도 허용한다(웨이크업 신호 처리용).
+    """
     if not isinstance(payload, dict):
         log_activity("cube_message_rejected", reason="invalid_payload")
         raise CubePayloadError("Invalid JSON payload")

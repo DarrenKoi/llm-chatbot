@@ -27,6 +27,11 @@ class MonitorEntry:
 
 
 def get_monitoring_snapshot() -> dict[str, object]:
+    """모든 백엔드 서비스의 상태를 점검하고 대시보드용 스냅샷을 반환한다.
+
+    각 서비스(대화 저장소, LangGraph 체크포인터, Cube 큐, 데몬, 스케줄러 락,
+    파일 전송 메타데이터)를 개별 점검한 뒤 tone(ok/warning/error/disabled)으로 분류한다.
+    """
     entries = [
         _check_langgraph_checkpoint_store(),
         _check_mongo_conversation_store(),
@@ -49,6 +54,7 @@ def get_monitoring_snapshot() -> dict[str, object]:
 
 
 def _check_mongo_conversation_store() -> MonitorEntry:
+    """대화 이력 백엔드(MongoDB / 로컬파일 / 메모리)의 연결 상태를 점검한다."""
     backend_name = (config.CONVERSATION_BACKEND or "auto").strip().lower()
     if backend_name == "local":
         target = str(config.CONVERSATION_LOCAL_DIR)
@@ -121,6 +127,7 @@ def _check_mongo_conversation_store() -> MonitorEntry:
 
 
 def _check_langgraph_checkpoint_store() -> MonitorEntry:
+    """LangGraph 체크포인터용 MongoDB 컬렉션의 연결 상태를 점검한다."""
     try:
         collections = validate_mongo_storage_config()
     except ValueError as exc:
@@ -178,6 +185,7 @@ def _check_langgraph_checkpoint_store() -> MonitorEntry:
 
 
 def _check_cube_queue() -> MonitorEntry:
+    """Cube 메시지 큐(ready/processing)의 enqueue→dequeue→ack 라운드트립을 검증한다."""
     target = f"{config.CUBE_QUEUE_NAME} / {config.CUBE_QUEUE_PROCESSING_NAME}"
     if not config.CUBE_QUEUE_REDIS_URL:
         return MonitorEntry(
@@ -231,6 +239,7 @@ def _check_cube_queue() -> MonitorEntry:
 
 
 def _check_cube_worker_daemon() -> MonitorEntry:
+    """Cube 워커 데몬의 heartbeat 이벤트를 확인해 실행 여부와 신선도를 점검한다."""
     return _check_daemon_component(
         name="Cube Worker Daemon",
         event_names=("cube_worker_heartbeat", "cube_worker_started"),
@@ -239,6 +248,7 @@ def _check_cube_worker_daemon() -> MonitorEntry:
 
 
 def _check_scheduler_lock() -> MonitorEntry:
+    """Redis 기반 스케줄러 분산 락의 acquire→release 동작을 검증한다."""
     target = f"{config.SCHEDULER_LOCK_PREFIX.strip(':') or 'scheduler:lock'}:*"
     if not config.SCHEDULER_REDIS_URL:
         return MonitorEntry(
@@ -298,6 +308,7 @@ def _check_scheduler_lock() -> MonitorEntry:
 
 
 def _check_file_delivery_metadata() -> MonitorEntry:
+    """파일 전송 메타데이터 백엔드(Redis 또는 메모리)의 set/get/delete 라운드트립을 검증한다."""
     from api.file_delivery import file_delivery_service
 
     backend = file_delivery_service._get_metadata_backend()
@@ -362,6 +373,7 @@ def _check_file_delivery_metadata() -> MonitorEntry:
 
 
 def _check_scheduler_worker_daemon() -> MonitorEntry:
+    """스케줄러 워커 데몬의 heartbeat 이벤트를 확인해 실행 여부와 신선도를 점검한다."""
     return _check_daemon_component(
         name="Scheduler Worker Daemon",
         event_names=("scheduler_worker_heartbeat", "scheduler_worker_started"),
@@ -370,18 +382,21 @@ def _check_scheduler_worker_daemon() -> MonitorEntry:
 
 
 def _build_redis_client(redis_url: str):
+    """모니터링 전용 단기 Redis 클라이언트를 생성한다 (타임아웃 2초)."""
     import redis
 
     return redis.from_url(redis_url, socket_connect_timeout=2, socket_timeout=2)
 
 
 def _close_redis_client(client) -> None:
+    """Redis 클라이언트 연결을 닫는다. close() 메서드가 없는 구현도 안전하게 처리한다."""
     close = getattr(client, "close", None)
     if callable(close):
         close()
 
 
 def _decode_redis_value(value: bytes | str | None) -> str | None:
+    """Redis에서 반환된 bytes 값을 UTF-8 문자열로 디코딩한다."""
     if isinstance(value, bytes):
         return value.decode("utf-8")
     return value
@@ -393,6 +408,10 @@ def _check_daemon_component(
     event_names: tuple[str, ...],
     stale_after_seconds: int,
 ) -> MonitorEntry:
+    """activity log에서 데몬 heartbeat 이벤트를 찾아 실행 상태와 신선도를 반환한다.
+
+    stale_after_seconds 이상 이벤트가 없으면 stale(비정상)로 판단한다.
+    """
     latest_record = _read_latest_activity_record(event_names)
     if latest_record is None:
         return MonitorEntry(
@@ -446,10 +465,15 @@ def _check_daemon_component(
 
 
 def _activity_log_path() -> Path:
+    """activity.jsonl 파일의 절대 경로를 반환한다."""
     return get_theme_log_dir(config.ACTIVITY_LOG_THEME) / "activity.jsonl"
 
 
 def _read_latest_activity_record(event_names: tuple[str, ...]) -> dict[str, object] | None:
+    """activity log 파일에서 지정한 이벤트 이름 중 가장 최근 레코드를 반환한다.
+
+    파일 전체를 읽지 않고 최근 400줄만 탐색해 성능을 유지한다.
+    """
     log_path = _activity_log_path()
     if not log_path.exists():
         return None
@@ -471,6 +495,7 @@ def _read_latest_activity_record(event_names: tuple[str, ...]) -> dict[str, obje
 
 
 def _parse_activity_timestamp(raw_timestamp: object) -> datetime | None:
+    """ISO 형식의 타임스탬프 문자열을 datetime 객체로 변환한다. 파싱 실패 시 None을 반환한다."""
     if not isinstance(raw_timestamp, str) or not raw_timestamp:
         return None
     try:
@@ -480,6 +505,7 @@ def _parse_activity_timestamp(raw_timestamp: object) -> datetime | None:
 
 
 def _mask_url(raw_url: str) -> str:
+    """URL에서 비밀번호를 ***로 가려 로그·대시보드에 안전하게 표시할 수 있는 형태로 반환한다."""
     if not raw_url:
         return "미설정"
 

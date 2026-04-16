@@ -59,10 +59,13 @@ CLEAN_BEFORE_SYNC = [
 # CLEAN_BEFORE_SYNC 대상이더라도 아래 경로는 유지
 # ──────────────────────────────────────────────
 CLEAN_PRESERVE = [
+    # 팀원이 직접 추가하는 워크플로 패키지 (하위 전체 보존)
     "api/workflows/",
     "api/mcp/",
     "devtools/workflows/",
     "devtools/mcp/",
+    # 깊은 경로 예시: "api/workflows/chart_maker/rag/"
+    # 개별 파일 예시: "api/workflows/lg_state.py"
 ]
 
 EXCLUDE_PATTERNS = [
@@ -102,19 +105,30 @@ def should_exclude(path: Path, relative_path: Path, exclude_paths: list[Path]) -
     return is_excluded_by_pattern(path) or is_excluded_by_path(relative_path, exclude_paths)
 
 
+def _is_preserved(rel: Path, preserve_paths: list[Path]) -> bool:
+    """보존 대상과 정확히 일치하는지 확인한다 (파일·디렉토리 모두 지원)."""
+    return any(rel == p for p in preserve_paths)
+
+
+def _contains_preserved(rel: Path, preserve_paths: list[Path]) -> bool:
+    """이 경로 하위에 보존 대상이 존재하는지 확인한다."""
+    return any(rel in p.parents for p in preserve_paths)
+
+
 def clean_directory(target_dir: Path, dst: Path, preserve_paths: list[Path], dry_run: bool):
     """디렉토리를 재귀적으로 정리하되, preserve_paths에 해당하는 경로는 보존한다."""
     for child in sorted(target_dir.iterdir()):
         rel = child.relative_to(dst)
 
-        # 보존 대상과 정확히 일치 → 전체 보존
-        if any(rel == p for p in preserve_paths):
+        # 보존 대상과 정확히 일치 → 전체 보존 (파일·디렉토리 모두)
+        if _is_preserved(rel, preserve_paths):
             label = "보존" if not dry_run else "보존 예정"
-            print(f"  [{label}] {rel}/")
+            suffix = "/" if child.is_dir() else ""
+            print(f"  [{label}] {rel}{suffix}")
             continue
 
-        # 보존 대상의 상위 경로 → 재귀 탐색
-        if child.is_dir() and any(rel in p.parents for p in preserve_paths):
+        # 하위에 보존 대상이 포함된 디렉토리 → 재귀 탐색
+        if child.is_dir() and _contains_preserved(rel, preserve_paths):
             clean_directory(child, dst, preserve_paths, dry_run)
             continue
 
