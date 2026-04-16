@@ -1,10 +1,9 @@
-"""워크플로 공통 상태와 노드 결과 계약을 정의한다."""
+"""워크플로 공통 상태와 오케스트레이터 응답 모델을 정의한다."""
 
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
 WorkflowStatus = Literal["active", "waiting_user_input", "completed", "cancelled"]
-NodeAction = Literal["reply", "handoff", "resume", "complete", "wait"]
 
 
 @dataclass
@@ -26,14 +25,3 @@ class WorkflowReply:
 
     reply: str
     workflow_id: str
-
-
-@dataclass
-class NodeResult:
-    """노드 실행 후 오케스트레이터에 반환하는 표준 결과다."""
-
-    action: NodeAction
-    reply: str = ""
-    next_node_id: str | None = None
-    next_workflow_id: str | None = None
-    data_updates: dict[str, Any] = field(default_factory=dict)
