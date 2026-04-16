@@ -10,13 +10,13 @@ from langchain_core.messages import AIMessage
 from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
 
-from api.workflows.lg_state import TravelPlannerState as LGTravelPlannerState
 from api.workflows.travel_planner.constants import (
     DESTINATION_DEFAULT_STYLE,
     DESTINATION_TO_PLACES,
     build_companion_note,
     recommend_destinations,
 )
+from api.workflows.travel_planner.lg_state import TravelPlannerState as LGTravelPlannerState
 from api.workflows.travel_planner.llm_decision import CANCEL_GUIDE_REPLY, decide_travel_planner_turn
 
 log = logging.getLogger(__name__)

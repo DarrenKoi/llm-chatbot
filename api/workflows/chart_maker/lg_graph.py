@@ -8,7 +8,7 @@ from langchain_core.messages import AIMessage
 from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
 
-from api.workflows.lg_state import ChartMakerState
+from api.workflows.chart_maker.lg_state import ChartMakerState
 
 
 def entry_node(state: ChartMakerState) -> dict:

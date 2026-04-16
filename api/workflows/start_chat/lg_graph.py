@@ -9,7 +9,7 @@ import logging
 from langchain_core.messages import AIMessage
 from langgraph.graph import END, StateGraph
 
-from api.workflows.lg_state import StartChatState
+from api.workflows.start_chat.lg_state import StartChatState
 
 log = logging.getLogger(__name__)
 

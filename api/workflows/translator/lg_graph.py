@@ -10,7 +10,7 @@ from langchain_core.messages import AIMessage
 from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
 
-from api.workflows.lg_state import TranslatorState
+from api.workflows.translator.lg_state import TranslatorState
 from api.workflows.translator.llm_decision import decide_translation_turn
 from api.workflows.translator.translation_engine import execute_translation
 

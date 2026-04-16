@@ -60,6 +60,8 @@ def get_workflow_definition() -> dict[str, object]:
 
 현재 `state_cls`는 필수가 아니며, 레지스트리 정규화 과정에서 제거됩니다.
 
+워크플로 전용 상태는 패키지 내부의 `lg_state.py`에 별도 정의합니다. 공유 `api/workflows/lg_state.py`에 상태를 추가하지 않습니다.
+
 ## 4. `workflow_id`는 중복되면 안 됩니다
 
 레지스트리는 최종적으로 `workflow_id`를 key로 사용합니다.
@@ -216,9 +218,11 @@ python -m devtools.scripts.promote sample_flow
 - `__init__.py`에 `get_workflow_definition()` 또는 `WORKFLOW_DEFINITION`이 있는지 확인합니다.
 - `build_lg_graph`가 실제 callable인지 확인합니다.
 - `workflow_id`가 중복되지 않는지 확인합니다.
+- 워크플로 전용 상태는 패키지 안의 `lg_state.py`에 `ChatState`를 상속해서 정의합니다.
 - `handoff_keywords`가 필요한 업무인지 먼저 판단합니다.
 - 도구가 필요하면 등록 함수가 그래프 빌드 경로에서 호출되는지 확인합니다.
 - dev에서 검증한 뒤 `promote`로 반영하는지 확인합니다.
+- 공유 파일(`api/workflows/lg_state.py`, `registry.py`)은 수정하지 않습니다.
 
 ## 12. 자주 발생하는 등록 실패 원인
 
@@ -244,4 +248,6 @@ python -m devtools.scripts.promote sample_flow
 
 현재 저장소에서 워크플로 등록은 중앙 파일 수정 작업이 아니라, `패키지 계약을 맞춘 뒤 자동 발견 구조에 태운다`는 개념으로 이해하는 편이 가장 정확합니다.
 
-즉, 등록을 잘하려면 수동 목록을 찾기보다 `__init__.py 계약`, `handoff_keywords`, `MCP 등록 호출 위치` 세 가지를 먼저 확인하는 편이 좋습니다.
+팀원이 새 워크플로를 추가할 때 자기 워크플로 패키지 폴더 밖의 파일을 수정할 필요는 없습니다. 상태 정의, 그래프 구현, 도구 등록 모두 패키지 안에서 완결됩니다.
+
+등록을 잘하려면 수동 목록을 찾기보다 `__init__.py 계약`, `lg_state.py 상태 정의`, `handoff_keywords`, `MCP 등록 호출 위치` 네 가지를 먼저 확인하는 편이 좋습니다.
