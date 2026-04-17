@@ -87,4 +87,99 @@ This document outlines the rules and structure
 
 ## 4. Control Types
 
-will be inserted later
+### 4.1 Label
+**Purpose:** Display static text
+
+**Properties:**
+- `active`: Boolean
+- `text`: Array of 5 strings (multi-language)
+- `color`: Text color (hex format, e.g., "#000000", "#FF0000")
+
+---
+
+### 4.2 Button
+**purpose: ** Clickable action button
+
+**Properties:**
+- `processid`: Process identifier (e.g., "Sentence", "SendButton", "SaveButton") - Event handling ID to distinguish user input components
+- `active`: Boolean
+- `text`: Array of 5 strings
+- `confirmmsg`: String - Confirmation message displayed before event processing (e.g., "확인?")
+- `value`: String - Event value, contains value information received from user or that can be received (e.g., "1", "첫번째")
+- `bgcolor`: Background color (hex or empty)
+- `textcolor`: Text color (hex or empty)
+- `align`: Alignment ("center")
+- `clickurl`: URL to open on click
+- `androidurl`: Android-specific URL (normaly empty)
+- `iosurl`: iOS-specific URL
+- `popupoption`: Popup options
+- `sso`: Boolean (SSO authentication) normally empty
+- `inner`: Boolean
+
+---
+
+### 4.3 Radio
+** Purpose:** Single selection option
+
+**Properties:**
+- `processid`: Process identifier
+- `active`: Boolean
+- `text`: Array of 5 strings
+- `value`: Option value
+- `checked`: Boolean (default selection)
+
+**Note:** Multiple radio buttons with the same `processid` from a radio group (single selection).
+
+---
+
+### 4.4 Checkbox
+**Purpose:** multiple selection option
+
+**Properties:**
+- `processid`: Process identifier
+- `active`: Boolean
+- `text`: Array of 5 strings
+- `value`: Option value
+- `checked`: Boolean (default selection)
+
+**Note:** Multiple checkboxes with the same `processid` allow multiple selections
+
+---
+
+### 4.5 InputText
+**Purpose:** Single-line text input
+
+**Properties:**
+- `processid`: Process identifier - Event handling ID
+- `active`: Boolean
+- `text`: Array of 5 string (label) - Multi-language
+- `value`: String - Event value, default input value
+- `width`: String - Horizontal ratio (e.g., "100%", "100px")
+- `minlength`: Integer - Minimum input length
+- `maxlength`: Integer - Maximum input length
+- `placeholder`: Array of 5 strings - Hint value, multi-language
+- `validmsg`: Array of 5 strings - Input value check message, displayed when input string length doesn't meet min/max conditions, multi-language
+
+---
+
+### 4.6 Textarea
+**Purpose:** Multi-line text input
+
+**Properties:**
+- `processid`: Process identifier -Event handling ID
+- `active`: Boolean
+- `text`: Array of 5 strings (label) -Multi-language
+- `value`: String - Event value, default input value
+- `minlength`: Integer - Minimum input length
+- `maxlength`: Integer - Maximum input length
+- `width`: String - Horizontal ratio (e.g., "100%", "100px")
+- `height`: String - Input field height (e.g., "100%", "100px")
+- `placeholder`: Array of 5 strings - Hint value, multi-language
+- `validmsg`: Array of 5 strings - Input value check message, multi-language
+
+---
+
+### 4.7 select
+**Purpose:** Dropdown selection
+
+**Properties:**
