@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(jq --version)",
+      "Bash(winget install:*)",
+      "Bash(.venv/Scripts/python.exe -c \"import pydantic; print\\(pydantic.VERSION\\)\")",
+      "Bash(.venv/Scripts/python.exe -m pip show pydantic langchain)",
+      "Bash(PYTHONIOENCODING=utf-8 .venv/Scripts/python.exe doc/sample_codes/demo_compose.py)",
+      "Bash(.venv/Scripts/python.exe -c ' *)",
+      "Bash(rm demo_out.tmp.json)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)"
+    ]
+  }
+}
