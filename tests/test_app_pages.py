@@ -177,10 +177,11 @@ def test_scheduled_tasks_page_renders_snapshot(mock_get_scheduled_tasks_snapshot
     mock_get_scheduled_tasks_snapshot.assert_called_once_with()
 
 
-def test_workflow_graph_page_uses_wide_layout(client):
+def test_workflow_graph_page_renders_langgraph_mermaid_source(client):
     response = client.get("/workflows/translator")
 
     assert response.status_code == 200
     assert b"Workflow: translator" in response.data
-    assert b"width: min(80vw, 1500px);" in response.data
-    assert b"height: min(78vh, 920px) !important;" in response.data
+    assert b"Mermaid Source" in response.data
+    assert b"graph TD;" in response.data
+    assert b"collect_source_text" in response.data

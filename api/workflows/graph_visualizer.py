@@ -1,180 +1,197 @@
-"""워크플로 LangGraph 그래프를 pyvis 네트워크로 변환하여 HTML을 생성한다."""
+"""워크플로 LangGraph 그래프를 Mermaid 소스로 렌더링하는 HTML을 생성한다."""
 
-import re
-
-from pyvis.network import Network
+from html import escape
 
 from api.workflows.registry import get_workflow
 from api.workflows.registry import list_workflow_ids as list_registered_workflow_ids
 
-_NODE_COLOR = "#4A90D9"
-_ENTRY_COLOR = "#2ECC71"
-_END_COLOR = "#E74C3C"
-_EDGE_COLOR = "#7f8c8d"
-_CONDITIONAL_EDGE_COLOR = "#e67e22"
+_MERMAID_FRONTMATTER = {
+    "config": {
+        "theme": "neutral",
+        "look": "classic",
+        "themeVariables": {
+            "primaryColor": "#f4f1e8",
+            "primaryTextColor": "#17271f",
+            "primaryBorderColor": "#5f7a70",
+            "lineColor": "#5f7a70",
+            "secondaryColor": "#e8f1ef",
+            "tertiaryColor": "#fffdf7",
+        },
+    }
+}
 
-_BODY_GRAPH_PATTERN = re.compile(
-    r"<body>\s*<div class=\"card\" style=\"width: 100%\">\s*"
-    r"<div id=\"mynetwork\" class=\"card-body\"></div>\s*</div>",
-    re.S,
-)
-_LAYOUT_CSS = """
-             body {
-                 margin: 0;
-                 padding: 0;
-                 background: linear-gradient(180deg, #f7f5ef 0%, #eef4f6 100%);
-                 color: #17271f;
-                 font-family: "Segoe UI", sans-serif;
-             }
+_PAGE_TEMPLATE = """<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Workflow: {workflow_id}</title>
+    <style>
+      :root {{
+        color-scheme: light;
+        --bg: linear-gradient(180deg, #f7f5ef 0%, #eef4f6 100%);
+        --surface: rgba(255, 255, 255, 0.94);
+        --surface-strong: #fffdf7;
+        --border: rgba(23, 39, 31, 0.14);
+        --text: #17271f;
+        --muted: #506067;
+        --accent: #295f5a;
+        --accent-soft: #e6f0ee;
+        --shadow: 0 20px 48px rgba(23, 39, 31, 0.12);
+      }}
 
-             .workflow-shell {
-                 width: min(80vw, 1500px);
-                 margin: 28px auto 40px;
-             }
+      * {{
+        box-sizing: border-box;
+      }}
 
-             .workflow-header {
-                 margin-bottom: 16px;
-             }
+      body {{
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Segoe UI", sans-serif;
+      }}
 
-             .workflow-header h1 {
-                 margin: 0;
-                 font-size: 28px;
-                 font-weight: 700;
-             }
+      .workflow-shell {{
+        width: min(88vw, 1480px);
+        margin: 28px auto 40px;
+      }}
 
-             .workflow-header p {
-                 margin: 6px 0 0;
-                 color: #506067;
-                 font-size: 14px;
-             }
+      .workflow-header {{
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 16px;
+      }}
 
-             .workflow-card {
-                 width: 100% !important;
-                 padding: 18px;
-                 border: 0;
-                 border-radius: 22px;
-                 background: rgba(255, 255, 255, 0.92);
-                 box-shadow: 0 20px 48px rgba(23, 39, 31, 0.12);
-             }
+      .workflow-header h1 {{
+        margin: 0;
+        font-size: 28px;
+        font-weight: 700;
+      }}
 
-             .workflow-card .card-body {
-                 padding: 0;
-             }
+      .workflow-header p {{
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+      }}
 
-             #mynetwork {
-                 width: 100% !important;
-                 height: min(78vh, 920px) !important;
-                 min-height: 720px;
-                 background-color: #fffdf7 !important;
-                 border: 1px solid rgba(23, 39, 31, 0.12) !important;
-                 border-radius: 18px;
-                 position: relative;
-                 float: none !important;
-             }
+      .copy-button {{
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        font: inherit;
+        font-size: 13px;
+        font-weight: 600;
+        padding: 10px 16px;
+        cursor: pointer;
+      }}
 
-             @media (max-width: 960px) {
-                 .workflow-shell {
-                     width: calc(100vw - 24px);
-                     margin: 12px auto 24px;
-                 }
+      .copy-button:hover {{
+        background: #d8e8e4;
+      }}
 
-                 .workflow-card {
-                     padding: 12px;
-                 }
+      .workflow-card {{
+        padding: 18px;
+        border-radius: 22px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
+      }}
 
-                 #mynetwork {
-                     height: 70vh !important;
-                     min-height: 520px;
-                 }
-             }
+      .workflow-card h2 {{
+        margin: 0 0 10px;
+        font-size: 16px;
+      }}
+
+      .workflow-card p {{
+        margin: 0 0 14px;
+        color: var(--muted);
+        font-size: 14px;
+      }}
+
+      .workflow-source {{
+        margin: 0;
+        padding: 18px;
+        overflow-x: auto;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        background: var(--surface-strong);
+        font-family: "SFMono-Regular", "SF Mono", Consolas, "Liberation Mono", Menlo, monospace;
+        font-size: 13px;
+        line-height: 1.6;
+        white-space: pre;
+      }}
+
+      @media (max-width: 960px) {{
+        .workflow-shell {{
+          width: calc(100vw - 24px);
+          margin: 12px auto 24px;
+        }}
+
+        .workflow-header {{
+          flex-direction: column;
+          align-items: stretch;
+        }}
+
+        .workflow-card {{
+          padding: 12px;
+        }}
+      }}
+    </style>
+  </head>
+  <body>
+    <main class="workflow-shell">
+      <section class="workflow-header">
+        <div>
+          <h1>Workflow: {workflow_id}</h1>
+          <p>
+            LangGraph built-in Mermaid export입니다. 필요하면 그대로 복사해서 Mermaid 호환 도구에
+            붙여 넣을 수 있습니다.
+          </p>
+        </div>
+        <button class="copy-button" type="button" data-copy-target="workflow-mermaid">Copy Mermaid</button>
+      </section>
+      <section class="workflow-card">
+        <h2>Mermaid Source</h2>
+        <p>Python 시각화 라이브러리 없이 LangGraph 그래프 정의를 직접 확인하는 용도입니다.</p>
+        <pre id="workflow-mermaid" class="workflow-source"><code>{mermaid_source}</code></pre>
+      </section>
+    </main>
+    <script>
+      const copyButton = document.querySelector("[data-copy-target]");
+      if (copyButton && navigator.clipboard) {{
+        copyButton.addEventListener("click", async () => {{
+          const target = document.getElementById(copyButton.dataset.copyTarget);
+          if (!target) return;
+          await navigator.clipboard.writeText(target.textContent || "");
+          copyButton.textContent = "Copied";
+          window.setTimeout(() => {{
+            copyButton.textContent = "Copy Mermaid";
+          }}, 1200);
+        }});
+      }}
+    </script>
+  </body>
+</html>
 """
-
-_LG_START = "__start__"
-_LG_END = "__end__"
 
 
 def build_workflow_html(workflow_id: str) -> str:
-    """주어진 workflow_id의 LangGraph 그래프를 pyvis HTML 문자열로 반환한다."""
+    """주어진 workflow_id의 LangGraph Mermaid HTML 문자열을 반환한다."""
 
     workflow_def = get_workflow(workflow_id)
     builder = workflow_def["build_lg_graph"]
     lg_graph = builder().compile().get_graph()
-
-    net = Network(
-        height="600px",
-        width="100%",
-        directed=True,
-        bgcolor="#faf9f6",
-        font_color="#17271f",
+    mermaid_source = lg_graph.draw_mermaid(frontmatter_config=_MERMAID_FRONTMATTER)
+    return _PAGE_TEMPLATE.format(
+        workflow_id=escape(workflow_id),
+        mermaid_source=escape(mermaid_source),
     )
-    net.set_options("""{
-        "layout": {
-            "hierarchical": {
-                "enabled": true,
-                "direction": "UD",
-                "sortMethod": "directed",
-                "nodeSpacing": 180,
-                "levelSeparation": 120
-            }
-        },
-        "physics": { "enabled": false },
-        "edges": {
-            "arrows": { "to": { "enabled": true } },
-            "smooth": { "type": "cubicBezier" },
-            "font": { "size": 12, "align": "middle" }
-        },
-        "nodes": {
-            "shape": "box",
-            "font": { "size": 14 },
-            "borderWidth": 2,
-            "shadow": true
-        }
-    }""")
-
-    entry_targets: set[str] = set()
-    for edge in lg_graph.edges:
-        if edge.source == _LG_START:
-            entry_targets.add(edge.target)
-
-    for node_id in lg_graph.nodes:
-        if node_id in (_LG_START, _LG_END):
-            continue
-        if node_id in entry_targets:
-            color = _ENTRY_COLOR
-        else:
-            color = _NODE_COLOR
-        net.add_node(node_id, label=node_id, color=color)
-
-    net.add_node(_LG_END, label="END", color=_END_COLOR)
-
-    for edge in lg_graph.edges:
-        if edge.source == _LG_START:
-            continue
-        target = _LG_END if edge.target == _LG_END else edge.target
-        edge_color = _CONDITIONAL_EDGE_COLOR if edge.conditional else _EDGE_COLOR
-        net.add_edge(edge.source, target, color=edge_color)
-
-    return _apply_workflow_layout(html=net.generate_html(), workflow_id=workflow_id)
 
 
 def list_workflow_ids() -> list[str]:
     """등록된 모든 workflow_id 목록을 반환한다."""
 
     return list_registered_workflow_ids()
-
-
-def _apply_workflow_layout(*, html: str, workflow_id: str) -> str:
-    html = html.replace("</style>", f"{_LAYOUT_CSS}\n        </style>", 1)
-    return _BODY_GRAPH_PATTERN.sub(
-        (
-            "<body>"
-            '<div class="workflow-shell">'
-            f'<div class="workflow-header"><h1>Workflow: {workflow_id}</h1>'
-            "<p>그래프를 넓혀서 노드와 흐름을 한눈에 볼 수 있도록 조정했습니다.</p></div>"
-            '<div class="card workflow-card" style="width: 100%">'
-            '<div id="mynetwork" class="card-body"></div>'
-            "</div></div>"
-        ),
-        html,
-        count=1,
-    )

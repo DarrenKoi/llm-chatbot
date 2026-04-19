@@ -6,7 +6,6 @@ apscheduler
 pillow
 # HTTP client used by Cube/profile integrations
 httpx
-pyvis
 
 # LangChain / LangGraph stack used by the project architecture
 langchain

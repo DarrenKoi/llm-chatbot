@@ -56,7 +56,7 @@ def create_application() -> Flask:
 
     @app.route("/workflows/<workflow_id>", methods=["GET"])
     def workflow_graph(workflow_id: str) -> str:
-        """특정 워크플로의 LangGraph 노드 구조를 인터랙티브 HTML로 반환한다."""
+        """특정 워크플로의 LangGraph Mermaid 소스를 HTML로 반환한다."""
         return build_workflow_html(workflow_id)
 
     for blueprint in discover_blueprints():
