@@ -64,7 +64,7 @@ CLEAN_PRESERVE = [
     "api/mcp/",
     "devtools/workflows/",
     "devtools/mcp/",
-    # 깊은 경로 예시: "api/workflows/chart_maker/rag/"
+    # 깊은 경로 예시: "api/workflows/start_chat/rag/"
     # 개별 파일 예시: "api/workflows/lg_state.py"
 ]
 

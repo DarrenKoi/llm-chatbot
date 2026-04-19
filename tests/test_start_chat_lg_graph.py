@@ -141,36 +141,6 @@ def test_travel_planner_multi_turn_via_start_chat(mock_profile):
     assert "제주 2박 3일 여행" in result["messages"][-1].content
 
 
-@patch("api.profile.service.load_user_profile", return_value=None)
-def test_handoff_to_chart_maker_subgraph(mock_profile):
-    """차트 키워드가 있으면 chart_maker 서브그래프로 분기한다."""
-
-    graph = _compile_graph()
-    config = _make_config("handoff-chart")
-
-    graph.invoke(
-        {
-            "user_message": "차트 만들어줘",
-            "user_id": "user1",
-        },
-        config,
-    )
-
-    state = graph.get_state(config)
-    assert state.tasks, "chart_maker 서브그래프에서 interrupt가 발생해야 한다"
-    assert "어떤 형태의 차트" in state.tasks[0].interrupts[0].value["reply"]
-
-    graph.invoke(Command(resume="bar chart"), config)
-
-    state2 = graph.get_state(config)
-    assert state2.tasks
-    assert "차트에 넣을 데이터" in state2.tasks[0].interrupts[0].value["reply"]
-
-    result = graph.invoke(Command(resume="매출 데이터"), config)
-
-    assert result["messages"][-1].content == "차트 명세 생성 스켈레톤입니다."
-
-
 def test_handoff_subgraph_builders_are_loaded_from_registry(monkeypatch):
     def _fake_builder():
         raise AssertionError("builder should not be executed in this unit test")

@@ -17,7 +17,6 @@
 | Workflow ID | 단독 실행 트리거 키워드 | 위치 |
 |---|---|---|
 | `translator` | `translate`, `translation`, `번역`, `통역` | `api/workflows/translator/__init__.py:23` |
-| `chart_maker` | `chart`, `graph`, `plot`, `차트`, `그래프`, `시각화` | `api/workflows/chart_maker/__init__.py:18` |
 | `travel_planner` | `travel plan`, `trip plan`, `trip planner`, `travel planner`, `여행 계획`, `여행 일정`, `여행 플랜` | `api/workflows/travel_planner/__init__.py:18` |
 | `start_chat` | (트리거 없음 — 위 어느 키워드에도 해당하지 않으면 기본 진입 흐름) | `api/workflows/start_chat/lg_graph.py` |
 
@@ -60,35 +59,7 @@ resolve
 
 ---
 
-## 2. `chart_maker` — 차트 명세 생성
-
-### 어떤 일을 하나
-현재는 **스켈레톤 흐름**입니다. 차트 유형과 데이터 입력을 두 번에 걸쳐 받아 최종적으로 `{"chart_type": ...}` 형태의 명세 dict를 만들어 반환합니다 (`api/workflows/chart_maker/lg_graph.py:29`). 실제 차트 렌더링이나 데이터 파싱은 아직 붙어 있지 않으니, 데모 또는 통합 테스트 용도로만 활용하세요.
-
-### 트리거 키워드
-- `chart`, `graph`, `plot`, `차트`, `그래프`, `시각화`
-
-### 흐름
-```
-entry  (interrupt: "어떤 형태의 차트를 원하시나요?")
-  → collect_requirements  (interrupt: "차트에 넣을 데이터를 알려주세요.")
-  → build_spec → END
-```
-**주의**: `entry_node`가 곧장 `interrupt`를 호출하므로, 첫 메시지의 키워드는 라우팅에만 쓰이고 실제 슬롯 채움은 두 번째 사용자 메시지부터 시작됩니다.
-
-### 예시 대화
-```
-사용자: "차트 하나 만들어줘"
-봇    : "어떤 형태의 차트를 원하시나요? 예: 막대 차트, 선 차트, pie chart"
-사용자: "막대 차트"
-봇    : "차트에 넣을 데이터를 알려주세요. 예: 월별 매출, 분기별 사용자 수"
-사용자: "월별 매출"
-봇    : "차트 명세 생성 스켈레톤입니다."  (내부 상태에 chart_spec={"chart_type":"막대 차트"} 저장)
-```
-
----
-
-## 3. `travel_planner` — 여행 계획 추천
+## 2. `travel_planner` — 여행 계획 추천
 
 ### 어떤 일을 하나
 LLM 기반 슬롯 추출(`decide_travel_planner_turn`)을 사용해 여행 스타일 → 목적지 → 일정 → 동반자 정보를 점진적으로 모은 뒤, 추천 방문지 3곳과 일자별 동선 가이드를 제안합니다 (`api/workflows/travel_planner/lg_graph.py:109`).
@@ -121,7 +92,7 @@ resolve
 
 ---
 
-## 4. `start_chat` — 일반 대화 (디폴트)
+## 3. `start_chat` — 일반 대화 (디폴트)
 
 ### 어떤 일을 하나
 어떤 핸드오프 키워드에도 매칭되지 않은 모든 메시지를 처리합니다. `retrieve_context_node`가 RAG 컨텍스트와 사용자 업로드 파일 목록을 모아 LLM에 전달하고, 이전 대화 이력과 사용자 프로필도 함께 합쳐 응답을 생성합니다 (`api/workflows/start_chat/lg_graph.py:106`).
@@ -138,7 +109,7 @@ resolve
 
 ---
 
-## 5. 운영 디렉터리 vs dev 디렉터리 구조
+## 4. 운영 디렉터리 vs dev 디렉터리 구조
 
 운영(`api/workflows/`)과 개발(`devtools/workflows/`)은 같은 “워크플로 패키지 계약”을 공유하지만, **루트에 들어가는 파일 종류가 다릅니다**. 새 워크플로를 dev에서 만들고 promote할 때 이 구분을 알고 있으면 import 에러나 “왜 dev에는 이 파일이 없지?”라는 혼란을 피할 수 있습니다.
 
@@ -173,8 +144,8 @@ api/workflows/                         devtools/workflows/
 ├── graph_visualizer.py                │   ├── lg_graph.py
 ├── start_chat/                        │   ├── lg_state.py
 ├── translator/                        │   └── tools.py
-├── chart_maker/                       └── travel_planner_example/
-└── travel_planner/                        ├── __init__.py
+└── travel_planner/                    └── travel_planner_example/
+                                            ├── __init__.py
                                             ├── lg_graph.py
                                             └── lg_state.py
 ```
@@ -239,13 +210,13 @@ api/workflows/                         devtools/workflows/
 
 ---
 
-## 6. 자주 묻는 질문 (FAQ)
+## 5. 자주 묻는 질문 (FAQ)
 
-**Q. 한 메시지에 “번역”과 “차트”가 모두 들어 있으면?**
+**Q. 한 메시지에 여러 워크플로의 키워드가 모두 들어 있으면?**
 레지스트리 등록 순서대로 첫 번째로 매칭되는 워크플로가 선택됩니다 (`list_handoff_workflows()`는 `discover_workflows()`가 모듈을 알파벳 순으로 스캔합니다). 키워드 충돌이 잦다면 메시지를 나눠 보내는 편이 안전합니다.
 
 **Q. 워크플로 도중에 빠져나오려면?**
-`travel_planner`와 `translator`는 LLM 결정 단계에서 종료 의도를 감지하면 `conversation_ended=True`로 빠져나옵니다. 사용자가 “취소”, “그만”, “종료” 같은 표현을 쓰면 됩니다. `chart_maker`는 현재 종료 분기가 없어 두 번의 응답으로 끝까지 흘러갑니다.
+`travel_planner`와 `translator`는 LLM 결정 단계에서 종료 의도를 감지하면 `conversation_ended=True`로 빠져나옵니다. 사용자가 “취소”, “그만”, “종료” 같은 표현을 쓰면 됩니다.
 
 **Q. 같은 사용자가 두 채널에서 동시에 다른 워크플로를 돌리면?**
 `thread_id = user_id::channel_id` 규칙으로 체크포인터가 분리됩니다 (`api/workflows/langgraph_checkpoint.py:17`). 채널이 다르면 서로의 상태를 침범하지 않습니다.
@@ -255,6 +226,6 @@ api/workflows/                         devtools/workflows/
 
 ---
 
-## 7. 한 줄 요약
+## 6. 한 줄 요약
 
-현재 단독 실행 가능한 업무 워크플로는 **`translator`, `chart_maker`, `travel_planner`** 세 개이며, 각 워크플로의 `handoff_keywords`를 사용자 메시지에 자연스럽게 포함시키는 것이 “단독 실행”의 트리거입니다. 키워드만 맞으면 해당 서브그래프가 멀티턴 `interrupt/resume` 패턴으로 끝까지 단독 진행됩니다.
+현재 단독 실행 가능한 업무 워크플로는 **`translator`, `travel_planner`** 두 개이며, 각 워크플로의 `handoff_keywords`를 사용자 메시지에 자연스럽게 포함시키는 것이 “단독 실행”의 트리거입니다. 키워드만 맞으면 해당 서브그래프가 멀티턴 `interrupt/resume` 패턴으로 끝까지 단독 진행됩니다.

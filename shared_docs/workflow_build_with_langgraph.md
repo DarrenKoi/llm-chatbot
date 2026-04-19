@@ -16,7 +16,7 @@
 3. 오케스트레이터는 `api/workflows/start_chat/lg_graph.py`의 루트 그래프를 한 번 컴파일해 재사용합니다.
 4. 루트 그래프는 먼저 `start_chat` 흐름을 실행합니다.
 5. 일반 대화면 `retrieve_context -> generate_reply`로 끝납니다.
-6. 특정 업무 의도가 감지되면 `translator`, `travel_planner`, `chart_maker` 같은 서브그래프로 분기합니다.
+6. 특정 업무 의도가 감지되면 `translator`, `travel_planner` 같은 서브그래프로 분기합니다.
 7. 서브그래프가 추가 입력을 요구하면 `interrupt()`로 멈추고, 다음 사용자 메시지에서 `Command(resume=...)`로 이어서 실행합니다.
 
 중요한 점은 `start_chat`이 루트 그래프이지만 워크플로 레지스트리에는 등록되지 않는다는 점입니다. 레지스트리에는 handoff 대상 워크플로만 등록되고, 루트 진입점은 `lg_orchestrator`가 직접 `start_chat` 그래프를 사용합니다.
@@ -31,7 +31,6 @@
 - 서브그래프 예시:
   - `api/workflows/translator/lg_graph.py`
   - `api/workflows/travel_planner/lg_graph.py`
-  - `api/workflows/chart_maker/lg_graph.py`
 
 노드는 상태를 읽고, 변경할 필드만 담은 `dict`를 반환합니다.
 즉, 함수 호출 순서보다 상태 전이 규칙이 중심입니다.

@@ -91,7 +91,7 @@ Cube는 `/api/v1/cube/receiver`로 메시지를 보냅니다.
 1. `entry_node`가 프로필을 1회 로딩합니다.
 2. `classify_node`가 사용자 메시지와 `handoff_keywords`를 비교합니다.
 3. 일반 대화면 `retrieve_context -> generate_reply` 경로로 갑니다.
-4. 특정 업무 키워드가 감지되면 `translator`, `travel_planner`, `chart_maker` 같은 서브그래프로 분기합니다.
+4. 특정 업무 키워드가 감지되면 `translator`, `travel_planner` 같은 서브그래프로 분기합니다.
 
 이 구조 때문에 이 저장소는 “여러 워크플로 엔진 병렬 운용”보다 “하나의 루트 그래프 아래 여러 서브그래프를 붙인 모델”로 이해하는 편이 정확합니다.
 
