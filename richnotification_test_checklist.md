@@ -35,17 +35,16 @@ richnotification_rule.txt 문서를 완성하기 위해 Cube에서 직접 테스
 
 ---
 
-## 3. Button `sso` 타입 및 동작
+## 3. [x] Button `sso` 타입 및 기본 동작
 
-**현재 상태:** `sso`가 Boolean이라고 되어있지만 "normally empty"라고도 되어 있어 타입이 불확실.
+**확인 결과:** `sso`는 Boolean 값인 `true` 또는 `false`를 사용한다.
+기본값은 `false`이며, 내용을 읽기 위해 로그인이 필요한 경우 `true`로 설정한다.
 
-**테스트 방법:**
-
-| sso 값 | clickurl 설정 | 결과 (SSO 토큰 포함 여부 / 동작) |
-|---|---|---|
-| `""` (빈 문자열) | 있음 | |
-| `true` | 있음 | |
-| `false` | 있음 | |
+| 확인 항목 | 결과 |
+|---|---|
+| 타입 | Boolean (`true` / `false`) |
+| 기본값 | `false` |
+| 사용 기준 | 내용을 읽기 위해 로그인해야 하는 경우 `true`로 설정 |
 
 ---
 
