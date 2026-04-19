@@ -22,18 +22,16 @@ richnotification_rule.txt 문서를 완성하기 위해 Cube에서 직접 테스
 
 ---
 
-## 2. Button `popupoption` 값 형식
+## 2. [x] Button `popupoption` 기본값 및 용도
 
-**현재 상태:** 문서에 `popupoption`이 "Popup options"라고만 기술됨. 실제 값 형식이 불명확.
+**확인 결과:** `popupoption`은 Button에서 `linkurl` 또는 `clickurl`과 함께 사용한다.
+기본값은 `""`(빈 문자열)이며, 목적은 `linkurl` 또는 `clickurl`로 가져온 내용을 브라우저에 표시하는 것이다.
 
-**테스트 방법:** 버튼에 `clickurl`을 설정하고 다양한 `popupoption` 값으로 테스트
-
-| popupoption 값 | 결과 |
+| 확인 항목 | 결과 |
 |---|---|
-| `""` (빈 문자열) | |
-| `"width=500,height=400"` | |
-| `"popup"` | |
-| `"_blank"` | |
+| 사용 URL 필드 | `linkurl` 또는 `clickurl` |
+| 기본값 | `""` (빈 문자열) |
+| 용도 | `linkurl` 또는 `clickurl`의 내용을 브라우저에 표시 |
 
 ---
 
