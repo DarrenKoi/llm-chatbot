@@ -25,6 +25,7 @@ AI가 무엇이든 알아서 판단하게 두지 마십시오. 먼저 범위와 
 5. 새로운 라우팅, 핸드오프, 워크플로우 제어는 `api/workflows/start_chat/`를 기준으로 설계한다.
 6. 전역 설정 변경보다 노드, 그래프, 상태, 라우팅, 핸드오프 변경을 우선한다.
 7. 확실하지 않으면 먼저 수정 대상 파일 목록과 이유를 제시하게 한다.
+8. `api/workflows/` 루트의 인프라 파일(아래 "owner 통보 필수 인프라 파일" 섹션 참고)은 Daeyoung 사전 승인 없이 수정하지 않는다.
 
 ## 권장 시작 프롬프트
 
@@ -36,6 +37,7 @@ AI가 무엇이든 알아서 판단하게 두지 마십시오. 먼저 범위와 
 Control MCP 또는 워크플로우 로직과 직접 관련 없는 코드는 수정하지 마라.
 api/config.py, api/__init__.py, index.py, wsgi.ini, requirements.txt, .env, .env.example 는 내가 명시적으로 요청할 때만 수정해라.
 새 라우팅이나 핸드오프는 기존 workflow registry/orchestrator 규약을 따라라.
+api/workflows/ 루트의 인프라 파일(registry.py, lg_orchestrator.py, lg_state.py, models.py, langgraph_checkpoint.py, intent_utils.py, graph_visualizer.py, __init__.py)과 devtools/workflow_runner/dev_orchestrator.py 는 Daeyoung 사전 승인 없이 수정하지 마라. 수정이 필요해 보이면 먼저 사유를 제시하고 승인을 요청해라.
 먼저 요청이 start_chat을 통해 어떻게 흐르는지 추적하고, 수정하려는 파일 목록과 이유를 짧게 제시한 뒤 작업해라.
 ```
 
@@ -68,17 +70,13 @@ api/config.py, api/__init__.py, index.py, wsgi.ini, requirements.txt, .env, .env
 
 ### 작업 가능 영역
 
-- `api/workflows/`
+- `api/workflows/<workflow_id>/` (각 워크플로 패키지 내부, 예: `lg_graph.py`, `lg_state.py`, `tools.py`, `prompts.py` 등)
 - `api/workflows/start_chat/`
-- `api/workflows/*/graph.py`
-- `api/workflows/*/nodes.py`
-- `api/workflows/*/state.py`
-- `api/workflows/*/routing.py`
-- `api/workflows/registry.py`
-- `api/workflows/orchestrator.py`
 - `api/mcp/`
 - `devtools/workflows/`
 - `devtools/DEVGUIDE.md`
+
+> 루트의 인프라 파일(`registry.py`, `lg_orchestrator.py` 등)은 아래 "owner 통보 필수" 표 참고.
 
 ### 기본 수정 금지 영역
 
@@ -93,6 +91,26 @@ api/config.py, api/__init__.py, index.py, wsgi.ini, requirements.txt, .env, .env
 - `.env.example`
 - 일반적인 앱 부트스트랩 또는 배포 설정
 - MCP 및 워크플로우 밖의 관련 없는 서비스 패키지
+
+### owner 통보 필수 인프라 파일 (Daeyoung 사전 승인)
+
+아래 파일들은 작업 가능 영역(`api/workflows/`, `devtools/workflow_runner/`) 안에 있지만, **워크플로우 전체에 영향을 미치는 코어 인프라**입니다. 수정 전 반드시 Daeyoung에게 사유를 공유하고 승인을 받아야 합니다. AI 도구도 이 파일들을 단독 수정하지 말고, 변경이 필요해 보이면 먼저 변경 계획을 제시하십시오.
+
+| 파일 | 역할 |
+|---|---|
+| `api/workflows/registry.py` | 워크플로 자동 발견 + 정의 정규화 |
+| `api/workflows/lg_orchestrator.py` | Cube 워커 진입점, 루트 그래프 invoke·resume |
+| `api/workflows/lg_state.py` | 모든 워크플로 공통 `ChatState` |
+| `api/workflows/models.py` | `WorkflowReply` 등 응답 계약 |
+| `api/workflows/langgraph_checkpoint.py` | 체크포인터 팩토리, `thread_id` 규칙 |
+| `api/workflows/intent_utils.py` | 의도 분류 공통 유틸 |
+| `api/workflows/graph_visualizer.py` | 그래프 시각화 도구 |
+| `api/workflows/__init__.py` | 워크플로 패키지 초기화 |
+| `devtools/workflow_runner/dev_orchestrator.py` | dev 오케스트레이터 (위 인프라와 짝) |
+
+**자유 수정 영역(통보 불필요):** `api/workflows/<workflow_id>/` 패키지 내부 파일과 `devtools/workflows/<workflow_id>/` 패키지 내부 파일. 새 워크플로 추가는 자동 발견 구조라 위 인프라 파일을 건드릴 필요가 없습니다.
+
+**왜 이 정책이 있나:** 이 인프라 레이어는 멀티턴 지속성, 체크포인터 호환성, 자동 발견 계약 등 한눈에 보이지 않는 invariant를 다수 포함합니다. 부분 수정이 다른 워크플로의 가정을 깨면 디버깅 비용이 큽니다. 자세한 배경과 영향 범위는 [`shared_docs/workflow_catalog.md`](./shared_docs/workflow_catalog.md)의 "인프라 파일 소유권 정책" 섹션을 참조하십시오.
 
 ## 작업 규칙
 
@@ -115,6 +133,7 @@ AI가 작업을 끝냈다고 말하면, 아래 항목을 사람이 직접 확인
 4. 새 워크플로우가 기존 `registry`와 `orchestrator` 규약을 따르는가?
 5. devtools 예제를 프로덕션 코드처럼 설명하고 있지 않은가?
 6. 테스트 또는 검증 결과가 실제 수정 범위와 맞는가?
+7. `api/workflows/` 루트의 인프라 파일을 Daeyoung 사전 승인 없이 수정하지 않았는가? (위 "owner 통보 필수 인프라 파일" 섹션 참고)
 
 이 체크를 통과하지 못하면 AI 출력물을 그대로 병합하지 마십시오.
 
@@ -122,11 +141,11 @@ AI가 작업을 끝냈다고 말하면, 아래 항목을 사람이 직접 확인
 
 `devtools/`의 워크플로우 작성 경험은 `api/`의 실제 런타임과 닮아 있어야 합니다.
 
-- 규칙 기반 워크플로우의 기준 예제로 `devtools/workflows/travel_planner_example/`를 사용합니다.
-- MCP 도구도 사용하는 워크플로우의 기준 예제로 `devtools/workflows/translator_example/`를 사용합니다.
-- 두 폴더 모두에서 파일 분리는 익숙한 형태를 유지합니다: `__init__.py`, `graph.py`, `nodes.py`, `state.py`, 필요 시 `tools.py`, `routing.py`, `prompts.py` 같은 보조 파일을 추가합니다.
-- `devtools/workflows/`에서는 나중에 쉽게 승격할 수 있도록 워크플로우 패키지 내부의 상대 임포트를 선호합니다.
-- `api/workflows/`에서는 프로덕션 진입점과 핸드오프 경로의 중심을 `start_chat`에 둡니다.
+- 규칙 기반 워크플로우 예제: `devtools/workflows/travel_planner_example/`
+- MCP 도구를 쓰는 예제: `devtools/workflows/translator_example/`
+- 파일 분리 컨벤션: `__init__.py`, `lg_graph.py`, `lg_state.py`, 필요 시 `tools.py`, `prompts.py`, `llm_decision.py`, `constants.py` 등 보조 파일 추가.
+- `devtools/workflows/`에서는 승격이 쉽도록 패키지 내부 상대 임포트를 우선하고, 공유 타입은 `from api.workflows.lg_state import ChatState`로 가져옵니다.
+- `api/workflows/`에서는 진입점과 핸드오프 중심을 `start_chat`에 둡니다.
 
 이 예제 폴더들은 동료가 기본 앱 설정을 건드리지 않고도 구조와 코딩 스타일을 복사할 수 있도록 존재합니다.
 
@@ -143,15 +162,13 @@ AI가 작업을 끝냈다고 말하면, 아래 항목을 사람이 직접 확인
 
 새 워크플로우를 만들 때는 다음 순서를 따릅니다.
 
-1. `devtools/workflows/travel_planner_example/` 또는 `devtools/workflows/translator_example/`를 출발점으로 사용합니다.
-2. 구현은 먼저 해당 워크플로우 폴더 내부에 유지합니다.
-3. 상태는 `state.py`에 정의합니다.
-4. 노드 동작은 `nodes.py`에 넣습니다.
-5. 그래프 연결은 `graph.py`에서 구성합니다.
-6. 선택적 보조 파일은 워크플로우에 실제로 필요할 때만 추가합니다.
-7. 워크플로우 형태가 안정화된 뒤 `api/workflows/start_chat/`에서 연결하거나 핸드오프합니다.
-
-예제 워크플로우가 `tools.py` 같은 보조 모듈을 사용한다면, 모든 내용을 한 파일에 몰아넣지 말고 그 패턴을 유지하십시오.
+1. `devtools/workflows/travel_planner_example/` 또는 `translator_example/`를 출발점으로 사용합니다.
+2. 구현은 먼저 해당 워크플로 폴더 내부에 유지합니다.
+3. 상태는 `lg_state.py`에 `ChatState`를 상속해 정의합니다.
+4. 노드 함수와 `StateGraph` 빌더(`build_lg_graph`)는 `lg_graph.py`에서 구성합니다.
+5. 보조 파일(`tools.py`, `prompts.py`, `llm_decision.py`, `constants.py` 등)은 실제 필요할 때만 추가합니다.
+6. `__init__.py`에 `get_workflow_definition()`을 export하면 레지스트리가 자동 발견합니다.
+7. 안정화 후 `devtools/scripts/promote.py`로 `api/workflows/`에 승격합니다.
 
 ## 결정 경계
 
@@ -165,7 +182,7 @@ AI가 작업을 끝냈다고 말하면, 아래 항목을 사람이 직접 확인
 
 현재 기대되는 흐름:
 
-`Cube -> queue -> worker -> orchestrator -> start_chat -> handoff/next workflow`
+`Cube -> queue -> worker -> lg_orchestrator -> start_chat -> handoff/next workflow`
 
 이 제어 체인을 존중하십시오.
 
