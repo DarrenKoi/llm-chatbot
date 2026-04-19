@@ -48,17 +48,15 @@ richnotification_rule.txt 문서를 완성하기 위해 Cube에서 직접 테스
 
 ---
 
-## 4. Button `inner` 동작
+## 4. [x] Button `inner` 기본값 및 설명
 
-**현재 상태:** Image/HyperText에서는 "DMZ 내부 URL 여부"로 설명되지만, Button에서는 설명 없음.
+**확인 결과:** Button의 `inner`는 Image/HyperText와 같은 설명을 사용한다.
+기본값은 `false`다.
 
-**테스트 방법:**
-
-| inner 값 | clickurl | 결과 (내부 브라우저 / 외부 브라우저 / 기타) |
-|---|---|---|
-| `true` | 내부 URL | |
-| `false` | 외부 URL | |
-| `true` | 외부 URL | |
+| 확인 항목 | 결과 |
+|---|---|
+| 설명 | Image/HyperText와 동일 |
+| 기본값 | `false` |
 
 ---
 
