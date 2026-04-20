@@ -30,7 +30,7 @@
 - 스케줄러는 `wsgi.ini`의 `attach-daemon = python scheduler_worker.py`로 전용 프로세스에서만 실행된다. 웹 앱은 스케줄러를 시작하지 않는다.
 
 ## uWSGI 재시작 정책
-- `wsgi.ini`에서 `reload-mercy=0`, `worker-reload-mercy=0`으로 설정해 `touch-reload` 시 실행 중 스케줄러 잡을 즉시 종료하고 빠르게 재시작한다.
+- `wsgi.ini`에서 `reload-mercy=15`, `worker-reload-mercy=15`으로 설정해 `touch-reload` 시 실행 중 작업에 짧은 정리 시간을 주고 재시작한다.
 - 현재 기본 웹앱 동시성은 `workers=2`, `threads=4`이며, 별도 `cube_worker.py` / `scheduler_worker.py` daemon과 분리해 운영한다.
 
 ## 모니터링 규칙
