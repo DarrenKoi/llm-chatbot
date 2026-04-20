@@ -163,6 +163,9 @@ def test_log_workflow_activity_uses_workflow_state_context(tmp_path, monkeypatch
         "translator",
         "workflow_custom_event",
         state=state,
+        user_name="홍길동",
+        user_state="waiting_for_target_language",
+        waiting_for="target_language",
         step=1,
         detail="started",
     )
@@ -175,8 +178,11 @@ def test_log_workflow_activity_uses_workflow_state_context(tmp_path, monkeypatch
     assert payload["event"] == "workflow_custom_event"
     assert payload["workflow_id"] == "translator"
     assert payload["user_id"] == "u-123"
+    assert payload["user_name"] == "홍길동"
     assert payload["node_id"] == "entry"
     assert payload["status"] == "active"
+    assert payload["user_state"] == "waiting_for_target_language"
+    assert payload["waiting_for"] == "target_language"
     assert payload["step"] == 1
     assert payload["detail"] == "started"
 

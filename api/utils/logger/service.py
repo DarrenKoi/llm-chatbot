@@ -144,6 +144,7 @@ def log_workflow_activity(
     state: "WorkflowState | None" = None,
     level: int | str = logging.INFO,
     user_id: str | None = None,
+    user_name: str | None = None,
     node_id: str | None = None,
     status: str | None = None,
     **data: Any,
@@ -153,6 +154,7 @@ def log_workflow_activity(
         setup_logging()
         if state is not None:
             user_id = user_id or getattr(state, "user_id", None)
+            user_name = user_name or getattr(state, "user_name", None)
             node_id = node_id or getattr(state, "node_id", None)
             status = status or getattr(state, "status", None)
 
@@ -162,6 +164,8 @@ def log_workflow_activity(
         }
         if user_id is not None:
             payload_data["user_id"] = user_id
+        if user_name is not None:
+            payload_data["user_name"] = user_name
         if node_id is not None:
             payload_data["node_id"] = node_id
         if status is not None:
