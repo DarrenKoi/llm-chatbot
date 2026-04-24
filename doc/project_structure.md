@@ -21,7 +21,6 @@ llm_chatbot/
 │   ├── conversation_service.py
 │   ├── monitoring_service.py
 │   ├── mongo.py
-│   ├── archive/
 │   ├── cube/
 │   ├── file_delivery/
 │   ├── html_templates/
@@ -115,8 +114,6 @@ llm_chatbot/
   모니터링 화면에 보여줄 런타임 스냅샷을 만든다.
 - `api/mcp/`
   MCP 클라이언트, 레지스트리, 로컬 툴 실행기, 툴 선택 로직을 담는다.
-- `api/archive/`
-  보관 데이터 추출과 OpenSearch 연동 계층이다.
 - `api/mongo.py`
   MongoDB 연결 유틸리티다.
 - `api/utils/logger/`

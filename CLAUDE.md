@@ -23,7 +23,7 @@ Flask-based Cube integration server with conversation persistence and CDN suppor
 - `api/workflows/` — LangGraph orchestrator, registered graphs (`start_chat`, `translator`, `travel_planner`)
 - `api/mcp/` — MCP client, tool selector, executor
 - `api/file_delivery/` — uploaded-file serving and cleanup
-- `api/profile/`, `api/archive/`, `api/monitoring_service.py`, `api/mongo.py`
+- `api/profile/`, `api/monitoring_service.py`, `api/mongo.py`
 - `api/html_templates/` — server-rendered pages (landing, monitor, conversation, etc.)
 - `api/conversation_service.py` — conversation history storage
 - `api/scheduled_tasks/` — scheduler infrastructure (lock, registry) and task packages

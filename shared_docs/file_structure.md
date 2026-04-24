@@ -90,8 +90,6 @@ llm_chatbot/
   모니터링 화면에 보여줄 런타임 스냅샷을 만듭니다.
 - `api/mcp/`
   MCP 클라이언트, 레지스트리, 로컬 툴 실행기, 툴 선택 로직을 담습니다.
-- `api/archive/`
-  보관 데이터 추출과 OpenSearch 연동 계층입니다.
 - `api/mongo.py`
   MongoDB 연결 유틸리티입니다.
 - `api/utils/logger/`

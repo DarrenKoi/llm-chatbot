@@ -10,7 +10,7 @@
 - `api/workflows/`: LangGraph orchestrator and registered graphs (`start_chat`, `translator`, `travel_planner`).
 - `api/mcp/`: MCP client, tool selector, executor, local tool registry.
 - `api/file_delivery/`: uploaded-file serving and cleanup routes/service.
-- `api/profile/`, `api/archive/`, `api/monitoring_service.py`, `api/mongo.py`: profile, archive/OpenSearch, monitoring, and MongoDB client.
+- `api/profile/`, `api/monitoring_service.py`, `api/mongo.py`: profile, monitoring, and MongoDB client.
 - `api/html_templates/`: server-rendered pages (landing, monitor, conversation, file delivery, scheduled tasks).
 - `api/conversation_service.py`: conversation history backend and retention logic.
 - `api/scheduled_tasks/`: scheduler infrastructure (`_lock`, `_registry`, `inspection`) and auto-discovered tasks under `tasks/`.
