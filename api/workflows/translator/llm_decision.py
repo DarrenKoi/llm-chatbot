@@ -7,6 +7,10 @@ from dataclasses import dataclass
 
 from api.llm.service import LLMServiceError, generate_json_reply
 from api.workflows.intent_utils import is_stop_conversation_message
+from api.workflows.translator.prompts import (
+    TRANSLATOR_DECISION_SYSTEM_PROMPT,
+    TRANSLATOR_DECISION_USER_PROMPT_PREFIX,
+)
 from api.workflows.translator.translation_engine import LANGUAGE_ALIASES
 
 log = logging.getLogger(__name__)
@@ -59,27 +63,6 @@ _FOLLOW_UP_SOURCE_TOKENS = {
     "정도",
 }
 _POSTPOSITIONS = r"(?:으로(?:도|는|만)?|로(?:도|는|만)?|를|은|는|의|에서|에|가|도|와|과)?"
-_WORKFLOW_SYSTEM_PROMPT = """
-당신은 번역 워크플로를 제어하는 판단기입니다.
-최신 사용자 메시지와 현재 상태를 보고 다음 행동만 결정하세요.
-
-반드시 JSON 객체 하나만 반환하세요. 키는 아래 5개만 사용하세요.
-- action: "translate" | "ask_user" | "end_conversation"
-- source_text: 문자열
-- target_language: "en" | "ja" | ""
-- missing_slot: "source_text" | "target_language" | ""
-- reply: 사용자에게 보낼 한국어 문장. translate일 때는 빈 문자열
-
-판단 규칙:
-- 사용자가 stop, bye, 취소, 그만, 끝, 종료처럼 대화를 마치려는 뜻이면 action은 end_conversation
-- 사용자가 새 번역 요청을 완성형으로 말하면 이전 상태보다 최신 요청을 우선
-- 사용자가 누락된 정보만 말하면 기존 상태와 합쳐서 판단
-- source_text와 target_language가 모두 있으면 action은 translate
-- 정보가 부족하면 action은 ask_user, missing_slot에는 다음에 물어볼 필드를 넣기
-- 목표 언어는 영어와 일본어만 지원합니다. 다른 언어거나 불명확하면 target_language를 비우고 ask_user
-- reply는 짧고 자연스러운 한국어로 작성
-- source_text는 사용자가 실제로 번역하길 원하는 문장일 때만 채우고, 안내 문구나 stop 표현을 넣지 마세요.
-""".strip()
 
 
 @dataclass
@@ -111,10 +94,9 @@ def decide_translation_turn(
 
     try:
         raw_decision = generate_json_reply(
-            system_prompt=_WORKFLOW_SYSTEM_PROMPT,
+            system_prompt=TRANSLATOR_DECISION_SYSTEM_PROMPT,
             user_prompt=(
-                "현재 번역 워크플로 상태를 보고 다음 행동을 판단하세요.\n"
-                f"{json.dumps(state_payload, ensure_ascii=False, indent=2)}"
+                TRANSLATOR_DECISION_USER_PROMPT_PREFIX + json.dumps(state_payload, ensure_ascii=False, indent=2)
             ),
         )
         return _coerce_decision(raw_decision, source_text=source_text, target_language=target_language)

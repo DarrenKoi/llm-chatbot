@@ -6,6 +6,10 @@ import re
 from dataclasses import dataclass
 
 from api.llm.service import LLMServiceError, generate_json_reply
+from api.workflows.translator.prompts import (
+    TRANSLATION_SYSTEM_PROMPT,
+    TRANSLATION_USER_PROMPT_PREFIX,
+)
 
 log = logging.getLogger(__name__)
 
@@ -57,20 +61,6 @@ _JAPANESE_PRONUNCIATIONS_KO = {
     "こんにちは": "곤니치와",
     "ありがとうございます": "아리가토고자이마스",
 }
-_TRANSLATION_SYSTEM_PROMPT = """
-당신은 번역 전용 엔진입니다.
-주어진 source_text만 target_language로 번역하고 반드시 JSON 객체 하나만 반환하세요.
-
-허용 키:
-- result: 번역 결과 문자열
-- pronunciation_ko: 일본어 번역일 때만 한국어 발음을 적고, 아니면 빈 문자열
-
-규칙:
-- 설명, 인사, 따옴표, 코드블록 없이 JSON만 반환
-- 의미를 유지하되 자연스러운 번역을 사용
-- 사람 이름, 제품명, URL, 코드 식별자는 필요할 때만 번역
-- target_language가 ja가 아니면 pronunciation_ko는 반드시 빈 문자열
-""".strip()
 
 
 def normalize_language(language: str) -> str:
@@ -137,8 +127,8 @@ def _translate_with_llm(*, text: str, source_language: str, target_language: str
     }
     try:
         raw_reply = generate_json_reply(
-            system_prompt=_TRANSLATION_SYSTEM_PROMPT,
-            user_prompt=f"다음 JSON 입력을 번역하세요.\n{json.dumps(payload, ensure_ascii=False)}",
+            system_prompt=TRANSLATION_SYSTEM_PROMPT,
+            user_prompt=TRANSLATION_USER_PROMPT_PREFIX + json.dumps(payload, ensure_ascii=False),
         )
     except LLMServiceError as exc:
         log.exception("translator LLM fallback failed")
