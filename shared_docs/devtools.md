@@ -23,7 +23,8 @@
 
 - 승격 전 워크플로 패키지를 두는 위치입니다.
 - `_template/`는 새 워크플로의 기본 구조를 제공합니다.
-- `translator_example/`, `travel_planner_example/`는 참고용 예제입니다.
+- `travel_planner_example/`는 멀티턴 interrupt/resume 참고 예제입니다.
+- `richinotification_test/`는 richnotification payload 조립과 devtools 응답 규칙 참고 예제입니다.
 
 ### `devtools/mcp/`
 

@@ -20,7 +20,7 @@ Flask-based Cube integration server with conversation persistence and CDN suppor
 - `api/config.py` — all env-based configuration
 - `api/cube/` — Cube webhook, queue worker, rich-notification blocks
 - `api/llm/` — LLM service and prompt assembly (OpenAI-compatible client)
-- `api/workflows/` — LangGraph orchestrator, registered graphs (`start_chat`, `translator`, `travel_planner`)
+- `api/workflows/` — LangGraph orchestrator, registered graphs (`start_chat`, `translator`)
 - `api/mcp/` — MCP client, tool selector, executor
 - `api/file_delivery/` — uploaded-file serving and cleanup
 - `api/profile/`, `api/monitoring_service.py`, `api/mongo.py`

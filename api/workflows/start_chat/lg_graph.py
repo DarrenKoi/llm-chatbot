@@ -158,7 +158,7 @@ def _route_after_classify(state: StartChatState) -> str:
 def build_lg_graph() -> StateGraph:
     """시작 대화 워크플로 LangGraph StateGraph 빌더를 반환한다.
 
-    자식 워크플로(translator, travel_planner)는 서브그래프로 포함된다.
+    자식 워크플로(translator)는 서브그래프로 포함된다.
     """
 
     handoff_subgraphs = _get_handoff_subgraph_builders()

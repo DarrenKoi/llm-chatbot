@@ -7,7 +7,7 @@
 - `api/config.py`: all environment-driven configuration (Flask, Cube, LLM, MCP, Redis, MongoDB, file delivery, scheduler, logging).
 - `api/cube/`: Cube webhook, queue worker, rich-notification blocks, chunker, intent renderer.
 - `api/llm/`: LLM service and prompt assembly (OpenAI-compatible client).
-- `api/workflows/`: LangGraph orchestrator and registered graphs (`start_chat`, `translator`, `travel_planner`).
+- `api/workflows/`: LangGraph orchestrator and registered graphs (`start_chat`, `translator`).
 - `api/mcp/`: MCP client, tool selector, executor, local tool registry.
 - `api/file_delivery/`: uploaded-file serving and cleanup routes/service.
 - `api/profile/`, `api/monitoring_service.py`, `api/mongo.py`: profile, monitoring, and MongoDB client.

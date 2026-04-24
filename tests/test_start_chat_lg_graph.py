@@ -59,8 +59,28 @@ def test_casual_conversation_completes(mock_history, mock_llm, mock_profile):
 
 
 @patch("api.profile.service.load_user_profile", return_value=None)
-def test_handoff_to_translator_subgraph(mock_profile):
+def test_handoff_to_translator_subgraph(mock_profile, monkeypatch):
     """번역 키워드가 있으면 translator 서브그래프로 분기하고 interrupt된다."""
+
+    decisions = iter(
+        [
+            {
+                "action": "ask_user",
+                "source_text": "안녕하세요",
+                "target_language": "",
+                "missing_slot": "target_language",
+                "reply": "",
+            },
+            {
+                "action": "translate",
+                "source_text": "안녕하세요",
+                "target_language": "영어",
+                "missing_slot": "",
+                "reply": "",
+            },
+        ]
+    )
+    monkeypatch.setattr("api.workflows.translator.llm_decision.generate_json_reply", lambda **kwargs: next(decisions))
 
     graph = _compile_graph()
     config = _make_config("handoff-translator")
@@ -76,69 +96,13 @@ def test_handoff_to_translator_subgraph(mock_profile):
     state = graph.get_state(config)
     assert state.tasks, "translator 서브그래프에서 interrupt가 발생해야 한다"
     reply = state.tasks[0].interrupts[0].value["reply"]
-    assert "영어 또는 일본어" in reply
+    assert "어떤 언어로 번역할까요?" in reply
     assert state.values["active_workflow"] == "translator"
 
     result = graph.invoke(Command(resume="영어"), config)
 
-    assert result["messages"][-1].content == "Hello"
-
-
-@patch("api.profile.service.load_user_profile", return_value=None)
-def test_handoff_to_travel_planner_subgraph(mock_profile):
-    """여행 키워드가 있으면 travel_planner 서브그래프로 분기한다."""
-
-    graph = _compile_graph()
-    config = _make_config("handoff-travel")
-
-    result = graph.invoke(
-        {
-            "user_message": "도쿄 3박 4일 여행 계획 짜줘",
-            "user_id": "user1",
-        },
-        config,
-    )
-
-    assert result["active_workflow"] == "travel_planner"
-    assert "도쿄 3박 4일 여행" in result["messages"][-1].content
-    assert "시부야" in result["messages"][-1].content
-
-
-@patch("api.profile.service.load_user_profile", return_value=None)
-def test_travel_planner_multi_turn_via_start_chat(mock_profile):
-    """start_chat → travel_planner 서브그래프 멀티턴 interrupt/resume 흐름."""
-
-    graph = _compile_graph()
-    config = _make_config("travel-multi-turn")
-
-    graph.invoke(
-        {
-            "user_message": "여행 계획 짜줘",
-            "user_id": "user1",
-        },
-        config,
-    )
-
-    state = graph.get_state(config)
-    assert state.tasks
-    assert "스타일" in state.tasks[0].interrupts[0].value["reply"]
-
-    graph.invoke(Command(resume="휴양 여행"), config)
-
-    state2 = graph.get_state(config)
-    assert state2.tasks
-    reply2 = state2.tasks[0].interrupts[0].value["reply"]
-    assert "제주" in reply2
-
-    graph.invoke(Command(resume="제주"), config)
-
-    state3 = graph.get_state(config)
-    assert state3.tasks
-    assert "며칠" in state3.tasks[0].interrupts[0].value["reply"]
-
-    result = graph.invoke(Command(resume="2박 3일"), config)
-
-    assert "제주 2박 3일 여행" in result["messages"][-1].content
+    assert "Hello" in result["messages"][-1].content
+    assert "헬로" in result["messages"][-1].content
 
 
 def test_handoff_subgraph_builders_are_loaded_from_registry(monkeypatch):

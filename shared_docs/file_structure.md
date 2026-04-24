@@ -79,8 +79,6 @@ llm_chatbot/
   기본 진입 워크플로입니다. 일반 대화 처리와 하위 워크플로 handoff의 출발점입니다.
 - `api/workflows/translator/`
   번역 전용 워크플로입니다.
-- `api/workflows/travel_planner/`
-  여행 계획 전용 워크플로입니다.
 
 ### 운영 보조 계층
 

@@ -17,7 +17,6 @@
 | Workflow ID | 단독 실행 트리거 키워드 | 위치 |
 |---|---|---|
 | `translator` | `translate`, `translation`, `번역`, `통역` | `api/workflows/translator/__init__.py:23` |
-| `travel_planner` | `travel plan`, `trip plan`, `trip planner`, `travel planner`, `여행 계획`, `여행 일정`, `여행 플랜` | `api/workflows/travel_planner/__init__.py:18` |
 | `start_chat` | (트리거 없음 — 위 어느 키워드에도 해당하지 않으면 기본 진입 흐름) | `api/workflows/start_chat/lg_graph.py` |
 
 > 매칭은 단순 substring 검사입니다. 예를 들어 “이거 한국어로 **번역**해줘”라는 메시지는 `translator`로 곧장 핸드오프됩니다. 일반 대화에서 우연히 키워드를 흘리면 의도치 않게 핸드오프될 수 있다는 점도 기억해 주세요.
@@ -59,40 +58,7 @@ resolve
 
 ---
 
-## 2. `travel_planner` — 여행 계획 추천
-
-### 어떤 일을 하나
-LLM 기반 슬롯 추출(`decide_travel_planner_turn`)을 사용해 여행 스타일 → 목적지 → 일정 → 동반자 정보를 점진적으로 모은 뒤, 추천 방문지 3곳과 일자별 동선 가이드를 제안합니다 (`api/workflows/travel_planner/lg_graph.py:109`).
-
-### 트리거 키워드
-- `travel plan`, `trip plan`, `trip planner`, `travel planner`
-- `여행 계획`, `여행 일정`, `여행 플랜`
-
-### 흐름
-```
-resolve
-  ├─ travel_style 없음 → collect_preference        (interrupt)
-  ├─ destination 없음   → recommend_destination   (interrupt: 추천 후보 제시)
-  ├─ duration_text 없음 → collect_trip_context     (interrupt)
-  └─ 모두 채워짐 → build_plan → END
-```
-중간에 사용자가 “취소”/“그만” 의도를 말하면 `decide_travel_planner_turn`의 `end_conversation` 분기로 바로 종료됩니다 (`conversation_ended=True`).
-
-### 예시 대화
-```
-사용자: "여행 계획 짜줘"
-봇    : (스타일 질문) "어떤 분위기의 여행을 원하시나요? 예: 휴양, 액티비티, 미식, 도시 탐방"
-사용자: "미식 위주로 가고 싶어"
-봇    : "미식 여행으로는 ○○, △△, ◇◇를 먼저 고려해보세요. 마음에 드는 곳을 골라 말씀해주세요."
-사용자: "오사카로 갈래"
-봇    : "여행 일정은 며칠 정도 잡으실 건가요?"
-사용자: "2박 3일"
-봇    : "오사카 2박 3일 여행은 미식 중심으로 시작하면 좋습니다. 추천 방문지: ..."
-```
-
----
-
-## 3. `start_chat` — 일반 대화 (디폴트)
+## 2. `start_chat` — 일반 대화 (디폴트)
 
 ### 어떤 일을 하나
 어떤 핸드오프 키워드에도 매칭되지 않은 모든 메시지를 처리합니다. `retrieve_context_node`가 RAG 컨텍스트와 사용자 업로드 파일 목록을 모아 LLM에 전달하고, 이전 대화 이력과 사용자 프로필도 함께 합쳐 응답을 생성합니다 (`api/workflows/start_chat/lg_graph.py:106`).
@@ -109,7 +75,7 @@ resolve
 
 ---
 
-## 4. 운영 디렉터리 vs dev 디렉터리 구조
+## 3. 운영 디렉터리 vs dev 디렉터리 구조
 
 운영(`api/workflows/`)과 개발(`devtools/workflows/`)은 같은 “워크플로 패키지 계약”을 공유하지만, **루트에 들어가는 파일 종류가 다릅니다**. 새 워크플로를 dev에서 만들고 promote할 때 이 구분을 알고 있으면 import 에러나 “왜 dev에는 이 파일이 없지?”라는 혼란을 피할 수 있습니다.
 
@@ -133,21 +99,28 @@ resolve
 ### 디렉터리 비교 (실제 트리)
 
 ```text
-api/workflows/                         devtools/workflows/
-├── __init__.py                        ├── __init__.py
-├── registry.py                        ├── _template/
-├── lg_orchestrator.py                 │   ├── __init__.py
-├── lg_state.py                        │   ├── lg_graph.py
-├── models.py                          │   └── lg_state.py
-├── langgraph_checkpoint.py            ├── translator_example/
-├── intent_utils.py                    │   ├── __init__.py
-├── graph_visualizer.py                │   ├── lg_graph.py
-├── start_chat/                        │   ├── lg_state.py
-├── translator/                        │   └── tools.py
-└── travel_planner/                    └── travel_planner_example/
-                                            ├── __init__.py
-                                            ├── lg_graph.py
-                                            └── lg_state.py
+api/workflows/
+├── __init__.py
+├── registry.py
+├── lg_orchestrator.py
+├── lg_state.py
+├── models.py
+├── langgraph_checkpoint.py
+├── intent_utils.py
+├── graph_visualizer.py
+├── start_chat/
+└── translator/
+
+devtools/workflows/
+├── __init__.py
+├── _template/
+├── richinotification_test/
+└── travel_planner_example/
+    ├── __init__.py
+    ├── constants.py
+    ├── lg_graph.py
+    ├── lg_state.py
+    └── llm_decision.py
 ```
 
 **왜 dev 쪽 루트에 `.py` 파일이 거의 없나** — 인프라가 prod 한 곳에만 살기 때문입니다. dev runner는 prod의 `discover_workflows()`를 그대로 호출해 dev 패키지를 찾고, dev 워크플로들은 `ChatState` 같은 공유 타입을 prod에서 가져옵니다. 인프라 코드를 두 곳에 두면 동기화 비용이 생기는데, 그 비용을 지우려고 일부러 한쪽으로 모아 둔 구조입니다.
@@ -168,7 +141,7 @@ api/workflows/                         devtools/workflows/
 새 dev 워크플로를 만들 때 “루트에 `registry.py`가 없다, `lg_state.py`가 없다”는 이유로 인프라 파일을 dev 쪽에 새로 만들지 마세요. 항상 아래를 따릅니다.
 
 - 공유 상태가 필요하면 `from api.workflows.lg_state import ChatState`
-- 운영 워크플로의 helper(예: `translator.translation_engine`, `travel_planner.constants`)를 dev 예제에서도 재사용해도 됨 — 이미 `translator_example`, `travel_planner_example`이 그렇게 import하고 있음
+- 운영 워크플로의 불안정한 내부 helper를 dev 예제에서 직접 가져오지 말고, `ChatState`처럼 안정적인 공유 타입만 재사용합니다.
 - 새 인프라 코드(라우팅 규칙, 새 체크포인터 등)는 `api/workflows/` 또는 `devtools/workflow_runner/` 중 적절한 곳에 두고, **`devtools/workflows/` 루트는 손대지 않음**
 
 ---
@@ -210,13 +183,13 @@ api/workflows/                         devtools/workflows/
 
 ---
 
-## 5. 자주 묻는 질문 (FAQ)
+## 4. 자주 묻는 질문 (FAQ)
 
 **Q. 한 메시지에 여러 워크플로의 키워드가 모두 들어 있으면?**
 레지스트리 등록 순서대로 첫 번째로 매칭되는 워크플로가 선택됩니다 (`list_handoff_workflows()`는 `discover_workflows()`가 모듈을 알파벳 순으로 스캔합니다). 키워드 충돌이 잦다면 메시지를 나눠 보내는 편이 안전합니다.
 
 **Q. 워크플로 도중에 빠져나오려면?**
-`travel_planner`와 `translator`는 LLM 결정 단계에서 종료 의도를 감지하면 `conversation_ended=True`로 빠져나옵니다. 사용자가 “취소”, “그만”, “종료” 같은 표현을 쓰면 됩니다.
+`translator`는 LLM 결정 단계에서 종료 의도를 감지하면 `conversation_ended=True`로 빠져나옵니다. 사용자가 “취소”, “그만”, “종료” 같은 표현을 쓰면 됩니다.
 
 **Q. 같은 사용자가 두 채널에서 동시에 다른 워크플로를 돌리면?**
 `thread_id = user_id::channel_id` 규칙으로 체크포인터가 분리됩니다 (`api/workflows/langgraph_checkpoint.py:17`). 채널이 다르면 서로의 상태를 침범하지 않습니다.
@@ -226,6 +199,6 @@ api/workflows/                         devtools/workflows/
 
 ---
 
-## 6. 한 줄 요약
+## 5. 한 줄 요약
 
-현재 단독 실행 가능한 업무 워크플로는 **`translator`, `travel_planner`** 두 개이며, 각 워크플로의 `handoff_keywords`를 사용자 메시지에 자연스럽게 포함시키는 것이 “단독 실행”의 트리거입니다. 키워드만 맞으면 해당 서브그래프가 멀티턴 `interrupt/resume` 패턴으로 끝까지 단독 진행됩니다.
+현재 단독 실행 가능한 업무 워크플로는 **`translator`** 하나이며, `handoff_keywords`를 사용자 메시지에 자연스럽게 포함시키는 것이 “단독 실행”의 트리거입니다. 키워드가 맞으면 해당 서브그래프가 멀티턴 `interrupt/resume` 패턴으로 끝까지 단독 진행됩니다.

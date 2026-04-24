@@ -35,7 +35,7 @@
 
 따라서 이름은 처음부터 소문자 `snake_case`로 정하고, 의미가 분명한 업무 단위로 짓는 편이 좋습니다.
 
-좋은 예시는 `translator`, `travel_planner`, `invoice_summary` 같은 이름입니다.
+좋은 예시는 `translator`, `invoice_summary`, `incident_summary` 같은 이름입니다.
 
 피해야 할 예시는 `test`, `newflow`, `temp_work`, `myWorkflow` 같은 이름입니다.
 
@@ -250,9 +250,9 @@ resolve_node
     └─ 모두 채워짐  → translate
 ```
 
-#### 실제 예시: 여행 워크플로의 복합 조건부 분기
+#### devtools 예시: 복합 조건부 분기
 
-`travel_planner`는 더 복잡한 조건 분기를 보여줍니다. 여행지가 없을 때 스타일도 없으면 스타일 수집부터, 스타일이 있으면 여행지 추천으로 분기합니다.
+`devtools/workflows/travel_planner_example/`는 더 복잡한 조건 분기를 보여줍니다. 여행지가 없을 때 스타일도 없으면 스타일 수집부터, 스타일이 있으면 여행지 추천으로 분기합니다.
 
 ```text
 resolve_node

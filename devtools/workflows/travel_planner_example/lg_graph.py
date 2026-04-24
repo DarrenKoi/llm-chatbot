@@ -7,15 +7,14 @@ from langchain_core.messages import AIMessage
 from langgraph.graph import END, StateGraph
 from langgraph.types import interrupt
 
-from api.workflows.travel_planner.constants import (
+from .constants import (
     DESTINATION_DEFAULT_STYLE,
     DESTINATION_TO_PLACES,
     build_companion_note,
     recommend_destinations,
 )
-from api.workflows.travel_planner.llm_decision import CANCEL_GUIDE_REPLY, decide_travel_planner_turn
-
 from .lg_state import TravelPlannerExampleState
+from .llm_decision import CANCEL_GUIDE_REPLY, decide_travel_planner_turn
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +46,7 @@ def resolve_node(state: TravelPlannerExampleState) -> dict:
         }
 
     log.info(
-        "[travel_planner_example] LLM 판단: action=%s destination=%s style=%s duration=%s companion=%s",
+        "[travel_planner_example] 규칙 판단: action=%s destination=%s style=%s duration=%s companion=%s",
         decision.action,
         decision.destination,
         decision.travel_style,

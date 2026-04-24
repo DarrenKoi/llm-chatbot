@@ -7,7 +7,6 @@ from langgraph.types import Command
 
 from devtools.workflows.richinotification_test import build_lg_graph as build_rich_graph
 from devtools.workflows.richinotification_test.block_builder import build_text_table_blocks, compose_content_items
-from devtools.workflows.translator_example import build_lg_graph as build_translator_graph
 from devtools.workflows.travel_planner_example import build_lg_graph as build_travel_graph
 
 
@@ -17,31 +16,6 @@ def _compile_graph(builder):
 
 def _make_config(thread_id: str) -> dict[str, dict[str, str]]:
     return {"configurable": {"thread_id": thread_id}}
-
-
-def test_translator_example_accepts_full_answer_while_waiting_for_source():
-    graph = _compile_graph(build_translator_graph)
-    config = _make_config("translator-source")
-
-    graph.invoke({"user_message": "번역해줘", "user_id": "dev-user", "workflow_id": "translator_example"}, config)
-
-    result = graph.invoke(Command(resume='"감사합니다"를 영어로 번역해줘'), config)
-
-    assert result["messages"][-1].content == "Thank you"
-
-
-def test_translator_example_stop_message_completes_cleanly():
-    graph = _compile_graph(build_translator_graph)
-    config = _make_config("translator-stop")
-
-    graph.invoke(
-        {"user_message": "안녕하세요를 번역해줘", "user_id": "dev-user", "workflow_id": "translator_example"},
-        config,
-    )
-
-    result = graph.invoke(Command(resume="취소"), config)
-
-    assert result["messages"][-1].content == "번역은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
 
 
 def test_travel_planner_example_completes_after_collecting_missing_info():

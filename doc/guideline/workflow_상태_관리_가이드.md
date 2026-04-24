@@ -10,7 +10,7 @@
 
 ## 변경 이유
 
-기존에는 `api/workflows/lg_state.py` 하나에 `ChatState`, `TranslatorState`, `TravelPlannerState` 등 모든 상태 클래스가 함께 있었습니다.
+기존에는 `api/workflows/lg_state.py` 하나에 `ChatState`, `TranslatorState` 등 여러 상태 클래스가 함께 있었습니다.
 
 이 방식의 문제점:
 
@@ -27,10 +27,6 @@ api/workflows/
 ├── translator/
 │   ├── __init__.py
 │   ├── lg_state.py          ← TranslatorState 정의
-│   └── lg_graph.py
-├── travel_planner/
-│   ├── __init__.py
-│   ├── lg_state.py          ← TravelPlannerState 정의
 │   └── lg_graph.py
 └── start_chat/
     ├── __init__.py

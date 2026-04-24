@@ -141,8 +141,9 @@ AI가 작업을 끝냈다고 말하면, 아래 항목을 사람이 직접 확인
 
 `devtools/`의 워크플로우 작성 경험은 `api/`의 실제 런타임과 닮아 있어야 합니다.
 
-- 규칙 기반 워크플로우 예제: `devtools/workflows/travel_planner_example/`
-- MCP 도구를 쓰는 예제: `devtools/workflows/translator_example/`
+- 최소 구조 예제: `devtools/workflows/_template/`
+- 멀티턴 interrupt/resume 예제: `devtools/workflows/travel_planner_example/`
+- Richnotification payload 예제: `devtools/workflows/richinotification_test/`
 - 파일 분리 컨벤션: `__init__.py`, `lg_graph.py`, `lg_state.py`, 필요 시 `tools.py`, `prompts.py`, `llm_decision.py`, `constants.py` 등 보조 파일 추가.
 - `devtools/workflows/`에서는 승격이 쉽도록 패키지 내부 상대 임포트를 우선하고, 공유 타입은 `from api.workflows.lg_state import ChatState`로 가져옵니다.
 - `api/workflows/`에서는 진입점과 핸드오프 중심을 `start_chat`에 둡니다.
@@ -162,7 +163,7 @@ AI가 작업을 끝냈다고 말하면, 아래 항목을 사람이 직접 확인
 
 새 워크플로우를 만들 때는 다음 순서를 따릅니다.
 
-1. `devtools/workflows/travel_planner_example/` 또는 `translator_example/`를 출발점으로 사용합니다.
+1. 기본 구조는 `devtools/workflows/_template/`, 멀티턴 흐름은 `devtools/workflows/travel_planner_example/`, payload 조립은 `devtools/workflows/richinotification_test/`를 출발점으로 사용합니다.
 2. 구현은 먼저 해당 워크플로 폴더 내부에 유지합니다.
 3. 상태는 `lg_state.py`에 `ChatState`를 상속해 정의합니다.
 4. 노드 함수와 `StateGraph` 빌더(`build_lg_graph`)는 `lg_graph.py`에서 구성합니다.

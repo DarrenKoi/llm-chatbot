@@ -12,7 +12,7 @@
 3. 오케스트레이터는 `api/workflows/start_chat/lg_graph.py`의 루트 그래프를 한 번 컴파일해 재사용한다.
 4. 루트 그래프는 먼저 `start_chat` 흐름을 돈다.
 5. 일반 대화면 `retrieve_context -> generate_reply`로 끝난다.
-6. 특정 업무 의도가 감지되면 `translator`, `travel_planner` 같은 서브그래프로 분기한다.
+6. 특정 업무 의도가 감지되면 `translator` 같은 서브그래프로 분기한다.
 7. 서브그래프가 사용자 추가 입력이 필요하면 `interrupt()`로 멈추고, 다음 사용자 메시지가 오면 `Command(resume=...)`로 이어서 실행된다.
 
 즉, 이 저장소는 “워크플로마다 독립 엔진을 여러 개 돌리는 구조”가 아니라, `start_chat`을 루트로 둔 하나의 LangGraph 런타임 안에 여러 업무용 서브그래프를 붙여 놓은 구조에 가깝다.
@@ -26,7 +26,6 @@
 - 루트 그래프: `api/workflows/start_chat/lg_graph.py`
 - 서브그래프 예시:
   - `api/workflows/translator/lg_graph.py`
-  - `api/workflows/travel_planner/lg_graph.py`
 
 각 노드는 상태를 읽고 `dict`를 반환해 상태 일부를 갱신한다.  
 즉, “함수 호출 순서”보다 “상태 전이 규칙”이 중심이다.
@@ -42,7 +41,7 @@
 - `checkpointer`
   중간 상태를 thread 단위로 저장한다.
 
-이 패턴은 `translator`와 `travel_planner`에서 가장 분명하다.  
+이 패턴은 `translator`에서 가장 분명하다.
 예를 들어 번역 워크플로는 원문이 없으면 먼저 원문을 묻고, 목표 언어가 없으면 다시 목표 언어를 묻는다. 이 흐름을 별도 세션 저장 코드를 많이 쓰지 않고 LangGraph의 interrupt/resume로 해결한다.
 
 ### 2.3 thread 단위 지속성
@@ -98,7 +97,7 @@
 - 필요 시 `interrupt()` 사용
 
 테스트는 이 그래프를 `MemorySaver`로 컴파일해서 직접 검증한다.  
-관련 예시는 `tests/test_translator_lg_graph.py`, `tests/test_travel_planner_lg_graph.py`, `tests/test_start_chat_lg_graph.py`에 있다.
+관련 예시는 `tests/test_translator_lg_graph.py`, `tests/test_start_chat_lg_graph.py`에 있다.
 
 ### 3.3 상태 정의는 지금 두 층으로 존재한다
 
@@ -144,9 +143,9 @@
 이 구조의 장점은 “누락 슬롯 수집”이 코드상 매우 명확하다는 점이다.  
 챗봇 멀티턴 업무형 플로우는 대체로 이런 구조를 반복하게 되므로, 새 workflow를 만들 때 좋은 기준이 된다.
 
-### 4.3 `travel_planner`: 분기형 수집 플로우
+### 4.3 devtools 예제: 분기형 수집 플로우
 
-`travel_planner`는 번역보다 상태 필드가 많고 분기도 더 많다.
+production 워크플로에서는 제거되었지만, `devtools/workflows/travel_planner_example/`는 동료가 참고할 수 있는 self-contained multi-turn 예제로 남아 있다.
 
 - 여행 스타일 수집
 - 스타일 기반 목적지 추천
@@ -264,7 +263,7 @@ workflow 수가 늘면 아래를 조심해야 한다.
 
 ### 7.2 resolve node 패턴을 표준화
 
-현재 `translator`와 `travel_planner`는 사실상 같은 패턴을 공유한다.
+현재 `translator`와 `devtools/workflows/travel_planner_example/`는 사실상 같은 패턴을 공유한다.
 
 - 입력 해석
 - 누락 정보 판별

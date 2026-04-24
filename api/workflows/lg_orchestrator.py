@@ -1,7 +1,7 @@
 """LangGraph 기반 워크플로 오케스트레이터.
 
 기존 orchestrator.py를 대체하며, 전체 흐름을 하나의 LangGraph StateGraph로 처리한다.
-자식 워크플로(translator, travel_planner)는 서브그래프로 포함되어
+자식 워크플로(translator)는 서브그래프로 포함되어
 handoff 스택 없이 interrupt/resume로 멀티턴 대화를 지원한다.
 """
 

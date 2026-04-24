@@ -1,7 +1,6 @@
 """여행 계획 예제 워크플로 패키지.
 
-`api/workflows/travel_planner` 구조를 devtools에서도 그대로 익힐 수 있게
-거의 동일한 형태로 옮긴 예제다.
+운영 워크플로에 의존하지 않는 devtools 전용 multi-turn 예제다.
 """
 
 

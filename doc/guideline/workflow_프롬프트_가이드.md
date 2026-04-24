@@ -103,7 +103,6 @@ user_prompt=START_CHAT_CONTEXT_TEMPLATE.format(contexts=ctx, question=q)
 
 - `api/workflows/start_chat/prompts.py` — system prompt + `CONTEXT_TEMPLATE` 혼합 예시
 - `api/workflows/translator/prompts.py` — 한 워크플로에 system prompt 두 개(`DECISION`, `TRANSLATION`) + prefix 패턴
-- `api/workflows/travel_planner/prompts.py` — system prompt + prefix 최소 구성
 
 ## 체크리스트
 

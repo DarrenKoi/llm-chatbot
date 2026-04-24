@@ -91,7 +91,7 @@ Cube는 `/api/v1/cube/receiver`로 메시지를 보냅니다.
 1. `entry_node`가 프로필을 1회 로딩합니다.
 2. `classify_node`가 사용자 메시지와 `handoff_keywords`를 비교합니다.
 3. 일반 대화면 `retrieve_context -> generate_reply` 경로로 갑니다.
-4. 특정 업무 키워드가 감지되면 `translator`, `travel_planner` 같은 서브그래프로 분기합니다.
+4. 특정 업무 키워드가 감지되면 `translator` 같은 서브그래프로 분기합니다.
 
 이 구조 때문에 이 저장소는 “여러 워크플로 엔진 병렬 운용”보다 “하나의 루트 그래프 아래 여러 서브그래프를 붙인 모델”로 이해하는 편이 정확합니다.
 
@@ -116,8 +116,8 @@ Cube는 `/api/v1/cube/receiver`로 메시지를 보냅니다.
 
 - 번역 워크플로
   원문이 없으면 원문을 묻고, 목표 언어가 없으면 다시 목표 언어를 묻습니다.
-- 여행 계획 워크플로
-  여행 스타일, 목적지, 일정 등 누락 슬롯을 순서대로 수집합니다.
+- devtools 멀티턴 예제
+  `devtools/workflows/travel_planner_example/`처럼 여러 슬롯을 순서대로 수집하는 흐름을 검증할 수 있습니다.
 
 다음 사용자 메시지가 들어오면 오케스트레이터가 같은 `thread_id`의 상태를 읽고 `resume`으로 이어서 실행합니다.
 
