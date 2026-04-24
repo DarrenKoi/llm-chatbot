@@ -1,7 +1,7 @@
 """LLM에게 제공할 '의도(intent) 스키마' 샘플.
 
 하이브리드 설계의 핵심: LLM은 richnotification 원본 JSON을 절대 생성하지 않고,
-여기 정의된 작은 의도 객체만 반환한다. Translator(demo_compose.py의 intent_to_block)가
+여기 정의된 작은 의도 객체만 반환한다. Intent renderer(demo_compose.py의 intent_to_block)가
 이 의도 객체를 rich_blocks.Block으로 변환한다.
 
 주의:

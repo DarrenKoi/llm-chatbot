@@ -1,4 +1,4 @@
-"""api/cube/translator.py 단위 테스트."""
+"""api/cube/intent_renderer.py 단위 테스트."""
 
 import pytest
 
@@ -12,7 +12,7 @@ from api.cube.intents import (
     TableIntent,
     TextIntent,
 )
-from api.cube.translator import (
+from api.cube.intent_renderer import (
     intent_to_block,
     intents_to_blocks,
     intents_to_content_item,

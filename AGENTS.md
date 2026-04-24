@@ -5,7 +5,7 @@
 - `index.py`: local dev runner that boots the Flask app from `api.create_application()`.
 - `cube_worker.py`, `scheduler_worker.py`: top-level daemon entry points attached by `wsgi.ini` via `attach-daemon`.
 - `api/config.py`: all environment-driven configuration (Flask, Cube, LLM, MCP, Redis, MongoDB, file delivery, scheduler, logging).
-- `api/cube/`: Cube webhook, queue worker, rich-notification blocks, chunker, translator.
+- `api/cube/`: Cube webhook, queue worker, rich-notification blocks, chunker, intent renderer.
 - `api/llm/`: LLM service and prompt assembly (OpenAI-compatible client).
 - `api/workflows/`: LangGraph orchestrator and registered graphs (`start_chat`, `translator`, `travel_planner`).
 - `api/mcp/`: MCP client, tool selector, executor, local tool registry.

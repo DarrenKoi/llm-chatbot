@@ -2,7 +2,7 @@
 
 `doc/richnotification_전송_전략.md` 하이브리드 설계의 LLM 측 인터페이스다.
 LLM은 richnotification 원본 JSON을 절대 보지 않고, 여기 정의된 작은
-discriminated union만 채워 반환한다. translator.intent_to_block()이 이
+discriminated union만 채워 반환한다. intent_renderer.intent_to_block()이 이
 의도를 rich_blocks.Block으로 변환한다.
 
 Pydantic v2 BaseModel을 사용해 LangChain `with_structured_output` /

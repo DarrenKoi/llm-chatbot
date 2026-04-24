@@ -1,4 +1,4 @@
-"""의도(intent) -> richnotification Block 변환기.
+"""의도(intent) -> richnotification Block 렌더러.
 
 LLM 측 의도 객체(api.cube.intents)를 받아 Cube 규격 Block(api.cube.rich_blocks)
 으로 변환한다. 봇 자격 증명·콜백 주소 같은 인프라 값은 호출자(payload.py
