@@ -43,6 +43,47 @@ def test_accept_cube_message_enqueues_request(mock_enqueue, mock_log_request):
 
 
 @patch("api.cube.service.log_request")
+@patch("api.cube.service.enqueue_incoming_message", return_value=True)
+def test_accept_cube_message_enqueues_richnotification_callback(mock_enqueue, mock_log_request):
+    result = accept_cube_message(
+        {
+            "result": {
+                "resultdata": [
+                    {
+                        "requestid": "Survey",
+                        "value": ["after"],
+                        "text": ["식후"],
+                    },
+                    {
+                        "requestid": "Comment",
+                        "value": ["메모"],
+                        "text": ["메모"],
+                    },
+                ]
+            },
+            "header": {
+                "from": {
+                    "uniquename": "u1",
+                    "messageid": "m1",
+                    "channelid": 505912193,
+                    "username": "tester",
+                }
+            },
+            "process": {"processdata": "", "session": {"sequence": "1", "sessionid": "CubeBot"}},
+        }
+    )
+
+    assert result.user_id == "u1"
+    assert result.message_id.startswith("m1:callback:")
+    assert result.status == "accepted"
+    incoming = mock_enqueue.call_args.args[0]
+    assert incoming.user_id == "u1"
+    assert incoming.channel_id == "505912193"
+    assert incoming.message == "Survey: 식후 (after)\nComment: 메모"
+    mock_log_request.assert_called_once()
+
+
+@patch("api.cube.service.log_request")
 @patch("api.cube.service.enqueue_incoming_message", return_value=False)
 def test_accept_cube_message_marks_duplicate(mock_enqueue, mock_log_request):
     result = accept_cube_message(
@@ -191,6 +232,89 @@ def test_handle_cube_message_success(
     )
     assert mock_log_request.call_count == 2
     assert "Workflow handling scheduled" in caplog.text
+
+
+@patch("api.cube.service.log_request")
+@patch("api.cube.service.send_multimessage")
+@patch(
+    "api.cube.service.handle_workflow_message",
+    return_value=WorkflowReply(reply="처리했습니다.", workflow_id="start_chat"),
+)
+@patch("api.cube.service.append_message")
+def test_handle_cube_message_richnotification_callback_success(
+    mock_append_message,
+    mock_handle_workflow_message,
+    mock_send_multimessage,
+    mock_log_request,
+):
+    with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 1.0):
+        result = handle_cube_message(
+            {
+                "result": {
+                    "resultdata": [
+                        {
+                            "requestid": "Survey",
+                            "value": ["after"],
+                            "text": ["식후"],
+                        },
+                        {
+                            "requestid": "Comment",
+                            "value": ["메모"],
+                            "text": ["메모"],
+                        },
+                    ]
+                },
+                "header": {
+                    "from": {
+                        "uniquename": "u1",
+                        "messageid": "m1",
+                        "channelid": 505912193,
+                        "username": "tester",
+                    }
+                },
+                "process": {"processdata": "", "session": {"sequence": "1", "sessionid": "CubeBot"}},
+            }
+        )
+
+    assert result.user_id == "u1"
+    assert result.channel_id == "505912193"
+    assert result.message_id.startswith("m1:callback:")
+    assert result.user_message == "Survey: 식후 (after)\nComment: 메모"
+    incoming = mock_handle_workflow_message.call_args.args[0]
+    assert incoming.channel_id == "505912193"
+    assert incoming.message == "Survey: 식후 (after)\nComment: 메모"
+    assert mock_append_message.call_args_list == [
+        call(
+            "u1",
+            {"role": "user", "content": "Survey: 식후 (after)\nComment: 메모"},
+            conversation_id="505912193",
+            metadata={
+                "channel_id": "505912193",
+                "source": "cube",
+                "direction": "inbound",
+                "user_name": "tester",
+                "message_id": result.message_id,
+            },
+        ),
+        call(
+            "u1",
+            {"role": "assistant", "content": "처리했습니다."},
+            conversation_id="505912193",
+            metadata={
+                "channel_id": "505912193",
+                "source": "cube",
+                "direction": "outbound",
+                "user_name": "tester",
+                "reply_to_message_id": result.message_id,
+                "workflow_id": "start_chat",
+            },
+        ),
+    ]
+    mock_send_multimessage.assert_called_once_with(
+        user_id="u1",
+        reply_message="처리했습니다.",
+    )
+    assert mock_log_request.call_count == 2
 
 
 @patch("api.cube.service.log_request")

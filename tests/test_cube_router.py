@@ -47,6 +47,51 @@ def test_extract_cube_request_fields_from_rich_notification_message():
     }
 
 
+def test_extract_cube_request_fields_from_rich_notification_callback():
+    payload = {
+        "result": {
+            "resultdata": [
+                {
+                    "requestid": "Survey",
+                    "value": ["after"],
+                    "text": ["식후"],
+                },
+                {
+                    "requestid": "SelectDate",
+                    "value": ["2026-04-25"],
+                    "text": ["2026-04-25"],
+                },
+                {
+                    "requestid": "Comment",
+                    "value": ["메모"],
+                    "text": ["메모"],
+                },
+            ]
+        },
+        "header": {
+            "from": {
+                "uniquename": "u1",
+                "messageid": "m1",
+                "channelid": 505912193,
+                "username": "tester",
+            }
+        },
+        "process": {
+            "processdata": "",
+            "session": {"sequence": "1", "sessionid": "CubeBot"},
+        },
+    }
+
+    fields = _extract_cube_request_fields(payload)
+
+    assert fields is not None
+    assert fields["user_id"] == "u1"
+    assert fields["channel_id"] == "505912193"
+    assert fields["user_name"] == "tester"
+    assert fields["message"] == "Survey: 식후 (after)\nSelectDate: 2026-04-25\nComment: 메모"
+    assert str(fields["message_id"]).startswith("m1:callback:")
+
+
 @patch("api.cube.router.accept_cube_message")
 def test_receive_cube_valid(mock_accept_cube_message, client):
     mock_accept_cube_message.return_value = CubeAcceptedMessage(
@@ -76,6 +121,45 @@ def test_receive_cube_valid(mock_accept_cube_message, client):
 
     assert resp.status_code == 200
     assert resp.get_json() == {"status": "accepted", "message_id": "m1"}
+    mock_accept_cube_message.assert_called_once()
+
+
+@patch("api.cube.router.accept_cube_message")
+def test_receive_cube_richnotification_callback(mock_accept_cube_message, client):
+    mock_accept_cube_message.return_value = CubeAcceptedMessage(
+        user_id="u1",
+        user_name="tester",
+        channel_id="505912193",
+        message_id="m1:callback:abc123",
+        status="accepted",
+    )
+
+    resp = client.post(
+        "/api/v1/cube/richnotification/callback",
+        json={
+            "result": {
+                "resultdata": [
+                    {
+                        "requestid": "Survey",
+                        "value": ["after"],
+                        "text": ["식후"],
+                    }
+                ]
+            },
+            "header": {
+                "from": {
+                    "uniquename": "u1",
+                    "messageid": "m1",
+                    "channelid": 505912193,
+                    "username": "tester",
+                }
+            },
+            "process": {"processdata": "", "session": {"sequence": "1", "sessionid": "CubeBot"}},
+        },
+    )
+
+    assert resp.status_code == 200
+    assert resp.get_json() == {"status": "accepted", "message_id": "m1:callback:abc123"}
     mock_accept_cube_message.assert_called_once()
 
 
