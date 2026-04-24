@@ -5,6 +5,7 @@ from typing import Any
 import httpx
 
 from api import config
+from api.cube import rich_blocks
 from api.cube.payload import build_multimessage_payload, build_richnotification_payload
 
 logger = logging.getLogger(__name__)
@@ -72,5 +73,42 @@ def send_richnotification(*, user_id: str, channel_id: str, reply_message: str) 
         user_id=user_id,
         channel_id=channel_id,
         reply_message=reply_message,
+    )
+    return _send_cube_request(url=config.CUBE_RICHNOTIFICATION_URL, payload=payload, label="richnotification")
+
+
+def send_richnotification_blocks(
+    *blocks: rich_blocks.Block,
+    user_id: str,
+    channel_id: str,
+    callback_address: str | None = None,
+    session_id: str = "",
+    sequence: str = "1",
+    summary: str | list[str] = "",
+) -> dict[str, Any] | None:
+    if not config.CUBE_RICHNOTIFICATION_URL:
+        raise CubeClientError("CUBE_RICHNOTIFICATION_URL is not configured.")
+    if not config.CUBE_BOT_ID:
+        raise CubeClientError("CUBE_BOT_ID is not configured.")
+    if not config.CUBE_BOT_TOKEN:
+        raise CubeClientError("CUBE_BOT_TOKEN is not configured.")
+
+    resolved_callback_address = callback_address
+    if resolved_callback_address is None:
+        resolved_callback_address = (
+            config.CUBE_RICHNOTIFICATION_CALLBACK_URL if any(block.requestid for block in blocks) else ""
+        )
+
+    content_item = rich_blocks.add_container(
+        *blocks,
+        callback_address=resolved_callback_address,
+        session_id=session_id,
+        sequence=sequence,
+        summary=summary,
+    )
+    payload = build_richnotification_payload(
+        user_id=user_id,
+        channel_id=channel_id,
+        content_items=[content_item],
     )
     return _send_cube_request(url=config.CUBE_RICHNOTIFICATION_URL, payload=payload, label="richnotification")

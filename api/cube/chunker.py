@@ -20,6 +20,7 @@ _HEADER_RE = re.compile(r"^#{1,6}\s")
 class DeliveryItem:
     method: Literal["multi", "rich"]
     content: str
+    kind: Literal["text", "code", "table"] = "text"
 
 
 def plan_delivery(text: str, *, max_lines: int = 0) -> list[DeliveryItem]:
@@ -51,10 +52,10 @@ def plan_delivery(text: str, *, max_lines: int = 0) -> list[DeliveryItem]:
     items: list[DeliveryItem] = []
     for block in blocks:
         if use_rich and block.kind in ("code", "table"):
-            items.append(DeliveryItem(method="rich", content=block.content))
+            items.append(DeliveryItem(method="rich", content=block.content, kind=block.kind))
         else:
             for chunk in _chunk_text(block.content, max_lines):
-                items.append(DeliveryItem(method="multi", content=chunk))
+                items.append(DeliveryItem(method="multi", content=chunk, kind=block.kind))
 
     return _merge_adjacent(items, max_lines)
 

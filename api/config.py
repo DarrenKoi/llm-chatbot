@@ -118,6 +118,10 @@ WEB_APP_URL = os.environ.get(
     "WEB_APP_URL",
     "http://itc-1stop-solution-llm-webapp.aipp02.skhynix.com",
 ).rstrip("/")
+CUBE_RICHNOTIFICATION_CALLBACK_URL = os.environ.get(
+    "CUBE_RICHNOTIFICATION_CALLBACK_URL",
+    f"{WEB_APP_URL}/api/v1/cube/richnotification/callback",
+).rstrip("/")
 
 # File delivery
 FILE_DELIVERY_STORAGE_DIR = Path(

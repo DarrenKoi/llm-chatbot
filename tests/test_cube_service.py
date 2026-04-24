@@ -5,6 +5,7 @@ from unittest.mock import call, patch
 import pytest
 
 from api import config
+from api.cube import service as cube_service
 from api.cube.queue import CubeQueueError
 from api.cube.service import (
     CubePayloadError,
@@ -235,6 +236,67 @@ def test_handle_cube_message_success(
 
 
 @patch("api.cube.service.log_request")
+@patch("api.cube.service.send_richnotification")
+@patch("api.cube.service.send_richnotification_blocks")
+@patch(
+    "api.cube.service.handle_workflow_message",
+    return_value=WorkflowReply(reply="| 이름 | 값 |\n|---|---|\n| A | 1 |", workflow_id="start_chat"),
+)
+@patch("api.cube.service.append_message")
+def test_handle_cube_message_sends_markdown_table_as_structured_richnotification(
+    mock_append_message,
+    mock_handle_workflow_message,
+    mock_send_richnotification_blocks,
+    mock_send_richnotification,
+    mock_log_request,
+):
+    with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 1.0):
+        with patch.object(config, "CUBE_RICH_ROUTING_ENABLED", True):
+            result = handle_cube_message(
+                {
+                    "richnotificationmessage": {
+                        "header": {
+                            "from": {
+                                "uniquename": "u1",
+                                "messageid": "m1",
+                                "channelid": "c1",
+                                "username": "tester",
+                            }
+                        },
+                        "process": {"processdata": "hello"},
+                    }
+                }
+            )
+
+    assert result.llm_reply == "| 이름 | 값 |\n|---|---|\n| A | 1 |"
+    mock_send_richnotification.assert_not_called()
+    mock_send_richnotification_blocks.assert_called_once()
+    block = mock_send_richnotification_blocks.call_args.args[0]
+    assert block.bodystyle == "grid"
+    assert block.rows[0]["column"][0]["control"]["text"][0] == "이름"
+    assert block.rows[1]["column"][1]["control"]["text"][0] == "1"
+    assert mock_handle_workflow_message.call_count == 1
+    assert mock_append_message.call_count == 2
+    assert mock_log_request.call_count == 2
+
+
+@patch("api.cube.service.send_richnotification")
+@patch("api.cube.service.send_richnotification_blocks")
+def test_send_rich_delivery_item_falls_back_when_table_parse_fails(
+    mock_send_richnotification_blocks,
+    mock_send_richnotification,
+):
+    cube_service._send_rich_delivery_item(user_id="u1", channel_id="c1", kind="table", content="not a table")
+
+    mock_send_richnotification_blocks.assert_not_called()
+    mock_send_richnotification.assert_called_once_with(
+        user_id="u1",
+        channel_id="c1",
+        reply_message="not a table",
+    )
+
+
+@patch("api.cube.service.log_request")
 @patch("api.cube.service.send_multimessage")
 @patch(
     "api.cube.service.handle_workflow_message",
@@ -329,7 +391,7 @@ def test_handle_cube_message_sends_thinking_message_only_when_reply_is_slow(
     caplog.set_level(logging.INFO, logger="api.cube.service")
 
     def slow_reply(*args, **kwargs):
-        time.sleep(0.05)
+        time.sleep(0.2)
         return WorkflowReply(reply="nice to meet you", workflow_id="start_chat")
 
     with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 0.01):

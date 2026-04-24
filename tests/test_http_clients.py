@@ -5,7 +5,14 @@ from unittest.mock import MagicMock
 import httpx
 import pytest
 
-from api.cube.client import CubeClientError, _send_cube_request, send_multimessage, send_richnotification
+from api.cube import rich_blocks
+from api.cube.client import (
+    CubeClientError,
+    _send_cube_request,
+    send_multimessage,
+    send_richnotification,
+    send_richnotification_blocks,
+)
 from api.llm.service import LLMServiceError, generate_reply
 
 
@@ -150,3 +157,48 @@ def test_send_richnotification_emits_info_logs(mocker, monkeypatch, caplog):
     assert result == {"raw": "accepted"}
     assert "Cube richnotification request started" in caplog.text
     assert "Cube richnotification request completed" in caplog.text
+
+
+def test_send_richnotification_blocks_uses_structured_payload(mocker, monkeypatch):
+    monkeypatch.setattr("api.config.CUBE_RICHNOTIFICATION_URL", "https://cube.example.com/legacy/richnotification")
+    monkeypatch.setattr("api.config.CUBE_BOT_ID", "bot-id")
+    monkeypatch.setattr("api.config.CUBE_BOT_TOKEN", "bot-token")
+    monkeypatch.setattr("api.config.CUBE_BOT_USERNAMES", ("봇",))
+    mock_post = mocker.patch(
+        "api.cube.client.httpx.post",
+        return_value=_response(text="accepted"),
+    )
+
+    block = rich_blocks.add_table(
+        ["이름", "링크"], [["문서", rich_blocks.make_hypertext_cell("열기", "https://x.test")]]
+    )
+    result = send_richnotification_blocks(block, user_id="u1", channel_id="c1")
+
+    assert result == {"raw": "accepted"}
+    payload = mock_post.call_args.kwargs["json"]
+    rich = payload["richnotification"]
+    assert rich["content"][0]["body"]["bodystyle"] == "grid"
+    assert rich["content"][0]["body"]["row"][1]["column"][1]["type"] == "hypertext"
+    assert rich["content"][0]["body"]["row"][1]["column"][1]["control"]["linkurl"] == "https://x.test"
+    assert rich["result"] == ""
+
+
+def test_send_richnotification_blocks_adds_callback_for_request_blocks(mocker, monkeypatch):
+    monkeypatch.setattr("api.config.CUBE_RICHNOTIFICATION_URL", "https://cube.example.com/legacy/richnotification")
+    monkeypatch.setattr("api.config.CUBE_BOT_ID", "bot-id")
+    monkeypatch.setattr("api.config.CUBE_BOT_TOKEN", "bot-token")
+    monkeypatch.setattr("api.config.CUBE_RICHNOTIFICATION_CALLBACK_URL", "https://app.example.com/callback")
+    mock_post = mocker.patch(
+        "api.cube.client.httpx.post",
+        return_value=_response(text="accepted"),
+    )
+
+    send_richnotification_blocks(
+        rich_blocks.add_select("유형", [("A", "a")], processid="SelectKind"),
+        user_id="u1",
+        channel_id="c1",
+    )
+
+    process = mock_post.call_args.kwargs["json"]["richnotification"]["content"][0]["process"]
+    assert process["callbacktype"] == "url"
+    assert process["callbackaddress"] == "https://app.example.com/callback"

@@ -1,21 +1,13 @@
-"""richnotification 블록 팩토리·컴포저.
+"""richnotification cell makers and component composers.
 
-`doc/richnotification_전송_전략.md` 단계 1a의 Python 측 스키마 권한자.
-LLM은 이 모듈을 직접 호출하지 않는다. 워크플로 코드(또는 translator)가
-의도 객체를 받아 여기 블록 팩토리를 호출해 Cube 규격 JSON을 만든다.
-
-규약:
-    - 모든 텍스트 배열은 5개 언어(한/영/일/중/기타) 길이를 강제한다(_lang5).
-    - 색상은 hex 문자열 또는 빈 문자열.
-    - 날짜/시간은 문자열. "YYYY/MM/DD", "YYYY/MM/DD HH:MM".
-
-규격 원문: doc/richnotification_rule.txt
-참조 구현: doc/sample_codes/rich_blocks.py
+Python is the schema authority for Cube richnotification payloads. Callers
+build cells with ``make_*`` helpers, group them with ``add_*`` helpers, and
+only pass the composed content into the Cube client.
 """
 
 from collections.abc import Iterable
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 LANG_COUNT = 5
 SYSTEM_REQUEST_IDS = (
@@ -26,13 +18,12 @@ SYSTEM_REQUEST_IDS = (
     "cubemessageid",
 )
 
+Cell = dict[str, Any]
+Row = dict[str, Any]
+TextValue = str | list[str]
 
-# ---------------------------------------------------------------------------
-# 내부 헬퍼
-# ---------------------------------------------------------------------------
 
-
-def _lang5(text: str | list[str]) -> list[str]:
+def _lang5(text: TextValue) -> list[str]:
     """문자열을 5개 언어 배열로 확장한다."""
     if isinstance(text, list):
         padded = list(text) + [""] * LANG_COUNT
@@ -41,13 +32,13 @@ def _lang5(text: str | list[str]) -> list[str]:
 
 
 def _row(
-    columns: list[dict],
+    columns: list[Cell],
     *,
     align: str = "left",
     width: str = "100%",
     border: bool = False,
     bgcolor: str = "",
-) -> dict:
+) -> Row:
     return {
         "bgcolor": bgcolor,
         "border": border,
@@ -60,13 +51,13 @@ def _row(
 def _column(
     *,
     type: str,
-    control: dict,
+    control: dict[str, Any],
     width: str = "100%",
     align: str = "left",
     valign: str = "middle",
     border: bool = False,
     bgcolor: str = "",
-) -> dict:
+) -> Cell:
     return {
         "bgcolor": bgcolor,
         "border": border,
@@ -78,43 +69,64 @@ def _column(
     }
 
 
-# ---------------------------------------------------------------------------
-# 블록 자료구조
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class Block:
-    """블록 하나가 생성하는 row 목록과 부가 메타데이터."""
+    """Rows and process metadata for a richnotification component."""
 
-    rows: list[dict]
-    mandatory: list[dict] = field(default_factory=list)
+    rows: list[Row]
+    mandatory: list[dict[str, Any]] = field(default_factory=list)
     requestid: list[str] = field(default_factory=list)
     bodystyle: Literal["none", "grid"] = "none"
 
 
-# ---------------------------------------------------------------------------
-# 블록 팩토리
-# ---------------------------------------------------------------------------
+def _mandatory(processid: str, *, required: bool, alertmsg: TextValue, fallback: TextValue) -> list[dict[str, Any]]:
+    if not required:
+        return []
+    return [{"processid": processid, "alertmsg": _lang5(alertmsg or fallback)}]
 
 
-def text_block(
-    text: str | list[str],
+def _with_cell_layout(
+    cell: Cell,
+    *,
+    width: str,
+    align: str,
+    border: bool,
+    bgcolor: str,
+    valign: str = "middle",
+) -> Cell:
+    laid_out = dict(cell)
+    laid_out["width"] = width
+    laid_out["align"] = align
+    laid_out["valign"] = laid_out.get("valign", valign)
+    laid_out["border"] = border
+    laid_out["bgcolor"] = bgcolor
+    return laid_out
+
+
+def make_label_cell(
+    text: TextValue,
     *,
     color: str = "#000000",
+    width: str = "100%",
     align: Literal["left", "center", "right"] = "left",
-) -> Block:
-    """4.1 Label — 정적 텍스트 출력."""
-    control = {
-        "active": True,
-        "text": _lang5(text),
-        "color": color,
-    }
-    return Block(rows=[_row([_column(type="label", control=control, align=align)], align=align)])
+    valign: str = "middle",
+    border: bool = False,
+    bgcolor: str = "",
+) -> Cell:
+    """4.1 Label cell."""
+    return _column(
+        type="label",
+        control={"active": True, "text": _lang5(text), "color": color},
+        width=width,
+        align=align,
+        valign=valign,
+        border=border,
+        bgcolor=bgcolor,
+    )
 
 
-def button_block(
-    text: str | list[str],
+def make_button_cell(
+    text: TextValue,
     *,
     processid: str = "SendButton",
     value: str = "",
@@ -124,9 +136,12 @@ def button_block(
     clickurl: str = "",
     sso: bool = False,
     inner: bool = False,
+    width: str = "100%",
     align: Literal["left", "center", "right"] = "center",
-) -> Block:
-    """4.2 Button — 클릭 가능한 액션 버튼."""
+    valign: str = "middle",
+    border: bool = False,
+) -> Cell:
+    """4.2 Button cell."""
     control = {
         "processid": processid,
         "active": True,
@@ -143,86 +158,93 @@ def button_block(
         "sso": sso,
         "inner": inner,
     }
-    return Block(
-        rows=[_row([_column(type="button", control=control, align=align)], align=align)],
-        requestid=[processid],
+    return _column(
+        type="button",
+        control=control,
+        width=width,
+        align=align,
+        valign=valign,
+        border=border,
+        bgcolor=bgcolor,
     )
 
 
-def choice_block(
-    question: str | list[str],
-    options: list[tuple[str, str]],
+def make_radio_cell(
+    text: TextValue,
+    value: str,
     *,
     processid: str = "Sentence",
-    multi: bool = False,
-    default_value: str | None = None,
-    required: bool = False,
-    alertmsg: str | list[str] = "",
-) -> Block:
-    """4.3 Radio / 4.4 Checkbox — 단일/다중 선택.
-
-    같은 processid를 공유하는 radio 여러 개가 단일 선택 그룹을 이룬다.
-    checkbox도 같은 processid면 다중 선택 묶음이다.
-    """
-    control_type = "checkbox" if multi else "radio"
-    rows: list[dict] = []
-
-    rows.append(
-        _row(
-            [
-                _column(
-                    type="label",
-                    control={"active": True, "text": _lang5(question), "color": "#000000"},
-                )
-            ]
-        )
+    checked: bool = False,
+    width: str = "100%",
+    align: Literal["left", "center", "right"] = "left",
+    valign: str = "middle",
+    border: bool = False,
+    bgcolor: str = "",
+) -> Cell:
+    """4.3 Radio cell."""
+    return _column(
+        type="radio",
+        control={
+            "processid": processid,
+            "active": True,
+            "text": _lang5(text),
+            "value": value,
+            "checked": checked,
+        },
+        width=width,
+        align=align,
+        valign=valign,
+        border=border,
+        bgcolor=bgcolor,
     )
 
-    for label, value in options:
-        checked = default_value is not None and default_value == value
-        rows.append(
-            _row(
-                [
-                    _column(
-                        type=control_type,
-                        control={
-                            "processid": processid,
-                            "active": True,
-                            "text": _lang5(label),
-                            "value": value,
-                            "checked": checked,
-                        },
-                    )
-                ]
-            )
-        )
 
-    mandatory: list[dict] = []
-    if required:
-        mandatory.append(
-            {
-                "processid": processid,
-                "alertmsg": _lang5(alertmsg or question),
-            }
-        )
-
-    return Block(rows=rows, mandatory=mandatory, requestid=[processid])
-
-
-def input_block(
-    label: str | list[str],
+def make_checkbox_cell(
+    text: TextValue,
+    value: str,
     *,
     processid: str = "Sentence",
-    placeholder: str | list[str] = "",
+    checked: bool = False,
+    width: str = "100%",
+    align: Literal["left", "center", "right"] = "left",
+    valign: str = "middle",
+    border: bool = False,
+    bgcolor: str = "",
+) -> Cell:
+    """4.4 Checkbox cell."""
+    return _column(
+        type="checkbox",
+        control={
+            "processid": processid,
+            "active": True,
+            "text": _lang5(text),
+            "value": value,
+            "checked": checked,
+        },
+        width=width,
+        align=align,
+        valign=valign,
+        border=border,
+        bgcolor=bgcolor,
+    )
+
+
+def make_input_cell(
+    label: TextValue,
+    *,
+    processid: str = "Sentence",
+    placeholder: TextValue = "",
     default: str = "",
     min_length: int = -1,
     max_length: int = -1,
     width: str = "100%",
-    validmsg: str | list[str] = "",
-    required: bool = False,
-    alertmsg: str | list[str] = "",
-) -> Block:
-    """4.5 InputText — 단일 행 텍스트 입력."""
+    validmsg: TextValue = "",
+    align: Literal["left", "center", "right"] = "left",
+    valign: str = "middle",
+    border: bool = False,
+    bgcolor: str = "",
+) -> Cell:
+    """4.5 InputText cell."""
     control = {
         "processid": processid,
         "active": True,
@@ -234,36 +256,34 @@ def input_block(
         "placeholder": _lang5(placeholder),
         "validmsg": _lang5(validmsg),
     }
-    mandatory: list[dict] = []
-    if required:
-        mandatory.append(
-            {
-                "processid": processid,
-                "alertmsg": _lang5(alertmsg or label),
-            }
-        )
-    return Block(
-        rows=[_row([_column(type="inputtext", control=control)])],
-        mandatory=mandatory,
-        requestid=[processid],
+    return _column(
+        type="inputtext",
+        control=control,
+        width=width,
+        align=align,
+        valign=valign,
+        border=border,
+        bgcolor=bgcolor,
     )
 
 
-def textarea_block(
-    label: str | list[str],
+def make_textarea_cell(
+    label: TextValue,
     *,
     processid: str = "Comment",
-    placeholder: str | list[str] = "",
+    placeholder: TextValue = "",
     default: str = "",
     min_length: int = -1,
     max_length: int = -1,
     width: str = "100%",
     height: str = "100px",
-    validmsg: str | list[str] = "",
-    required: bool = False,
-    alertmsg: str | list[str] = "",
-) -> Block:
-    """4.6 Textarea — 여러 행 텍스트 입력."""
+    validmsg: TextValue = "",
+    align: Literal["left", "center", "right"] = "left",
+    valign: str = "middle",
+    border: bool = False,
+    bgcolor: str = "",
+) -> Cell:
+    """4.6 Textarea cell."""
     control = {
         "processid": processid,
         "active": True,
@@ -276,36 +296,35 @@ def textarea_block(
         "placeholder": _lang5(placeholder),
         "validmsg": _lang5(validmsg),
     }
-    mandatory: list[dict] = []
-    if required:
-        mandatory.append(
-            {
-                "processid": processid,
-                "alertmsg": _lang5(alertmsg or label),
-            }
-        )
-    return Block(
-        rows=[_row([_column(type="textarea", control=control)])],
-        mandatory=mandatory,
-        requestid=[processid],
+    return _column(
+        type="textarea",
+        control=control,
+        width=width,
+        align=align,
+        valign=valign,
+        border=border,
+        bgcolor=bgcolor,
     )
 
 
-def select_block(
-    label: str | list[str],
+def make_select_cell(
+    label: TextValue,
     options: list[tuple[str, str]],
     *,
     processid: str = "SelectContent",
     default_value: str | None = None,
-    required: bool = False,
-    alertmsg: str | list[str] = "",
-) -> Block:
-    """4.7 Select — 드롭다운 선택."""
+    width: str = "100%",
+    align: Literal["left", "center", "right"] = "left",
+    valign: str = "middle",
+    border: bool = False,
+    bgcolor: str = "",
+) -> Cell:
+    """4.7 Select cell."""
     items = [
         {
             "text": _lang5(opt_label),
             "value": value,
-            "selected": (default_value is not None and default_value == value),
+            "selected": default_value is not None and default_value == value,
         }
         for opt_label, value in options
     ]
@@ -315,84 +334,66 @@ def select_block(
         "text": _lang5(label),
         "item": items,
     }
-    mandatory: list[dict] = []
-    if required:
-        mandatory.append(
-            {
-                "processid": processid,
-                "alertmsg": _lang5(alertmsg or label),
-            }
-        )
-    return Block(
-        rows=[_row([_column(type="select", control=control)])],
-        mandatory=mandatory,
-        requestid=[processid],
+    return _column(
+        type="select",
+        control=control,
+        width=width,
+        align=align,
+        valign=valign,
+        border=border,
+        bgcolor=bgcolor,
     )
 
 
-def datepicker_block(
-    label: str | list[str],
+def make_datepicker_cell(
+    label: TextValue,
     *,
     processid: str = "SelectDate",
     default: str = "",
-    required: bool = False,
-    alertmsg: str | list[str] = "",
-) -> Block:
-    """4.8 DatePicker — 날짜 선택. default 포맷 "YYYY/MM/DD"."""
-    control = {
-        "processid": processid,
-        "active": True,
-        "text": _lang5(label),
-        "value": default,
-    }
-    mandatory: list[dict] = []
-    if required:
-        mandatory.append(
-            {
-                "processid": processid,
-                "alertmsg": _lang5(alertmsg or label),
-            }
-        )
-    return Block(
-        rows=[_row([_column(type="datepicker", control=control)])],
-        mandatory=mandatory,
-        requestid=[processid],
+    width: str = "100%",
+    align: Literal["left", "center", "right"] = "left",
+    valign: str = "middle",
+    border: bool = False,
+    bgcolor: str = "",
+) -> Cell:
+    """4.8 DatePicker cell. ``default`` format: YYYY/MM/DD."""
+    return _column(
+        type="datepicker",
+        control={"processid": processid, "active": True, "text": _lang5(label), "value": default},
+        width=width,
+        align=align,
+        valign=valign,
+        border=border,
+        bgcolor=bgcolor,
     )
 
 
-def datetimepicker_block(
-    label: str | list[str],
+def make_datetimepicker_cell(
+    label: TextValue,
     *,
     processid: str = "SelectDateTime",
     default: str = "",
-    required: bool = False,
-    alertmsg: str | list[str] = "",
-) -> Block:
-    """4.9 DateTimePicker — 날짜+시간 선택. default 포맷 "YYYY/MM/DD HH:MM"."""
-    control = {
-        "processid": processid,
-        "active": True,
-        "text": _lang5(label),
-        "value": default,
-    }
-    mandatory: list[dict] = []
-    if required:
-        mandatory.append(
-            {
-                "processid": processid,
-                "alertmsg": _lang5(alertmsg or label),
-            }
-        )
-    return Block(
-        rows=[_row([_column(type="datetimepicker", control=control)])],
-        mandatory=mandatory,
-        requestid=[processid],
+    width: str = "100%",
+    align: Literal["left", "center", "right"] = "left",
+    valign: str = "middle",
+    border: bool = False,
+    bgcolor: str = "",
+) -> Cell:
+    """4.9 DateTimePicker cell. ``default`` format: YYYY/MM/DD HH:MM."""
+    return _column(
+        type="datetimepicker",
+        control={"processid": processid, "active": True, "text": _lang5(label), "value": default},
+        width=width,
+        align=align,
+        valign=valign,
+        border=border,
+        bgcolor=bgcolor,
     )
 
 
-def image_block(
+def make_image_cell(
     source_url: str,
-    alt: str | list[str] = "",
+    alt: TextValue = "",
     *,
     linkurl: str = "",
     width: str = "100%",
@@ -402,12 +403,12 @@ def image_block(
     inner: bool = True,
     sso: bool = False,
     popupoption: str = "",
-) -> Block:
-    """4.10 Image — 이미지 표시.
-
-    location: 이미지 저장 위치가 DMZ 내부인지.
-    inner: 클릭 시 이동할 linkurl이 DMZ 내부인지.
-    """
+    align: Literal["left", "center", "right"] = "left",
+    valign: str = "middle",
+    border: bool = False,
+    bgcolor: str = "",
+) -> Cell:
+    """4.10 Image cell."""
     control = {
         "active": True,
         "text": _lang5(alt),
@@ -423,19 +424,32 @@ def image_block(
         "sso": sso,
         "inner": inner,
     }
-    return Block(rows=[_row([_column(type="image", control=control)])])
+    return _column(
+        type="image",
+        control=control,
+        width=width,
+        align=align,
+        valign=valign,
+        border=border,
+        bgcolor=bgcolor,
+    )
 
 
-def hypertext_block(
-    text: str | list[str],
+def make_hypertext_cell(
+    text: TextValue,
     linkurl: str,
     *,
     inner: bool = False,
     sso: bool = False,
     opengraph: bool = True,
     popupoption: str = "",
-) -> Block:
-    """4.13 HyperText — 클릭 가능한 링크 텍스트."""
+    width: str = "100%",
+    align: Literal["left", "center", "right"] = "left",
+    valign: str = "middle",
+    border: bool = False,
+    bgcolor: str = "",
+) -> Cell:
+    """4.13 HyperText cell."""
     control = {
         "active": True,
         "text": _lang5(text),
@@ -447,61 +461,314 @@ def hypertext_block(
         "inner": inner,
         "opengraph": opengraph,
     }
-    return Block(rows=[_row([_column(type="hypertext", control=control)])])
+    return _column(
+        type="hypertext",
+        control=control,
+        width=width,
+        align=align,
+        valign=valign,
+        border=border,
+        bgcolor=bgcolor,
+    )
 
 
-def table_block(
-    headers: list[str],
-    rows: list[list[str]],
+def add_row(
+    cells: Iterable[Cell],
+    *,
+    align: Literal["left", "center", "right"] = "left",
+    width: str = "100%",
+    border: bool = False,
+    bgcolor: str = "",
+    mandatory: Iterable[dict[str, Any]] = (),
+    requestid: Iterable[str] = (),
+    bodystyle: Literal["none", "grid"] = "none",
+) -> Block:
+    """Create a one-row component from prebuilt cells."""
+    return Block(
+        rows=[_row(list(cells), align=align, width=width, border=border, bgcolor=bgcolor)],
+        mandatory=list(mandatory),
+        requestid=list(requestid),
+        bodystyle=bodystyle,
+    )
+
+
+def add_text(
+    text: TextValue,
+    *,
+    color: str = "#000000",
+    align: Literal["left", "center", "right"] = "left",
+) -> Block:
+    return add_row([make_label_cell(text, color=color, align=align)], align=align)
+
+
+def add_button(
+    text: TextValue,
+    *,
+    processid: str = "SendButton",
+    value: str = "",
+    confirmmsg: str = "",
+    bgcolor: str = "",
+    textcolor: str = "",
+    clickurl: str = "",
+    sso: bool = False,
+    inner: bool = False,
+    align: Literal["left", "center", "right"] = "center",
+) -> Block:
+    return add_row(
+        [
+            make_button_cell(
+                text,
+                processid=processid,
+                value=value,
+                confirmmsg=confirmmsg,
+                bgcolor=bgcolor,
+                textcolor=textcolor,
+                clickurl=clickurl,
+                sso=sso,
+                inner=inner,
+                align=align,
+            )
+        ],
+        align=align,
+        requestid=[processid],
+    )
+
+
+def add_choice(
+    question: TextValue,
+    options: list[tuple[str, str]],
+    *,
+    processid: str = "Sentence",
+    multi: bool = False,
+    default_value: str | None = None,
+    required: bool = False,
+    alertmsg: TextValue = "",
+) -> Block:
+    """Add a radio or checkbox choice group."""
+    cell_maker = make_checkbox_cell if multi else make_radio_cell
+    rows = [
+        _row(
+            [
+                make_label_cell(question),
+            ]
+        )
+    ]
+    for label, value in options:
+        rows.append(
+            _row(
+                [
+                    cell_maker(
+                        label,
+                        value,
+                        processid=processid,
+                        checked=default_value is not None and default_value == value,
+                    )
+                ]
+            )
+        )
+    return Block(
+        rows=rows,
+        mandatory=_mandatory(processid, required=required, alertmsg=alertmsg, fallback=question),
+        requestid=[processid],
+    )
+
+
+def add_input(
+    label: TextValue,
+    *,
+    processid: str = "Sentence",
+    placeholder: TextValue = "",
+    default: str = "",
+    min_length: int = -1,
+    max_length: int = -1,
+    width: str = "100%",
+    validmsg: TextValue = "",
+    required: bool = False,
+    alertmsg: TextValue = "",
+) -> Block:
+    return add_row(
+        [
+            make_input_cell(
+                label,
+                processid=processid,
+                placeholder=placeholder,
+                default=default,
+                min_length=min_length,
+                max_length=max_length,
+                width=width,
+                validmsg=validmsg,
+            )
+        ],
+        mandatory=_mandatory(processid, required=required, alertmsg=alertmsg, fallback=label),
+        requestid=[processid],
+    )
+
+
+def add_textarea(
+    label: TextValue,
+    *,
+    processid: str = "Comment",
+    placeholder: TextValue = "",
+    default: str = "",
+    min_length: int = -1,
+    max_length: int = -1,
+    width: str = "100%",
+    height: str = "100px",
+    validmsg: TextValue = "",
+    required: bool = False,
+    alertmsg: TextValue = "",
+) -> Block:
+    return add_row(
+        [
+            make_textarea_cell(
+                label,
+                processid=processid,
+                placeholder=placeholder,
+                default=default,
+                min_length=min_length,
+                max_length=max_length,
+                width=width,
+                height=height,
+                validmsg=validmsg,
+            )
+        ],
+        mandatory=_mandatory(processid, required=required, alertmsg=alertmsg, fallback=label),
+        requestid=[processid],
+    )
+
+
+def add_select(
+    label: TextValue,
+    options: list[tuple[str, str]],
+    *,
+    processid: str = "SelectContent",
+    default_value: str | None = None,
+    required: bool = False,
+    alertmsg: TextValue = "",
+) -> Block:
+    return add_row(
+        [make_select_cell(label, options, processid=processid, default_value=default_value)],
+        mandatory=_mandatory(processid, required=required, alertmsg=alertmsg, fallback=label),
+        requestid=[processid],
+    )
+
+
+def add_datepicker(
+    label: TextValue,
+    *,
+    processid: str = "SelectDate",
+    default: str = "",
+    required: bool = False,
+    alertmsg: TextValue = "",
+) -> Block:
+    return add_row(
+        [make_datepicker_cell(label, processid=processid, default=default)],
+        mandatory=_mandatory(processid, required=required, alertmsg=alertmsg, fallback=label),
+        requestid=[processid],
+    )
+
+
+def add_datetimepicker(
+    label: TextValue,
+    *,
+    processid: str = "SelectDateTime",
+    default: str = "",
+    required: bool = False,
+    alertmsg: TextValue = "",
+) -> Block:
+    return add_row(
+        [make_datetimepicker_cell(label, processid=processid, default=default)],
+        mandatory=_mandatory(processid, required=required, alertmsg=alertmsg, fallback=label),
+        requestid=[processid],
+    )
+
+
+def add_image(
+    source_url: str,
+    alt: TextValue = "",
+    *,
+    linkurl: str = "",
+    width: str = "100%",
+    height: str = "",
+    displaytype: Literal["none", "crop", "resize"] = "resize",
+    location: bool = True,
+    inner: bool = True,
+    sso: bool = False,
+    popupoption: str = "",
+) -> Block:
+    return add_row(
+        [
+            make_image_cell(
+                source_url,
+                alt,
+                linkurl=linkurl,
+                width=width,
+                height=height,
+                displaytype=displaytype,
+                location=location,
+                inner=inner,
+                sso=sso,
+                popupoption=popupoption,
+            )
+        ]
+    )
+
+
+def add_table(
+    headers: list[str | Cell],
+    rows: list[list[str | Cell]],
     *,
     header_bgcolor: str = "#c4c4c4",
     row_bgcolor: str = "#ffffff",
     border: bool = True,
 ) -> Block:
-    """표 — grid bodystyle에서 label 열들로 구성."""
-    col_count = max(len(headers), max((len(r) for r in rows), default=0))
+    """Add a grid table. Plain strings become label cells; dicts are used as cells."""
+    col_count = max(len(headers), max((len(row) for row in rows), default=0))
     if col_count == 0:
         return Block(rows=[], bodystyle="grid")
+
     col_width = f"{100 // col_count}%"
 
-    def _make_cell(text: str, *, is_header: bool) -> dict:
-        return _column(
-            type="label",
-            control={"active": True, "text": _lang5(text), "color": "#000000"},
+    def coerce_cell(value: str | Cell, *, is_header: bool) -> Cell:
+        align = "center" if is_header else "left"
+        bgcolor = header_bgcolor if is_header else row_bgcolor
+        if isinstance(value, dict):
+            return _with_cell_layout(value, width=col_width, align=align, border=border, bgcolor=bgcolor)
+        return make_label_cell(
+            str(value),
             width=col_width,
-            align="center" if is_header else "left",
+            align=align,
             border=border,
-            bgcolor=header_bgcolor if is_header else row_bgcolor,
+            bgcolor=bgcolor,
         )
 
-    table_rows: list[dict] = []
-    header_cells = [_make_cell(headers[i] if i < len(headers) else "", is_header=True) for i in range(col_count)]
+    table_rows: list[Row] = []
+    header_cells = [
+        coerce_cell(headers[index] if index < len(headers) else "", is_header=True) for index in range(col_count)
+    ]
     table_rows.append(_row(header_cells, border=border, bgcolor=header_bgcolor))
 
     for row_data in rows:
-        body_cells = [_make_cell(row_data[i] if i < len(row_data) else "", is_header=False) for i in range(col_count)]
+        body_cells = [
+            coerce_cell(row_data[index] if index < len(row_data) else "", is_header=False) for index in range(col_count)
+        ]
         table_rows.append(_row(body_cells, border=border, bgcolor=row_bgcolor))
 
     return Block(rows=table_rows, bodystyle="grid")
 
 
-# ---------------------------------------------------------------------------
-# 컴포지션
-# ---------------------------------------------------------------------------
-
-
-def compose_content_item(
+def add_container(
     *blocks: Block,
     callback_address: str = "",
     session_id: str = "",
     sequence: str = "1",
-    summary: str | list[str] = "",
+    summary: TextValue = "",
     processdata: str = "",
     processtype: str = "",
-) -> dict:
-    """여러 Block을 하나의 content[] 항목으로 합친다."""
-    all_rows: list[dict] = []
-    all_mandatory: list[dict] = []
+) -> dict[str, Any]:
+    """Compose several blocks into one richnotification ``content`` item."""
+    all_rows: list[Row] = []
+    all_mandatory: list[dict[str, Any]] = []
     all_requestid: list[str] = []
     bodystyle: Literal["none", "grid"] = "none"
 
@@ -536,20 +803,31 @@ def compose_content_item(
     }
 
 
-def build_envelope(
-    content_items: Iterable[dict],
-    *,
+def build_richnotification(
+    *blocks: Block,
     from_id: str,
     token: str,
     from_usernames: Iterable[str],
     user_id: str,
     channel_id: str,
-) -> dict:
-    """봉투(richnotification 최상위)를 생성한다.
+    content_items: Iterable[dict[str, Any]] | None = None,
+    callback_address: str = "",
+    session_id: str = "",
+    sequence: str = "1",
+    summary: TextValue = "",
+) -> dict[str, Any]:
+    """Build the complete Cube richnotification payload."""
+    if content_items is None:
+        content_items = [
+            add_container(
+                *blocks,
+                callback_address=callback_address,
+                session_id=session_id,
+                sequence=sequence,
+                summary=summary,
+            )
+        ]
 
-    content_items는 compose_content_item()이 만든 dict의 리스트다.
-    봇 자격 증명은 호출자(payload.py)가 config에서 주입한다.
-    """
     return {
         "richnotification": {
             "header": {

@@ -121,7 +121,7 @@ class TestIntentsToBlocks:
 
 
 class TestIntentsToContentItem:
-    def test_returns_compose_content_item_dict_shape(self):
+    def test_returns_add_container_dict_shape(self):
         item = intents_to_content_item(
             [
                 TextIntent(text="hi"),

@@ -2,9 +2,11 @@
 
 import hashlib
 import json
+from collections.abc import Iterable
 from typing import Any
 
 from api import config
+from api.cube import rich_blocks
 
 _SYSTEM_RESULT_REQUEST_IDS = {
     "cubeuniquename",
@@ -177,7 +179,24 @@ def build_multimessage_payload(*, user_id: str, reply_message: str) -> dict[str,
     }
 
 
-def build_richnotification_payload(*, user_id: str, channel_id: str, reply_message: str) -> dict[str, Any]:
+def build_richnotification_payload(
+    *,
+    user_id: str,
+    channel_id: str,
+    reply_message: str | None = None,
+    content_items: Iterable[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    if content_items is not None:
+        return rich_blocks.build_richnotification(
+            from_id=config.CUBE_BOT_ID,
+            token=config.CUBE_BOT_TOKEN,
+            from_usernames=config.CUBE_BOT_USERNAMES,
+            user_id=user_id,
+            channel_id=channel_id,
+            content_items=content_items,
+        )
+
+    message = reply_message or ""
     return {
         "richnotification": {
             "header": {
@@ -189,7 +208,7 @@ def build_richnotification_payload(*, user_id: str, channel_id: str, reply_messa
                     "channelid": [channel_id],
                 },
             },
-            "content": build_richnotification_content(reply_message),
-            "result": build_richnotification_result(reply_message),
+            "content": build_richnotification_content(message),
+            "result": build_richnotification_result(message),
         }
     }

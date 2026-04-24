@@ -56,6 +56,19 @@ def test_file_delivery_base_url_defaults_to_web_app_url(monkeypatch):
         importlib.reload(reloaded)
 
 
+def test_richnotification_callback_url_defaults_to_web_app_url(monkeypatch):
+    monkeypatch.setenv("WEB_APP_URL", "http://example-webapp")
+    monkeypatch.delenv("CUBE_RICHNOTIFICATION_CALLBACK_URL", raising=False)
+
+    reloaded = importlib.reload(config)
+    try:
+        assert reloaded.CUBE_RICHNOTIFICATION_CALLBACK_URL == (
+            "http://example-webapp/api/v1/cube/richnotification/callback"
+        )
+    finally:
+        importlib.reload(reloaded)
+
+
 def test_mongo_storage_config_can_separate_checkpoint_and_history(monkeypatch):
     monkeypatch.setenv("CONVERSATION_COLLECTION_NAME", "cube_conversation_history")
     monkeypatch.setenv("LANGGRAPH_CHECKPOINT_COLLECTION_NAME", "cube_checkpoints")

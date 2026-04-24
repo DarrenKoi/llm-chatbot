@@ -6,8 +6,9 @@ from typing import Any
 
 from api import config
 from api.conversation_service import ConversationStoreError, append_message
+from api.cube import rich_blocks
 from api.cube.chunker import plan_delivery
-from api.cube.client import CubeClientError, send_multimessage, send_richnotification
+from api.cube.client import CubeClientError, send_multimessage, send_richnotification, send_richnotification_blocks
 from api.cube.models import CubeAcceptedMessage, CubeHandledMessage, CubeIncomingMessage, CubeQueuedMessage
 from api.cube.payload import extract_cube_request_fields
 from api.cube.queue import CubeQueueError, enqueue_incoming_message
@@ -228,6 +229,51 @@ def _build_conversation_metadata(
     return metadata
 
 
+def _split_markdown_table_row(line: str) -> list[str]:
+    stripped = line.strip()
+    if stripped.startswith("|"):
+        stripped = stripped[1:]
+    if stripped.endswith("|"):
+        stripped = stripped[:-1]
+    return [cell.strip() for cell in stripped.split("|")]
+
+
+def _is_markdown_separator_row(cells: list[str]) -> bool:
+    return bool(cells) and all(cell and set(cell) <= {":", "-", " "} and "-" in cell for cell in cells)
+
+
+def _markdown_table_to_block(markdown_table: str) -> rich_blocks.Block | None:
+    lines = [line for line in markdown_table.splitlines() if line.strip()]
+    if len(lines) < 2:
+        return None
+
+    parsed_rows = [_split_markdown_table_row(line) for line in lines]
+    separator_index = next(
+        (index for index, cells in enumerate(parsed_rows) if index > 0 and _is_markdown_separator_row(cells)),
+        -1,
+    )
+    if separator_index <= 0:
+        return None
+
+    headers = parsed_rows[separator_index - 1]
+    rows = [row for index, row in enumerate(parsed_rows) if index > separator_index and row]
+    return rich_blocks.add_table(headers, rows)
+
+
+def _send_rich_delivery_item(*, user_id: str, channel_id: str, kind: str, content: str) -> None:
+    if kind == "table":
+        table_component = _markdown_table_to_block(content)
+        if table_component is not None:
+            send_richnotification_blocks(table_component, user_id=user_id, channel_id=channel_id)
+            return
+
+    send_richnotification(
+        user_id=user_id,
+        channel_id=channel_id,
+        reply_message=content,
+    )
+
+
 def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0) -> CubeHandledMessage:
     """CubeIncomingMessage를 받아 대화 저장 → LLM 호출 → Cube 전송의 전체 파이프라인을 실행한다.
 
@@ -324,10 +370,11 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
     try:
         for item in plan_delivery(llm_reply):
             if item.method == "rich":
-                send_richnotification(
+                _send_rich_delivery_item(
                     user_id=incoming.user_id,
                     channel_id=incoming.channel_id,
-                    reply_message=item.content,
+                    kind=item.kind,
+                    content=item.content,
                 )
             else:
                 send_multimessage(

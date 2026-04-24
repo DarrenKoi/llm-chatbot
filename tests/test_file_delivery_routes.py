@@ -61,7 +61,8 @@ def test_file_delivery_upload_missing_file(client):
     assert resp.status_code == 400
 
 
-def test_file_delivery_upload_invalid_extension(client, file_delivery_env):
+def test_file_delivery_upload_invalid_extension(client, file_delivery_env, monkeypatch):
+    monkeypatch.setattr(config, "FILE_DELIVERY_ALLOWED_EXTENSIONS", ("png", "jpg", "jpeg", "gif", "webp"))
     _set_lastuser_cookie(client)
 
     resp = client.post(

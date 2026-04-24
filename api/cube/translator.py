@@ -1,4 +1,4 @@
-"""의도(intent) → richnotification Block 변환기.
+"""의도(intent) -> richnotification Block 변환기.
 
 LLM 측 의도 객체(api.cube.intents)를 받아 Cube 규격 Block(api.cube.rich_blocks)
 으로 변환한다. 봇 자격 증명·콜백 주소 같은 인프라 값은 호출자(payload.py
@@ -22,13 +22,13 @@ from api.cube.intents import (
 def intent_to_block(intent: BlockIntent) -> rich_blocks.Block:
     """한 개의 의도 객체를 Block 하나로 변환한다."""
     if isinstance(intent, TextIntent):
-        return rich_blocks.text_block(intent.text)
+        return rich_blocks.add_text(intent.text)
     if isinstance(intent, TableIntent):
-        return rich_blocks.table_block(intent.headers, intent.rows)
+        return rich_blocks.add_table(intent.headers, intent.rows)
     if isinstance(intent, ImageIntent):
-        return rich_blocks.image_block(intent.source_url, intent.alt, linkurl=intent.link_url)
+        return rich_blocks.add_image(intent.source_url, intent.alt, linkurl=intent.link_url)
     if isinstance(intent, ChoiceIntent):
-        return rich_blocks.choice_block(
+        return rich_blocks.add_choice(
             intent.question,
             [(opt.label, opt.value) for opt in intent.options],
             processid=intent.processid,
@@ -36,7 +36,7 @@ def intent_to_block(intent: BlockIntent) -> rich_blocks.Block:
             required=intent.required,
         )
     if isinstance(intent, InputIntent):
-        return rich_blocks.input_block(
+        return rich_blocks.add_input(
             intent.label,
             processid=intent.processid,
             placeholder=intent.placeholder,
@@ -45,7 +45,7 @@ def intent_to_block(intent: BlockIntent) -> rich_blocks.Block:
             required=intent.required,
         )
     if isinstance(intent, DatePickerIntent):
-        return rich_blocks.datepicker_block(
+        return rich_blocks.add_datepicker(
             intent.label,
             processid=intent.processid,
             default=intent.default,
@@ -68,7 +68,7 @@ def intents_to_content_item(
 ) -> dict:
     """의도 리스트를 단일 content[] 항목 dict로 변환한다."""
     blocks = intents_to_blocks(intents)
-    return rich_blocks.compose_content_item(
+    return rich_blocks.add_container(
         *blocks,
         callback_address=callback_address,
         session_id=session_id,
