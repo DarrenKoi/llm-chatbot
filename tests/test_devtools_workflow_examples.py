@@ -5,6 +5,8 @@ from unittest.mock import patch
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 
+from devtools.workflows.richinotification_test import build_lg_graph as build_rich_graph
+from devtools.workflows.richinotification_test.block_builder import build_text_table_blocks, compose_content_items
 from devtools.workflows.translator_example import build_lg_graph as build_translator_graph
 from devtools.workflows.travel_planner_example import build_lg_graph as build_travel_graph
 
@@ -85,3 +87,88 @@ def test_travel_planner_example_interrupts_with_recommendation(mock_recommend):
     state = graph.get_state(config)
     assert state.tasks
     assert "제주, 삿포로" in state.tasks[0].interrupts[0].value["reply"]
+
+
+def test_richinotification_test_composes_text_and_datatable_content():
+    blocks, headers, rows = build_text_table_blocks(
+        "GPU 비용 비교\n| 항목 | 값 |\n| --- | --- |\n| A100 | 3 |\n| H100 | 1 |"
+    )
+
+    content_items = compose_content_items(blocks)
+    content = content_items[0]
+    table_header_row = next(row for row in content["body"]["row"] if row["column"][0]["control"]["text"][0] == "항목")
+
+    assert headers == ["항목", "값"]
+    assert rows == [["A100", "3"], ["H100", "1"]]
+    assert content["body"]["bodystyle"] == "grid"
+    assert table_header_row["column"][0]["type"] == "label"
+    assert table_header_row["column"][0]["border"] is True
+    assert content["process"]["session"]["sessionid"] == "devtools-richnotification-test"
+
+
+def test_richinotification_test_graph_returns_preview_payload_without_token():
+    graph = _compile_graph(build_rich_graph)
+    config = _make_config("rich-preview")
+
+    result = graph.invoke(
+        {
+            "user_message": "서버별 처리량\n| 서버 | TPS |\n| --- | --- |\n| api-1 | 120 |",
+            "user_id": "dev-user",
+            "workflow_id": "richinotification_test",
+        },
+        config,
+    )
+
+    assert "This is done via devtools." in result["messages"][-1].content
+    assert result["delivery_mode"] == "preview"
+    assert result["payload_preview"]["richnotification"]["header"]["token"] == "<redacted>"
+    assert result["payload_preview"]["richnotification"]["header"]["to"]["channelid"] == [""]
+    assert result["table_headers"] == ["서버", "TPS"]
+
+
+def test_richinotification_test_graph_sends_when_target_is_provided(monkeypatch):
+    captured: dict[str, object] = {}
+
+    def _fake_send_richnotification_blocks(*blocks, **kwargs):
+        captured["block_count"] = len(blocks)
+        captured.update(kwargs)
+        return {"ok": True}
+
+    monkeypatch.setattr(
+        "devtools.workflows.richinotification_test.lg_graph.send_richnotification_blocks",
+        _fake_send_richnotification_blocks,
+    )
+    graph = _compile_graph(build_rich_graph)
+    config = _make_config("rich-send")
+
+    result = graph.invoke(
+        {
+            "user_message": "send to=X905552 channel=C123\n| 항목 | 값 |\n| --- | --- |\n| 완료 | yes |",
+            "user_id": "dev-user",
+            "workflow_id": "richinotification_test",
+        },
+        config,
+    )
+
+    assert result["delivery_mode"] == "sent"
+    assert captured["block_count"] >= 3
+    assert captured["user_id"] == "X905552"
+    assert captured["channel_id"] == "C123"
+    assert captured["callback_address"] == ""
+
+
+def test_richinotification_test_graph_does_not_send_without_real_target():
+    graph = _compile_graph(build_rich_graph)
+    config = _make_config("rich-missing-target")
+
+    result = graph.invoke(
+        {
+            "user_message": "send\n| 항목 | 값 |\n| --- | --- |\n| 완료 | yes |",
+            "user_id": "dev-user",
+            "workflow_id": "richinotification_test",
+        },
+        config,
+    )
+
+    assert result["delivery_mode"] == "preview_missing_target"
+    assert "no real Cube target" in result["messages"][-1].content
