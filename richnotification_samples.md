@@ -17,7 +17,7 @@ A basic announcement message with no user interaction. No callback needed.
             "fromusername": ["알림봇", "Notification Bot", "", "", ""],
             "to": {
                 "uniquename": ["X905552"],
-                "channelid": []
+                "channelid": [""]
             }
         },
         "content": [{
@@ -103,7 +103,7 @@ A leave approval request with Approve/Reject buttons that post back to a callbac
             "fromusername": ["결재봇", "Approval Bot", "", "", ""],
             "to": {
                 "uniquename": ["X905552"],
-                "channelid": []
+                "channelid": [""]
             }
         },
         "content": [{
@@ -179,7 +179,7 @@ A leave approval request with Approve/Reject buttons that post back to a callbac
                                     "androidurl": "",
                                     "iosurl": "",
                                     "popupoption": "",
-                                    "sso": "",
+                                    "sso": false,
                                     "inner": false
                                 }
                             },
@@ -203,7 +203,7 @@ A leave approval request with Approve/Reject buttons that post back to a callbac
                                     "androidurl": "",
                                     "iosurl": "",
                                     "popupoption": "",
-                                    "sso": "",
+                                    "sso": false,
                                     "inner": false
                                 }
                             }
@@ -245,7 +245,7 @@ An employee satisfaction survey combining multiple input types with mandatory va
             "fromusername": ["설문봇", "Survey Bot", "", "", ""],
             "to": {
                 "uniquename": ["X905552"],
-                "channelid": []
+                "channelid": [""]
             }
         },
         "content": [{
@@ -540,7 +540,7 @@ An employee satisfaction survey combining multiple input types with mandatory va
                                     "androidurl": "",
                                     "iosurl": "",
                                     "popupoption": "",
-                                    "sso": "",
+                                    "sso": false,
                                     "inner": false
                                 }
                             }
@@ -591,7 +591,7 @@ A meeting room reservation form with date/time pickers, a textarea for notes, an
             "fromusername": ["회의실봇", "Room Bot", "", "", ""],
             "to": {
                 "uniquename": ["X905552"],
-                "channelid": []
+                "channelid": [""]
             }
         },
         "content": [{
@@ -752,7 +752,7 @@ A meeting room reservation form with date/time pickers, a textarea for notes, an
                                     "androidurl": "",
                                     "iosurl": "",
                                     "popupoption": "",
-                                    "sso": "",
+                                    "sso": false,
                                     "inner": false
                                 }
                             }
@@ -926,7 +926,7 @@ A task status report displayed in a table-like grid layout with borders.
             "fromusername": ["업무봇", "Task Bot", "", "", ""],
             "to": {
                 "uniquename": ["X905552"],
-                "channelid": []
+                "channelid": [""]
             }
         },
         "content": [{
@@ -1158,7 +1158,7 @@ An approval form where rejection requires a mandatory reason via textarea.
             "fromusername": ["결재봇", "Approval Bot", "", "", ""],
             "to": {
                 "uniquename": ["X905552"],
-                "channelid": []
+                "channelid": [""]
             }
         },
         "content": [{
@@ -1283,7 +1283,7 @@ An approval form where rejection requires a mandatory reason via textarea.
                                     "androidurl": "",
                                     "iosurl": "",
                                     "popupoption": "",
-                                    "sso": "",
+                                    "sso": false,
                                     "inner": false
                                 }
                             },
@@ -1307,7 +1307,7 @@ An approval form where rejection requires a mandatory reason via textarea.
                                     "androidurl": "",
                                     "iosurl": "",
                                     "popupoption": "",
-                                    "sso": "",
+                                    "sso": false,
                                     "inner": false
                                 }
                             }

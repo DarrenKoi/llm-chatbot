@@ -19,12 +19,12 @@ This document outlines the rules and structure.
 ```
 
 - All text arrays must have exactly 5 elements for multi-language support (It's OK to fill all with Korean as we normally use Korean)
-- The `result` field at the root level is typically empty
+- The `result` field at the root level should be `""`
 - Empty strings are used for default values in many properties
-- The `active` property is typically set to `true` for all controls
-- Border styling is primarily used in grid layouts
+- The `active` property should always be set to `true`
+- Border styling is primarily used in grid layouts and is usually `false`
 - Image URLs should be accessible from the client's network
-- Callback URLs should handle POST requests with form data
+- Callback URLs should handle POST requests whose payload contains `result`, `header`, and `process`
 
 ### Language Array Index (5 elements):
 - Index 0 : Korean
@@ -42,8 +42,8 @@ This document outlines the rules and structure.
 - `fromusername`: Array of bot names for different language (5 elements)
 - `to`: Object containing recipient information
   - `uniquename`: Array of recipient unique names (sender ID)
-  - `channelid`: Array of channel IDs
-  - **note**: at least one of 'uniquename` or `channelid` is required
+  - `channelid`: Array of channel IDs. Use `[""]` for DM delivery when no real channel ID is used
+  - **note**: `uniquename` alone identifies the DM target, but `channelid` should still be present as `[""]`
 
 ---
 
@@ -106,7 +106,7 @@ This document outlines the rules and structure.
 
 **Properties:**
 - `processid`: Process identifier (e.g., "Sentence", "SendButton", "SaveButton") - Event handling ID to distinguish user input components
-- `active`: Boolean
+- `active`: Boolean (`true` in practice; `false` is not used)
 - `text`: Array of 5 strings
 - `confirmmsg`: String - Confirmation message displayed before event processing (e.g., "확인?")
 - `value`: String - Event value, contains value information received from user or that can be received (e.g., "1", "첫번째")
@@ -116,9 +116,9 @@ This document outlines the rules and structure.
 - `clickurl`: URL to open on click
 - `androidurl`: Android-specific URL (normally empty)
 - `iosurl`: iOS-specific URL
-- `popupoption`: Popup options
-- `sso`: Boolean (SSO authentication) normally empty
-- `inner`: Boolean
+- `popupoption`: Popup options (default `""`)
+- `sso`: Boolean (SSO authentication, default `false`)
+- `inner`: Boolean (default `false`)
 
 ---
 
@@ -234,7 +234,7 @@ This document outlines the rules and structure.
 - `displaytype`: String - Display type for image on screen ("none": 기본 표시, "crop": 잘라서 표시, "resize": 자동 사이즈 조정)
 - `width`: Image width (percentage or empty)
 - `height`: Image height (empty or percentage)
-- `sso`: Boolean - SSO integration required for event URL processing
+- `sso`: Boolean - SSO integration required for event URL processing (default `false`)
 - `inner`: Boolean - Whether target URL is inside DMZ for clickable screen components
 
 ---
@@ -273,7 +273,7 @@ This document outlines the rules and structure.
 - `androidurl`: String - Android-specific URL for mobile environment
 - `iosurl`: String - iOS-specific URL for mobile environment
 - `popupoption`: String - Popup options when opening linkurl or clickurl via browser
-- `sso`: Boolean - SSO integration required for event URL processing
+- `sso`: Boolean - SSO integration required for event URL processing (default `false`)
 - `inner`: Boolean - Whether target URL is inside DMZ for clickable screen components
 - `opengraph`: Boolean - Open Graph usage (required)
 
@@ -283,13 +283,13 @@ This document outlines the rules and structure.
 
 **Properties:**
 - `callbacktype`: String - Values: "url" (for HTTP callback)
-- `callbackaddress`: String - URL to receive form submission (e.g., "http://10.158.121.214:17614/chatbot/chat/cube"). Can be empty for read-only notifications
+- `callbackaddress`: String - URL to receive callback POST payload (e.g., "http://10.158.121.214:17614/chatbot/chat/cube"). Can be empty for read-only notifications
 - `processdata`: String - Additional process data (usually empty)
 - `processtype`: String - Process type (usually empty)
 - `summary`: Array of 5 strings - Summary text for each language (usually empty)
 - `session`: Object
-  - `sessionid`: Session identifier (e.g., "Bot_HR_0001")
-  - `sequence`: Sequence number (e.g., "1")
+  - `sessionid`: Session identifier (e.g., "Bot_HR_0001"). Can be `""`
+  - `sequence`: Sequence number (e.g., "1"). Can be `""`
 - `mandatory`: Array of objects - Required field validation rules
   - `processid`: Process identifier to validate
   - `alertmsg`: Array of 5 alert messages
@@ -297,16 +297,20 @@ This document outlines the rules and structure.
   - Common values: Control process IDs (e.g., "Sentence", "SelectDate", "Comment")
   - System IDs: "cubeuniquename", "cubechannelid", "cubeaccountid", "cubelanguagetype", "cubemessageid"
 
+**Callback payload shape:**
+- Root objects: `result`, `header`, `process`
+- Selection values are returned as arrays such as `value` / `text`
+
 ---
 
 ## 6. Data Type Rules
 
 ### Boolean Values
 - Use lowercase: `true` or `false`
+- `border` also uses Boolean values, not numeric values
 
 ### Numeric Values
 - In strings: "1", "2", "0"
-- In numbers: `true`, `false` (for border)
 
 ### Color Values
 - Hex format: "#ffffff", "#000000", "#FF0000", "#c4c4c4", "#d7d7d7"
@@ -401,6 +405,7 @@ This document outlines the rules and structure.
 - Ensure callback URLs are reachable from client environment
 - Validate mandatory fields before submission
 - Use empty string ("") as default instead of null
+- Keep `channelid` present as `[""]` for DM-only delivery
 - Keep layout consistent using column width rules
 - Separate UI structure (layout) and data (process values)
 - Avoid hardcoding values inside UI definitions
@@ -410,9 +415,10 @@ This document outlines the rules and structure.
 
 ## 11. Notes
 - All text arrays must have exactly 5 elements for multi-language support
-- The `result` field at the root level is typically empty
+- The `result` field at the root level should be `""`
 - Empty strings are used for default values in many properties
-- The `active` property is typically set to `true` for all controls
-- Border styling is primarily used in grid layouts
+- The `active` property should always be set to `true`
+- `content` can include multiple objects, shown as connected sections that can be scrolled
+- Border styling is primarily used in grid layouts and is usually `false`
 - Image URLs should be accessible from the client’s network
-- Callback URLs should handle POST requests with form data
+- Callback URLs should handle POST requests whose payload contains `result`, `header`, and `process`

@@ -5,20 +5,16 @@ richnotification_rule.txt 문서를 완성하기 위해 Cube에서 직접 테스
 
 ---
 
-## 1. `active: false` 동작 확인
+## 1. [x] `active` 고정값 확인
 
-**현재 상태:** 문서에 `active`는 보통 `true`라고만 기술됨. `false`일 때 동작이 정의되지 않음.
+**확인 결과:** `active`의 기본값은 `true`이며 `false`는 옵션으로 사용하지 않는다.
+문서에는 항상 `active: true`로 반영한다.
 
-**테스트 방법:** 아래 control type별로 `active: false`를 설정하여 전송
-
-| Control Type | 테스트 | 결과 (숨김 / 비활성화 / 회색처리 / 기타) |
-|---|---|---|
-| label | `"active": false` | |
-| button | `"active": false` | |
-| inputtext | `"active": false` | |
-| radio | `"active": false` | |
-| checkbox | `"active": false` | |
-| select | `"active": false` | |
+| 확인 항목 | 결과 |
+|---|---|
+| 기본값 | `true` |
+| `false` 사용 가능 여부 | 사용하지 않음 |
+| 문서 반영 기준 | 항상 `active: true` |
 
 ---
 
@@ -60,85 +56,82 @@ richnotification_rule.txt 문서를 완성하기 위해 Cube에서 직접 테스
 
 ---
 
-## 5. 복수 content 항목 동작
+## 5. [x] 복수 `content` 항목 동작
 
-**현재 상태:** `content`가 배열이지만 복수 항목의 용도가 문서화되지 않음.
-
-**테스트 방법:**
-```json
-"content": [
-    { "header": {}, "body": {...첫 번째...}, "process": {...} },
-    { "header": {}, "body": {...두 번째...}, "process": {...} }
-]
-```
-
-| 테스트 항목 | 결과 |
-|---|---|
-| 2개의 content → 화면에 어떻게 표시? (탭 / 스크롤 / 페이지) | |
-| 각 content의 process가 독립적으로 동작하는지? | |
-| 3개 이상도 가능한지? | |
-
----
-
-## 6. Callback POST 응답 형식
-
-**현재 상태:** `callbackaddress`로 POST가 전송된다고만 기술됨. 실제 body 형식이 문서화되지 않음.
-
-**테스트 방법:** 간단한 form (inputtext + button)을 만들고 callback 서버에서 request body를 로깅
+**확인 결과:** `content` 배열에는 여러 객체를 넣을 수 있다.
+항목들은 연결된 형태로 표시되며 스크롤해서 다음 항목을 확인한다.
+3개까지 테스트했고 정상 동작했다.
 
 | 확인 항목 | 결과 |
 |---|---|
-| Content-Type (form-data / json / x-www-form-urlencoded) | |
-| body에 포함되는 key 이름 (processid 그대로? 접두어?) | |
-| radio/checkbox 복수 선택 시 value 형식 | |
-| system ID (cubeuniquename 등) 실제 값 형태 | |
-| requestid에 포함 안 된 processid의 값도 전송되는지? | |
+| 2개의 content → 화면에 어떻게 표시? (탭 / 스크롤 / 페이지) | 연결된 형태로 표시되며 스크롤로 확인 |
+| 각 content의 process가 독립적으로 동작하는지? | 연결된 UI로 이어져 보임 |
+| 3개 이상도 가능한지? | 3개까지 정상 확인, 더 많은 항목도 추가 가능해 보임 |
 
 ---
 
-## 7. `result` 필드 용도
+## 6. [x] Callback POST payload 형식
 
-**현재 상태:** "typically empty"로만 기술됨.
+**확인 결과:** `callbackaddress`는 POST로 수신되며 서버에서 확인한 payload 형식은 `callbaackaddress.txt` 예시와 같다.
+루트 구조는 `result`, `header`, `process`를 사용한다.
 
 | 확인 항목 | 결과 |
 |---|---|
-| 빈 문자열 외에 값을 넣으면 어떻게 되는지? | |
-| Cube가 응답 시 result에 값을 채워주는지? | |
+| Content-Type (form-data / json / x-www-form-urlencoded) | 서버 수신 예시는 JSON 유사 구조 payload 형태 |
+| body에 포함되는 key 이름 (processid 그대로? 접두어?) | 루트에 `result`, `header`, `process` 포함 |
+| radio/checkbox 복수 선택 시 value 형식 | `value`와 `text`가 배열 형태로 전달되는 예시 확인 |
+| system ID (cubeuniquename 등) 실제 값 형태 | `header.from` 아래 `uniquename`, `messageid`, `client`, `companycode`, `channelid`, `username` 포함 |
+| requestid에 포함 안 된 processid의 값도 전송되는지? | 추가 확인 필요 |
 
 ---
 
-## 8. `session` 필드 동작
+## 7. [x] `result` 필드 용도
 
-**현재 상태:** sessionid/sequence 예시만 있고 동작 설명이 없음.
+**확인 결과:** `result` 필드는 빈 문자열 `""`로 사용한다.
 
 | 확인 항목 | 결과 |
 |---|---|
-| 같은 sessionid로 여러 메시지 전송 시 이전 메시지가 갱신되는지? | |
-| sequence 값에 따른 동작 차이 (순서 보장? 덮어쓰기?) | |
-| sessionid를 빈 문자열로 보내도 정상 동작하는지? | |
+| 기본 사용값 | `""` |
+| 빈 문자열 외 값 사용 여부 | 별도 사용하지 않음 |
 
 ---
 
-## 9. `channelid` 전송 대상
+## 8. [x] `session` 필드 동작
 
-**현재 상태:** channelid가 채널 ID 배열이라고만 기술됨.
+**확인 결과:** `session`은 빈 문자열 `""`을 넣어도 동작한다.
 
 | 확인 항목 | 결과 |
 |---|---|
-| 채널 전체 멤버에게 전송되는지? | |
-| 채널 내 메시지로 게시되는지? | |
-| uniquename + channelid 동시 지정 시 동작? | |
+| sessionid를 빈 문자열로 보내도 정상 동작하는지? | 정상 동작 확인 |
+| 같은 sessionid로 여러 메시지 전송 시 이전 메시지가 갱신되는지? | 추가 확인 필요 |
+| sequence 값에 따른 동작 차이 (순서 보장? 덮어쓰기?) | 추가 확인 필요 |
 
 ---
 
-## 10. Numeric Values 설명 정정 확인
+## 9. [x] `channelid` 전송 대상
 
-**현재 상태:** "Data Type Rules > Numeric Values" 섹션에 `"In numbers: true, false (for border)"`라고 되어 있음. Boolean과 혼동됨.
+**확인 결과:** DM 전송 시에도 `channelid`는 비워 두지 않고 `[""]`처럼 빈 문자열을 원소로 가진 배열로 채워야 한다.
+`uniquename`만 유효하고 `channelid`가 `[""]`이면 사용자에게 직접 DM으로 전송된다.
+`uniquename`과 실제 `channelid`를 함께 지정하면 해당 `channelid` 안의 사용자에게 전송되며, 응답은 `uniquename` 기준으로 처리된다.
 
 | 확인 항목 | 결과 |
 |---|---|
-| `border: 1` / `border: 0` 으로 보내도 동작하는지? | |
-| `border: "true"` (문자열)로 보내도 동작하는지? | |
+| `uniquename`만 지정할 때 `channelid` 값 | `[]`가 아니라 `[""]`로 채워야 함 |
+| 채널 전체 멤버에게 전송되는지? | 아니오. `uniquename` 대상 사용자에게 전송 |
+| `uniquename` + `channelid` 동시 지정 시 동작? | 지정한 채널 안의 사용자에게 전송되고, 리치노티피케이션 응답은 `uniquename` 기준으로 처리 |
+
+---
+
+## 10. [x] `border` Boolean 값 확인
+
+**확인 결과:** `border`는 숫자 타입이 아니라 Boolean 값 `true` / `false`를 사용한다.
+기본적으로 `false`를 쓰고, 표 형태 content를 만들 때는 `true`가 더 적합하다.
+
+| 확인 항목 | 결과 |
+|---|---|
+| 허용 값 | `true` 또는 `false` |
+| 기본 사용값 | 보통 `false` |
+| 권장 사용 시점 | 테이블 형태 content를 만들 때 `true` 권장 |
 
 ---
 
