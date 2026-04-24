@@ -70,13 +70,16 @@ def test_interrupt_for_missing_target_language():
     state = graph.get_state(config)
     assert state.tasks, "interrupt가 발생해야 한다"
     interrupt_value = state.tasks[0].interrupts[0].value
-    assert "영어 또는 일본어" in interrupt_value["reply"]
+    assert "영어" in interrupt_value["reply"]
+    assert "일본어" in interrupt_value["reply"]
+    assert "중국어" in interrupt_value["reply"]
 
     result = graph.invoke(Command(resume="영어"), config)
 
     assert result["translated"] == "Hello"
     assert result["target_language"] == "en"
     assert result["translation_direction"] == "ko→en"
+    assert result["pronunciation_ko"] == "헬로"
 
 
 def test_interrupt_for_missing_source_text():
@@ -130,7 +133,9 @@ def test_double_interrupt_source_then_target():
 
     state2 = graph.get_state(config)
     assert state2.tasks, "목표 언어 interrupt가 발생해야 한다"
-    assert "영어 또는 일본어" in state2.tasks[0].interrupts[0].value["reply"]
+    target_reply = state2.tasks[0].interrupts[0].value["reply"]
+    assert "영어" in target_reply
+    assert "일본어" in target_reply
 
     result = graph.invoke(Command(resume="일본어"), config)
 

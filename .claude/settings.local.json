@@ -10,7 +10,10 @@
       "Bash(rm demo_out.tmp.json)",
       "Bash(git add *)",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git *)",
+      "Bash(.venv/Scripts/python.exe -m pip list)",
+      "Bash(ruff --version)"
     ]
   }
 }

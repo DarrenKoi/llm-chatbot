@@ -23,7 +23,7 @@ def register_translator_tools() -> None:
         MCPTool(
             tool_id="translate",
             server_id="translator_local",
-            description="한국어/영어/일본어 사이의 번역을 수행한다.",
+            description="한국어/영어/일본어/중국어/스페인어/프랑스어/독일어/베트남어/태국어 간 번역과 한국어 발음 표기를 제공한다.",
             tags=TRANSLATOR_TOOL_TAGS,
             input_schema={
                 "type": "object",

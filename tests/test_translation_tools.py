@@ -37,6 +37,31 @@ def test_translate_text_uses_llm_for_unknown_phrase(monkeypatch):
     assert result["source"] == "en"
     assert result["target"] == "ja"
     assert result["result"] == "お元気ですか？"
+    assert result["pronunciation_ko"] == "오겡키데스카"
+
+
+def test_translate_text_returns_korean_pronunciation_for_english_dictionary_hit():
+    result = translate_text("안녕하세요", "en")
+
+    assert result["result"] == "Hello"
+    assert result["pronunciation_ko"] == "헬로"
+
+
+def test_translate_text_returns_llm_pronunciation_for_chinese(monkeypatch):
+    monkeypatch.setattr(
+        "api.workflows.translator.translation_engine.generate_json_reply",
+        lambda **kwargs: {
+            "result": "你好",
+            "pronunciation_ko": "니하오",
+        },
+    )
+
+    result = translate_text("안녕하세요", "중국어")
+
+    assert result["source"] == "ko"
+    assert result["target"] == "zh"
+    assert result["result"] == "你好"
+    assert result["pronunciation_ko"] == "니하오"
 
 
 def test_translate_tool_no_longer_returns_placeholder(monkeypatch):

@@ -14,7 +14,8 @@ from api.workflows.translator.prompts import (
 log = logging.getLogger(__name__)
 
 _KOREAN_CHAR = re.compile(r"[\uac00-\ud7a3]")
-_JAPANESE_CHAR = re.compile(r"[\u3040-\u30ff\u4e00-\u9faf]")
+_HIRAGANA_KATAKANA = re.compile(r"[\u3040-\u30ff]")
+_CJK_IDEOGRAPHS = re.compile(r"[\u4e00-\u9faf]")
 LANGUAGE_ALIASES = {
     "english": "en",
     "eng": "en",
@@ -30,6 +31,38 @@ LANGUAGE_ALIASES = {
     "ko": "ko",
     "한국어": "ko",
     "한글": "ko",
+    "chinese": "zh",
+    "mandarin": "zh",
+    "zh": "zh",
+    "zh-cn": "zh",
+    "중국어": "zh",
+    "중국말": "zh",
+    "중어": "zh",
+    "spanish": "es",
+    "espanol": "es",
+    "español": "es",
+    "es": "es",
+    "스페인어": "es",
+    "서반아어": "es",
+    "french": "fr",
+    "francais": "fr",
+    "français": "fr",
+    "fr": "fr",
+    "프랑스어": "fr",
+    "불어": "fr",
+    "german": "de",
+    "deutsch": "de",
+    "de": "de",
+    "독일어": "de",
+    "독어": "de",
+    "vietnamese": "vi",
+    "vi": "vi",
+    "베트남어": "vi",
+    "월남어": "vi",
+    "thai": "th",
+    "th": "th",
+    "태국어": "th",
+    "타이어": "th",
 }
 _TRANSLATIONS: dict[tuple[str, str], dict[str, str]] = {
     ("ko", "en"): {
@@ -57,9 +90,11 @@ _TRANSLATIONS: dict[tuple[str, str], dict[str, str]] = {
         "ありがとうございます": "감사합니다",
     },
 }
-_JAPANESE_PRONUNCIATIONS_KO = {
-    "こんにちは": "곤니치와",
-    "ありがとうございます": "아리가토고자이마스",
+_DICTIONARY_PRONUNCIATIONS_KO: dict[tuple[str, str], str] = {
+    ("ja", "こんにちは"): "곤니치와",
+    ("ja", "ありがとうございます"): "아리가토고자이마스",
+    ("en", "Hello"): "헬로",
+    ("en", "Thank you"): "땡큐",
 }
 
 
@@ -70,8 +105,10 @@ def normalize_language(language: str) -> str:
 def detect_language(text: str) -> str:
     if _KOREAN_CHAR.search(text):
         return "ko"
-    if _JAPANESE_CHAR.search(text):
+    if _HIRAGANA_KATAKANA.search(text):
         return "ja"
+    if _CJK_IDEOGRAPHS.search(text):
+        return "zh"
     return "en"
 
 
@@ -99,17 +136,24 @@ def translate_text(text: str, target_language: str) -> dict[str, str]:
         source_language=source_language,
         target_language=normalized_target,
     )
+    pronunciation_ko = ""
     if translated is None:
-        translated = _translate_with_llm(
+        translated, pronunciation_ko = _translate_with_llm(
             text=stripped_text,
             source_language=source_language,
             target_language=normalized_target,
         )
 
+    if normalized_target != "ko":
+        dictionary_hit = _DICTIONARY_PRONUNCIATIONS_KO.get((normalized_target, translated.strip()), "")
+        if dictionary_hit:
+            pronunciation_ko = dictionary_hit
+
     return _build_result(
         source_language=source_language,
         target_language=normalized_target,
         translated=translated,
+        pronunciation_ko=pronunciation_ko,
     )
 
 
@@ -119,7 +163,7 @@ def _translate_with_dictionary(*, text: str, source_language: str, target_langua
     return dictionary.get(lookup_key)
 
 
-def _translate_with_llm(*, text: str, source_language: str, target_language: str) -> str:
+def _translate_with_llm(*, text: str, source_language: str, target_language: str) -> tuple[str, str]:
     payload = {
         "source_language": source_language,
         "target_language": target_language,
@@ -137,25 +181,25 @@ def _translate_with_llm(*, text: str, source_language: str, target_language: str
     translated = str(raw_reply.get("result", "")).strip()
     if not translated:
         raise ValueError("번역 결과를 생성하지 못했습니다. 잠시 후 다시 시도해주세요.")
-    return translated
+    pronunciation_ko = str(raw_reply.get("pronunciation_ko", "")).strip()
+    return translated, pronunciation_ko
 
 
-def _build_result(*, source_language: str, target_language: str, translated: str) -> dict[str, str]:
+def _build_result(
+    *,
+    source_language: str,
+    target_language: str,
+    translated: str,
+    pronunciation_ko: str = "",
+) -> dict[str, str]:
     result = {
         "source": source_language,
         "target": target_language,
         "result": translated,
     }
-    pronunciation_ko = _get_korean_pronunciation(text=translated, language=target_language)
     if pronunciation_ko:
         result["pronunciation_ko"] = pronunciation_ko
     return result
-
-
-def _get_korean_pronunciation(*, text: str, language: str) -> str:
-    if language != "ja":
-        return ""
-    return _JAPANESE_PRONUNCIATIONS_KO.get(text.strip(), "")
 
 
 @dataclass

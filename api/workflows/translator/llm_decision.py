@@ -16,19 +16,32 @@ from api.workflows.translator.translation_engine import LANGUAGE_ALIASES
 log = logging.getLogger(__name__)
 
 _ASK_SOURCE_REPLY = '번역할 문장을 알려주세요. 예: "안녕하세요"\n원하시면 "취소"라고 말씀하셔도 됩니다.'
-_ASK_TARGET_REPLY = (
-    "어떤 언어로 번역할까요? 영어 또는 일본어 중 하나를 말씀해주세요.\n"
-    '원하시면 문장과 언어를 함께 다시 보내거나 "취소"라고 말씀하셔도 됩니다.'
-)
 _STOP_REPLY = "번역은 여기서 마칠게요. 다른 요청이 있으면 편하게 말씀해주세요."
 
-_TARGET_LANGUAGES = {"en", "ja"}
-_TARGET_LANGUAGE_ALIASES = {k: v for k, v in LANGUAGE_ALIASES.items() if v in _TARGET_LANGUAGES}
-_TARGET_LANGUAGE_ALIASES_SORTED = sorted(_TARGET_LANGUAGE_ALIASES.items(), key=lambda item: len(item[0]), reverse=True)
 _LANGUAGE_LABELS = {
     "en": "영어",
     "ja": "일본어",
+    "zh": "중국어",
+    "es": "스페인어",
+    "fr": "프랑스어",
+    "de": "독일어",
+    "vi": "베트남어",
+    "th": "태국어",
 }
+_TARGET_LANGUAGES = set(_LANGUAGE_LABELS)
+_ASK_TARGET_REPLY = (
+    f"어떤 언어로 번역할까요? {', '.join(_LANGUAGE_LABELS.values())} 중 하나를 말씀해주세요.\n"
+    '원하시면 문장과 언어를 함께 다시 보내거나 "취소"라고 말씀하셔도 됩니다.'
+)
+# Drop ≤2-char ASCII aliases from the fallback regex matcher: short codes like
+# "de", "es", "fr", "th", "vi" collide with ordinary words in user text and
+# would otherwise be stripped out by _extract_source_text.
+_TARGET_LANGUAGE_ALIASES = {
+    k: v
+    for k, v in LANGUAGE_ALIASES.items()
+    if v in _TARGET_LANGUAGES and not (k.isascii() and len(k) <= 2)
+}
+_TARGET_LANGUAGE_ALIASES_SORTED = sorted(_TARGET_LANGUAGE_ALIASES.items(), key=lambda item: len(item[0]), reverse=True)
 _QUOTED_TEXT_PATTERN = re.compile(r"""["']([^"']+)["']""")
 _FOLLOW_UP_SOURCE_PATTERNS = (
     r"(?i)\bthis time\b",
