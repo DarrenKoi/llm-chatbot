@@ -157,3 +157,40 @@ trigger="date", run_date=datetime(2026, 4, 1, 9, 0, 0)
 #         id="refresh_cache",
 #         replace_existing=True,
 #     )
+
+
+# ---------------------------------------------------------------------------
+# Example 5: Import task logic from another Python file
+#
+# Recommended layout:
+#   api/scheduled_tasks/tasks/daily_report.py          # auto-discovered task
+#   api/scheduled_tasks/tasks/_daily_report_runner.py  # helper, not discovered
+#
+# Prefix helper modules with "_" when they live in api/scheduled_tasks/tasks/.
+# The scheduler skips underscore-prefixed modules during auto-discovery.
+# ---------------------------------------------------------------------------
+#
+# # api/scheduled_tasks/tasks/_daily_report_runner.py
+# import logging
+#
+# logger = logging.getLogger(__name__)
+#
+#
+# def run_daily_report() -> None:
+#     logger.info("Generating daily report from imported task logic...")
+#
+#
+# # api/scheduled_tasks/tasks/daily_report.py
+# from api.scheduled_tasks._lock import run_locked_job
+# from api.scheduled_tasks.tasks._daily_report_runner import run_daily_report
+#
+#
+# def register(scheduler) -> None:
+#     scheduler.add_job(
+#         lambda: run_locked_job("daily_report", run_daily_report),
+#         trigger="cron",
+#         hour=3,
+#         minute=0,
+#         id="daily_report",
+#         replace_existing=True,
+#     )
