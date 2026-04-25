@@ -1,9 +1,13 @@
 """MCP 도구 실행 오케스트레이션을 제공한다."""
 
+import logging
+
 from api.mcp.client import MCPClient
 from api.mcp.local_tools import get_handler
 from api.mcp.models import MCPToolCall, MCPToolResult
 from api.mcp.registry import get_server, get_tool
+
+logger = logging.getLogger(__name__)
 
 
 def execute_tool_call(tool_call: MCPToolCall) -> MCPToolResult:
@@ -18,6 +22,7 @@ def execute_tool_call(tool_call: MCPToolCall) -> MCPToolResult:
             output = handler(**tool_call.arguments)
             return MCPToolResult(tool_id=tool_call.tool_id, output=output)
         except Exception as exc:
+            logger.exception("MCP 로컬 도구 실행 실패: tool_id=%s", tool_call.tool_id)
             return MCPToolResult(
                 tool_id=tool_call.tool_id,
                 success=False,

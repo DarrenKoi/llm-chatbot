@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from typing import Any
 
@@ -7,6 +8,8 @@ from langchain_openai import ChatOpenAI
 
 from api import config
 from api.llm.prompt import get_system_prompt
+
+logger = logging.getLogger(__name__)
 
 
 class LLMServiceError(RuntimeError):
@@ -31,10 +34,12 @@ def generate_reply(
     try:
         response = llm.invoke(messages)
     except Exception as exc:
+        logger.exception("LLM 응답 생성 실패: model=%s", config.LLM_MODEL)
         raise LLMServiceError(f"LLM request failed: {exc}") from exc
 
     reply = _extract_content(response.content)
     if not reply:
+        logger.error("LLM 응답이 비어 있음: model=%s", config.LLM_MODEL)
         raise LLMServiceError("LLM reply is empty.")
     return reply
 
@@ -54,15 +59,18 @@ def generate_json_reply(
     try:
         response = llm.invoke(messages)
     except Exception as exc:
+        logger.exception("LLM JSON 응답 생성 실패: model=%s", config.LLM_MODEL)
         raise LLMServiceError(f"LLM request failed: {exc}") from exc
 
     raw_reply = _extract_content(response.content)
     if not raw_reply:
+        logger.error("LLM JSON 응답이 비어 있음: model=%s", config.LLM_MODEL)
         raise LLMServiceError("LLM JSON reply is empty.")
 
     try:
         return _extract_json_object(raw_reply)
     except ValueError as exc:
+        logger.exception("LLM JSON 파싱 실패: model=%s", config.LLM_MODEL)
         raise LLMServiceError(f"LLM JSON reply is invalid: {exc}") from exc
 
 
