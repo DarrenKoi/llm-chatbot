@@ -40,6 +40,11 @@ LLM_THINKING_MESSAGE_DELAY_SECONDS = float(os.environ.get("LLM_THINKING_MESSAGE_
 # Flask
 APP_NAME = os.environ.get("APP_NAME", "llm_chatbot")
 APP_ENV = os.environ.get("APP_ENV", os.environ.get("FLASK_ENV", "development"))
+
+# Web chat dev fallback — only honored when the request comes from localhost.
+# Leave empty in production. When set, the LASTUSER cookie may be omitted on local requests.
+WEB_CHAT_DEV_USER = os.environ.get("WEB_CHAT_DEV_USER", "").strip()
+WEB_CHAT_DEV_USER_NAME = os.environ.get("WEB_CHAT_DEV_USER_NAME", "").strip()
 # MongoDB (conversation storage; empty = in-memory fallback)
 AFM_MONGO_URI = os.environ.get("AFM_MONGO_URI", "")
 AFM_DB_NAME = os.environ.get("AFM_DB_NAME", "itc-afm-data-platform-mongodb")

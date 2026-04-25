@@ -1,0 +1,22 @@
+{
+  "name": "llm-chatbot-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build --preset static",
+    "generate": "nuxt generate",
+    "dev": "nuxt dev --port 3000",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "typecheck": "nuxt typecheck"
+  },
+  "dependencies": {
+    "@nuxt/ui": "^3.0.0",
+    "nuxt": "^3.13.0",
+    "vue": "^3.4.0",
+    "vue-router": "^4.4.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

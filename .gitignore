@@ -42,3 +42,10 @@ data/chart-images/
 var/
 devtools/var/
 .remember/
+
+# Nuxt SPA build output (Group D → C deployment artifact)
+api/static/chat/*
+!api/static/chat/.gitkeep
+web/.output/
+web/.nuxt/
+web/node_modules/

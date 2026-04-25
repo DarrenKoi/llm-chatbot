@@ -72,8 +72,19 @@ EXCLUDE_PATTERNS = [
     "*.pyc",
 ]
 
-# 보존 경로는 기본 복사 제외에도 포함해 대상 저장소의 수동 코드를 덮어쓰지 않는다.
-DEFAULT_EXCLUDE_PATHS = [*CLEAN_PRESERVE]
+# ──────────────────────────────────────────────
+# 작업 중이라 아직 공유하지 않을 경로
+# 공유 준비가 끝나면 이 목록에서 제거한다.
+# ──────────────────────────────────────────────
+IN_PROGRESS_EXCLUDES = [
+    # Cube 장애 대비 Nuxt 웹 채팅 (개발 중)
+    "api/web_chat/",
+    "api/web_frontend/",
+    "api/static/",
+]
+
+# 보존 경로 + 작업 중 경로는 기본적으로 복사 대상에서 제외한다.
+DEFAULT_EXCLUDE_PATHS = [*CLEAN_PRESERVE, *IN_PROGRESS_EXCLUDES]
 
 
 def normalize_entry_path(entry: str) -> Path:

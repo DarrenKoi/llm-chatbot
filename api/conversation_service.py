@@ -1,14 +1,29 @@
 import json
 from collections import OrderedDict
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 from api import config
 from api.workflows.langgraph_checkpoint import validate_mongo_storage_config
 
 _backend = None
+
+_PREVIEW_MAX_LENGTH = 120
+
+
+@dataclass(frozen=True, slots=True)
+class ConversationSummary:
+    """대화 목록 한 건의 요약 정보."""
+
+    user_id: str
+    conversation_id: str
+    last_message_at: str
+    last_message_role: str
+    last_message_preview: str
+    source: str | None
 
 
 class ConversationStoreError(RuntimeError):
@@ -86,6 +101,23 @@ def append_messages(
         _get_backend().append(user_id, msg, conversation_id=conversation_id)
 
 
+def list_conversations(user_id: str, *, limit: int = 20) -> list[ConversationSummary]:
+    """사용자가 참여한 대화를 최근 메시지 시각 기준 내림차순으로 반환한다.
+
+    동일 사용자의 데이터만 노출되며, conversation_id가 다르면 별개의 항목으로 본다.
+    """
+    return _get_backend().list_conversations(user_id, limit=max(1, limit))
+
+
+def _make_preview(content: Any) -> str:
+    """요약 미리보기용 짧은 문자열을 생성한다."""
+    text = "" if content is None else str(content)
+    text = text.strip()
+    if len(text) <= _PREVIEW_MAX_LENGTH:
+        return text
+    return text[: _PREVIEW_MAX_LENGTH - 1] + "…"
+
+
 class _MongoBackend:
     def __init__(self, db):
         collections = validate_mongo_storage_config()
@@ -159,6 +191,36 @@ class _MongoBackend:
         except DuplicateKeyError:
             return
 
+    def list_conversations(self, user_id: str, *, limit: int) -> list[ConversationSummary]:
+        pipeline = [
+            {"$match": {"user_id": user_id}},
+            {"$sort": {"created_at": -1}},
+            {
+                "$group": {
+                    "_id": "$conversation_id",
+                    "last_message_at": {"$first": "$created_at"},
+                    "last_message_role": {"$first": "$role"},
+                    "last_message_content": {"$first": "$content"},
+                    "source": {"$first": "$source"},
+                }
+            },
+            {"$sort": {"last_message_at": -1}},
+            {"$limit": limit},
+        ]
+        summaries: list[ConversationSummary] = []
+        for row in self._col.aggregate(pipeline):
+            summaries.append(
+                ConversationSummary(
+                    user_id=user_id,
+                    conversation_id=str(row.get("_id") or ""),
+                    last_message_at=_format_timestamp(row.get("last_message_at")),
+                    last_message_role=str(row.get("last_message_role") or ""),
+                    last_message_preview=_make_preview(row.get("last_message_content")),
+                    source=row.get("source"),
+                )
+            )
+        return summaries
+
 
 class _InMemoryBackend:
     MAX_USERS = 1000
@@ -197,6 +259,9 @@ class _InMemoryBackend:
         self._message_sequence += 1
         stored_message = dict(message)
         stored_message["_order"] = self._message_sequence
+        stored_message["_created_at"] = datetime.now(UTC).isoformat()
+        if metadata and metadata.get("source"):
+            stored_message["_source"] = metadata["source"]
         self._store[store_key].append(stored_message)
         self._store[store_key] = self._store[store_key][-config.CONVERSATION_MAX_MESSAGES :]
         self._recent_messages.append(
@@ -212,6 +277,31 @@ class _InMemoryBackend:
 
     def get_recent(self, *, limit: int = 50) -> list[dict[str, Any]]:
         return list(reversed(self._recent_messages[-max(1, limit) :]))
+
+    def list_conversations(self, user_id: str, *, limit: int) -> list[ConversationSummary]:
+        prefix = f"{user_id}::"
+        records: list[tuple[int, ConversationSummary]] = []
+        for store_key, messages in self._store.items():
+            if not store_key.startswith(prefix) or not messages:
+                continue
+            conversation_id = store_key[len(prefix) :]
+            last = messages[-1]
+            order = int(last.get("_order", 0))
+            records.append(
+                (
+                    order,
+                    ConversationSummary(
+                        user_id=user_id,
+                        conversation_id=conversation_id,
+                        last_message_at=str(last.get("_created_at", "")),
+                        last_message_role=str(last.get("role", "")),
+                        last_message_preview=_make_preview(last.get("content")),
+                        source=last.get("_source"),
+                    ),
+                )
+            )
+        records.sort(key=lambda record: record[0], reverse=True)
+        return [summary for _, summary in records[:limit]]
 
     def _collect_messages(self, user_id: str, *, conversation_id: str | None = None) -> list[dict[str, Any]]:
         if conversation_id is not None:
@@ -322,6 +412,28 @@ class _LocalFileBackend:
                 documents.append(payload)
         return documents
 
+    def list_conversations(self, user_id: str, *, limit: int) -> list[ConversationSummary]:
+        summaries: list[ConversationSummary] = []
+        for path in self._iter_user_paths(user_id):
+            documents = self._read_documents(path)
+            if not documents:
+                continue
+            documents.sort(key=lambda document: document.get("created_at", ""))
+            last = documents[-1]
+            conversation_id = unquote(path.stem)
+            summaries.append(
+                ConversationSummary(
+                    user_id=user_id,
+                    conversation_id=conversation_id,
+                    last_message_at=str(last.get("created_at", "")),
+                    last_message_role=str(last.get("role", "")),
+                    last_message_preview=_make_preview(last.get("content")),
+                    source=last.get("source"),
+                )
+            )
+        summaries.sort(key=lambda summary: summary.last_message_at, reverse=True)
+        return summaries[:limit]
+
     def _is_duplicate(self, user_id: str, document: dict[str, Any]) -> bool:
         message_id = document.get("message_id")
         if not message_id:
@@ -377,6 +489,15 @@ def _json_default(value: Any) -> str:
     """json.dumps의 default 핸들러 — datetime은 ISO 문자열로, 나머지는 str()로 변환한다."""
     if isinstance(value, datetime):
         return value.isoformat()
+    return str(value)
+
+
+def _format_timestamp(value: Any) -> str:
+    """다양한 형태의 시각 값을 ISO 8601 문자열로 정규화한다."""
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if value is None:
+        return ""
     return str(value)
 
 
