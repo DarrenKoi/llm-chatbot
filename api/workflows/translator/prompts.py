@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """번역 워크플로 LLM 프롬프트 템플릿을 정의한다."""
 
 TRANSLATOR_DECISION_SYSTEM_PROMPT = """

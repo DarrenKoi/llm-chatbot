@@ -8,9 +8,9 @@ from typing import Any
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from api import config
+from api.logging_service.paths import get_theme_log_dir
 from api.scheduled_tasks._lock import _scheduler_lock_key
 from api.scheduled_tasks._registry import _RUNTIME_META_ATTR, _TASK_META_ATTR, discover_and_register
-from api.utils.logger.paths import get_theme_log_dir
 
 _ACTIVITY_TAIL_LINES = 800
 _MIN_WORKER_STALE_SECONDS = 180

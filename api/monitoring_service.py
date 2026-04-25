@@ -8,7 +8,7 @@ from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
 
 from api import config
-from api.utils.logger.paths import get_theme_log_dir
+from api.logging_service.paths import get_theme_log_dir
 from api.workflows.langgraph_checkpoint import validate_mongo_storage_config
 
 MonitorTone = Literal["ok", "warning", "error", "disabled"]

@@ -9,7 +9,7 @@ from api.file_delivery import (
     list_files_for_user,
     save_uploaded_file,
 )
-from api.utils.logger import log_activity
+from api.logging_service import log_activity
 
 _FILE_LIST_FIELDS = (
     "file_id",

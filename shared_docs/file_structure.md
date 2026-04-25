@@ -90,7 +90,7 @@ llm_chatbot/
   MCP 클라이언트, 레지스트리, 로컬 툴 실행기, 툴 선택 로직을 담습니다.
 - `api/mongo.py`
   MongoDB 연결 유틸리티입니다.
-- `api/utils/logger/`
+- `api/logging_service/`
   활동 로그 포맷, 경로, 로거 초기화와 기록 함수를 제공합니다.
 
 ## 4. 개발 보조 영역

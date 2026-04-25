@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """번역 서비스 워크플로에서 사용하는 MCP 도구를 등록한다."""
 
 from api.mcp.local_tools import register_handler

@@ -8,9 +8,9 @@ from api import config as config
 from api.blueprint_loader import discover_blueprints
 from api.conversation_service import get_recent_messages
 from api.cube.payload import extract_user_id
+from api.logging_service import log_activity, setup_logging
 from api.monitoring_service import get_monitoring_snapshot
 from api.scheduled_tasks.inspection import get_scheduled_tasks_snapshot
-from api.utils.logger import log_activity, setup_logging
 from api.workflows.graph_visualizer import build_workflow_html, list_workflow_ids
 
 

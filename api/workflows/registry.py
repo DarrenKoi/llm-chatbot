@@ -8,8 +8,8 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
+from api.logging_service import log_workflow_activity
 from api.mcp.models import normalize_tags
-from api.utils.logger import log_workflow_activity
 
 log = logging.getLogger(__name__)
 

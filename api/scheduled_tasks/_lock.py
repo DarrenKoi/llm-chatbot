@@ -5,7 +5,7 @@ import time
 from collections.abc import Callable
 
 from api import config
-from api.utils.logger import log_activity
+from api.logging_service import log_activity
 
 logger = logging.getLogger(__name__)
 

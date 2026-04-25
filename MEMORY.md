@@ -22,7 +22,7 @@
 - 현재 기본 Redis는 `10.156.133.126:10121`이다.
 
 ## 스케줄러 락 규칙
-- 스케줄러 잡 실행(`api/utils/scheduler.py`)은 Redis 분산 락을 사용한다.
+- 스케줄러 잡 실행(`api/scheduled_tasks/_lock.py`)은 Redis 분산 락을 사용한다.
 - 락 키 접두사는 `SCHEDULER_LOCK_PREFIX`이며 기본값은 `scheduler:sknn_v3`이다.
 - 락/잡 제어는 `SCHEDULER_LOCK_TTL_SECONDS`, `SCHEDULER_LOCK_RENEW_INTERVAL_SECONDS`, `SCHEDULER_JOB_MISFIRE_GRACE_SECONDS`로 조정한다.
 - 현재 기본 `SCHEDULER_JOB_MISFIRE_GRACE_SECONDS`는 `60`으로, 서버 재기동 후 과거 스케줄 catch-up 실행을 최소화한다.

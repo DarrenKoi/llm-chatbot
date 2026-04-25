@@ -8,13 +8,13 @@ from typing import TYPE_CHECKING, Any
 from flask import g, has_request_context, request
 
 from api import config
-from api.utils.logger.formatters import (
+from api.logging_service.formatters import (
     TEXT_LOG_FORMAT,
     JsonLineFormatter,
     LocalTimezoneFormatter,
     current_log_timestamp,
 )
-from api.utils.logger.paths import get_scoped_log_dir, get_theme_log_dir, normalize_name
+from api.logging_service.paths import get_scoped_log_dir, get_theme_log_dir, normalize_name
 
 if TYPE_CHECKING:
     from api.workflows.models import WorkflowState

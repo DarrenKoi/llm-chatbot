@@ -2,8 +2,8 @@ import argparse
 import os
 import time
 
+from api.logging_service import log_activity, setup_logging
 from api.scheduled_tasks import start_scheduler
-from api.utils.logger import log_activity, setup_logging
 
 IDLE_SECONDS = 60
 

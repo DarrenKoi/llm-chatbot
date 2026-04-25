@@ -3,6 +3,11 @@
 import pytest
 
 from api.cube import rich_blocks
+from api.cube.intent_renderer import (
+    intent_to_block,
+    intents_to_blocks,
+    intents_to_content_item,
+)
 from api.cube.intents import (
     ChoiceIntent,
     ChoiceOption,
@@ -11,11 +16,6 @@ from api.cube.intents import (
     InputIntent,
     TableIntent,
     TextIntent,
-)
-from api.cube.intent_renderer import (
-    intent_to_block,
-    intents_to_blocks,
-    intents_to_content_item,
 )
 
 

@@ -3,7 +3,7 @@ import logging
 from logging.handlers import TimedRotatingFileHandler
 
 from api import config
-from api.utils.logger import (
+from api.logging_service import (
     get_theme_logger,
     get_topic_logger,
     get_workflow_logger,
@@ -12,7 +12,7 @@ from api.utils.logger import (
     rollover_activity_logs,
     setup_logging,
 )
-from api.utils.logger.formatters import LocalTimezoneFormatter
+from api.logging_service.formatters import LocalTimezoneFormatter
 from api.workflows.models import WorkflowState
 
 
@@ -25,7 +25,7 @@ def _remove_tagged_handlers(logger: logging.Logger) -> None:
 
 
 def _reset_logger_state() -> None:
-    from api.utils.logger import service as _svc
+    from api.logging_service import service as _svc
 
     _svc._setup_done = False
     _remove_tagged_handlers(logging.getLogger())

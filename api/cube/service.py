@@ -12,7 +12,7 @@ from api.cube.client import CubeClientError, send_multimessage, send_richnotific
 from api.cube.models import CubeAcceptedMessage, CubeHandledMessage, CubeIncomingMessage, CubeQueuedMessage
 from api.cube.payload import extract_cube_request_fields
 from api.cube.queue import CubeQueueError, enqueue_incoming_message
-from api.utils.logger import log_activity
+from api.logging_service import log_activity
 from api.workflows.lg_orchestrator import handle_message as handle_workflow_message
 from api.workflows.models import WorkflowReply
 

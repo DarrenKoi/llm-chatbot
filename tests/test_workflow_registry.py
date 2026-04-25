@@ -4,7 +4,7 @@ import sys
 from textwrap import dedent
 
 from api import config
-from api.utils.logger import get_workflow_logger
+from api.logging_service import get_workflow_logger
 from api.workflows import registry
 from api.workflows.registry import discover_workflows, load_workflows
 
@@ -18,7 +18,7 @@ def _remove_tagged_handlers(logger: logging.Logger) -> None:
 
 
 def _reset_logger_state() -> None:
-    from api.utils.logger import service as logger_service
+    from api.logging_service import service as logger_service
 
     logger_service._setup_done = False
     _remove_tagged_handlers(logging.getLogger())

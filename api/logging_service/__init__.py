@@ -1,4 +1,4 @@
-from api.utils.logger.service import (
+from api.logging_service.service import (
     build_activity_payload,
     get_theme_logger,
     get_topic_logger,

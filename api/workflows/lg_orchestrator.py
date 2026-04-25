@@ -11,7 +11,7 @@ from typing import Any
 from langgraph.types import Command
 
 from api.cube.models import CubeIncomingMessage
-from api.utils.logger import log_workflow_activity
+from api.logging_service import log_workflow_activity
 from api.workflows.langgraph_checkpoint import build_thread_id, get_checkpointer
 from api.workflows.models import WorkflowReply
 from api.workflows.start_chat.lg_graph import build_lg_graph

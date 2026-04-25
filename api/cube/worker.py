@@ -11,7 +11,7 @@ from api.cube.queue import (
     requeue_queued_message,
 )
 from api.cube.service import process_queued_message
-from api.utils.logger import log_activity, setup_logging
+from api.logging_service import log_activity, setup_logging
 
 _HEARTBEAT_INTERVAL_SECONDS = 60
 
