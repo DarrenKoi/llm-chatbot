@@ -6,7 +6,6 @@ GitHub 전체 저장소에서 동료와 공유할 파일만 선별하여
 
 사용법:
     python scripts/sync_to_bitbucket.py                          # 기본 경로 사용
-    python scripts/sync_to_bitbucket.py --dst C:/work/share_repo # 대상 경로 지정
     python scripts/sync_to_bitbucket.py --dry-run                # 실제 복사 없이 미리보기
 """
 
@@ -21,7 +20,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 # ──────────────────────────────────────────────
 # 대상 경로 설정 (OS별 하드코딩)
-# --dst 인자 없이 실행하면 이 경로를 사용합니다.
+# 대상 저장소 위치는 여기에서만 관리합니다.
 # ──────────────────────────────────────────────
 DEFAULT_DST = {
     "Windows": Path("F:/itc-1stop-solution-llm"),
@@ -73,7 +72,8 @@ EXCLUDE_PATTERNS = [
     "*.pyc",
 ]
 
-DEFAULT_EXCLUDE_PATHS = []
+# 보존 경로는 기본 복사 제외에도 포함해 대상 저장소의 수동 코드를 덮어쓰지 않는다.
+DEFAULT_EXCLUDE_PATHS = [*CLEAN_PRESERVE]
 
 
 def normalize_entry_path(entry: str) -> Path:
@@ -119,11 +119,11 @@ def clean_directory(target_dir: Path, dst: Path, preserve_paths: list[Path], dry
     """디렉토리를 재귀적으로 정리하되, preserve_paths에 해당하는 경로는 보존한다."""
     for child in sorted(target_dir.iterdir()):
         rel = child.relative_to(dst)
+        suffix = "/" if child.is_dir() else ""
 
         # 보존 대상과 정확히 일치 → 전체 보존 (파일·디렉토리 모두)
         if _is_preserved(rel, preserve_paths):
             label = "보존" if not dry_run else "보존 예정"
-            suffix = "/" if child.is_dir() else ""
             print(f"  [{label}] {rel}{suffix}")
             continue
 
@@ -134,13 +134,13 @@ def clean_directory(target_dir: Path, dst: Path, preserve_paths: list[Path], dry
 
         # 보존 대상 아님 → 삭제
         if dry_run:
-            print(f"  [삭제 예정] {rel}{'/' if child.is_dir() else ''}")
+            print(f"  [삭제 예정] {rel}{suffix}")
         else:
             if child.is_dir():
                 shutil.rmtree(child)
             else:
                 child.unlink()
-            print(f"  [삭제 완료] {rel}{'/' if child.is_dir() else ''}")
+            print(f"  [삭제 완료] {rel}{suffix}")
 
 
 def copy_entry(src: Path, dst: Path, entry: str, dry_run: bool, exclude_paths: list[Path]) -> int:
@@ -184,11 +184,6 @@ def main():
         description="Bitbucket 공유용 코드 동기화",
     )
     parser.add_argument(
-        "--dst",
-        type=Path,
-        help="Bitbucket 로컬 저장소 경로 (기본: 프로젝트 루트 옆의 llm_chatbot_share/)",
-    )
-    parser.add_argument(
         "--dry-run",
         action="store_true",
         help="실제 복사 없이 대상 파일만 확인",
@@ -207,7 +202,7 @@ def main():
     )
     args = parser.parse_args()
 
-    dst = args.dst or DEFAULT_DST.get(platform.system(), PROJECT_ROOT.parent / "llm_chatbot_share")
+    dst = DEFAULT_DST.get(platform.system(), PROJECT_ROOT.parent / "llm_chatbot_share")
     exclude_entries = [] if args.no_default_excludes else list(DEFAULT_EXCLUDE_PATHS)
     exclude_entries.extend(args.exclude)
     exclude_paths = [normalize_entry_path(entry) for entry in exclude_entries]
@@ -237,16 +232,24 @@ def main():
     preserve_paths = [normalize_entry_path(p) for p in CLEAN_PRESERVE]
 
     for entry in CLEAN_BEFORE_SYNC:
-        target = dst / normalize_entry_path(entry)
+        relative_entry = normalize_entry_path(entry)
+        target = dst / relative_entry
         if not target.exists():
             continue
 
+        if _is_preserved(relative_entry, preserve_paths):
+            label = "보존" if not args.dry_run else "보존 예정"
+            suffix = "/" if target.is_dir() else ""
+            print(f"  [{label}] {relative_entry}{suffix}")
+            continue
+
         if not target.is_dir():
+            suffix = "/" if target.is_dir() else ""
             if args.dry_run:
-                print(f"  [삭제 예정] {entry}")
+                print(f"  [삭제 예정] {relative_entry}{suffix}")
             else:
                 target.unlink()
-                print(f"  [삭제 완료] {entry}")
+                print(f"  [삭제 완료] {relative_entry}{suffix}")
             continue
 
         # 디렉토리: 보존 대상을 제외하고 재귀적으로 삭제
