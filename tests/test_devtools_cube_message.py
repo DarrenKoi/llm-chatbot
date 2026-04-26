@@ -1,26 +1,21 @@
 import httpx
 
-from devtools.cube_message.common import CubeMessageConfig
-from devtools.cube_message.multimessage import build_multimessage_payload, send_multimessage
-from devtools.cube_message.richnotification import (
-    blocks,
-    build_richnotification_payload,
-    send_richnotification,
-    send_richnotification_blocks,
+from devtools.cube_message import blocks, samples
+from devtools.cube_message.client import (
+    CubeMessageConfig,
+    send_blocks,
+    send_raw_content,
+    send_text,
 )
 
 
 def _config() -> CubeMessageConfig:
     return CubeMessageConfig(
-        api_id="api-id",
-        api_token="api-token",
-        api_url="https://cube.example.com",
-        multimessage_url="https://cube.example.com/api/multiMessage",
         richnotification_url="https://cube.example.com/legacy/richnotification",
         bot_id="bot-id",
         bot_token="bot-token",
         bot_usernames=("Bot",),
-        richnotification_callback_url="https://app.example.com/callback",
+        callback_url="https://app.example.com/callback",
         timeout_seconds=3,
     )
 
@@ -33,77 +28,34 @@ def _response(*, text: str = "accepted") -> httpx.Response:
     )
 
 
-def test_standalone_multimessage_builds_api_compatible_payload():
-    payload = build_multimessage_payload(user_id="u1", reply_message="hello", config=_config())
-
-    assert payload == {
-        "uniqueName": "api-id",
-        "token": "api-token",
-        "uniqueNameList": ["u1"],
-        "channelList": [],
-        "msg": "hello",
-    }
-
-
-def test_standalone_multimessage_sends_without_api_config(mocker):
+def test_send_text_posts_text_block(mocker):
     mock_post = mocker.patch(
-        "devtools.cube_message.common.httpx.post",
+        "devtools.cube_message.client.httpx.post",
         return_value=_response(),
     )
 
-    result = send_multimessage(user_id="u1", reply_message="hello", config=_config())
-
-    assert result == {"raw": "accepted"}
-    assert mock_post.call_args.kwargs["json"]["uniqueName"] == "api-id"
-    assert mock_post.call_args.kwargs["timeout"] == 3
-
-
-def test_standalone_richnotification_builds_api_compatible_text_payload():
-    payload = build_richnotification_payload(
-        user_id="u1",
-        channel_id="c1",
-        reply_message="hello",
-        config=_config(),
-    )
-
-    assert payload == {
-        "richnotification": {
-            "header": {
-                "from": "bot-id",
-                "token": "bot-token",
-                "fromusername": ["Bot"],
-                "to": {
-                    "uniquename": ["u1"],
-                    "channelid": ["c1"],
-                },
-            },
-            "content": {"text": "hello"},
-            "result": {"status": "success", "message": "hello"},
-        }
-    }
-
-
-def test_standalone_richnotification_sends_without_api_config(mocker):
-    mock_post = mocker.patch(
-        "devtools.cube_message.common.httpx.post",
-        return_value=_response(),
-    )
-
-    result = send_richnotification(user_id="u1", channel_id="c1", reply_message="hello", config=_config())
+    result = send_text("hello", user_id="u1", channel_id="c1", config=_config())
 
     assert result == {"raw": "accepted"}
     payload = mock_post.call_args.kwargs["json"]
-    assert payload["richnotification"]["header"]["from"] == "bot-id"
+    header = payload["richnotification"]["header"]
+    assert header["from"] == "bot-id"
+    assert header["to"] == {"uniquename": ["u1"], "channelid": ["c1"]}
     assert mock_post.call_args.args[0] == "https://cube.example.com/legacy/richnotification"
+    assert mock_post.call_args.kwargs["timeout"] == 3
+
+    column = payload["richnotification"]["content"][0]["body"]["row"][0]["column"][0]
+    assert column["type"] == "label"
+    assert column["control"]["text"][0] == "hello"
 
 
-def test_standalone_richnotification_blocks_adds_callback_for_request_blocks(mocker):
+def test_send_blocks_auto_attaches_callback_for_request_blocks(mocker):
     mock_post = mocker.patch(
-        "devtools.cube_message.common.httpx.post",
+        "devtools.cube_message.client.httpx.post",
         return_value=_response(),
     )
 
-    send_richnotification_blocks(
+    send_blocks(
         blocks.add_select("Kind", [("A", "a")], processid="SelectKind"),
         user_id="u1",
         channel_id="c1",
@@ -116,9 +68,27 @@ def test_standalone_richnotification_blocks_adds_callback_for_request_blocks(moc
     assert process["requestid"][:2] == ["SelectKind", "cubeuniquename"]
 
 
-def test_standalone_richnotification_blocks_supports_table_and_hyperlink(mocker):
+def test_send_blocks_skips_callback_for_static_blocks(mocker):
     mock_post = mocker.patch(
-        "devtools.cube_message.common.httpx.post",
+        "devtools.cube_message.client.httpx.post",
+        return_value=_response(),
+    )
+
+    send_blocks(
+        blocks.add_text("just text"),
+        user_id="u1",
+        channel_id="c1",
+        config=_config(),
+    )
+
+    process = mock_post.call_args.kwargs["json"]["richnotification"]["content"][0]["process"]
+    assert process["callbacktype"] == ""
+    assert process["callbackaddress"] == ""
+
+
+def test_send_blocks_supports_table_with_hyperlink(mocker):
+    mock_post = mocker.patch(
+        "devtools.cube_message.client.httpx.post",
         return_value=_response(),
     )
 
@@ -127,9 +97,57 @@ def test_standalone_richnotification_blocks_supports_table_and_hyperlink(mocker)
         [["Docs", blocks.make_hypertext_cell("Open", "https://example.com")]],
     )
 
-    send_richnotification_blocks(table, user_id="u1", channel_id="c1", config=_config())
+    send_blocks(table, user_id="u1", channel_id="c1", config=_config())
 
     content = mock_post.call_args.kwargs["json"]["richnotification"]["content"][0]
     assert content["body"]["bodystyle"] == "grid"
     assert content["body"]["row"][1]["column"][1]["type"] == "hypertext"
     assert content["body"]["row"][1]["column"][1]["control"]["linkurl"] == "https://example.com"
+
+
+def test_send_raw_content_replaces_header_and_fills_callback(mocker):
+    mock_post = mocker.patch(
+        "devtools.cube_message.client.httpx.post",
+        return_value=_response(),
+    )
+
+    raw = [
+        {
+            "header": {},
+            "body": {"bodystyle": "none", "row": []},
+            "process": {
+                "callbacktype": "url",
+                "callbackaddress": "",
+                "processdata": "",
+                "processtype": "",
+                "summary": ["", "", "", "", ""],
+                "session": {"sessionid": "", "sequence": ""},
+                "mandatory": [],
+                "requestid": ["SomeRequest"],
+            },
+        }
+    ]
+
+    send_raw_content(raw, user_id="u1", channel_id="c1", config=_config())
+
+    payload = mock_post.call_args.kwargs["json"]["richnotification"]
+    assert payload["header"]["from"] == "bot-id"
+    assert payload["header"]["to"]["uniquename"] == ["u1"]
+    assert payload["content"][0]["process"]["callbackaddress"] == "https://app.example.com/callback"
+    assert raw[0]["process"]["callbackaddress"] == "", "원본은 변경되면 안 된다 (deepcopy 보장)"
+
+
+def test_samples_list_and_send_uses_raw_content(mocker):
+    mock_post = mocker.patch(
+        "devtools.cube_message.client.httpx.post",
+        return_value=_response(),
+    )
+
+    available = samples.list_samples()
+    assert 1 in available
+
+    samples.send_sample(1, user_id="u1", channel_id="c1", config=_config())
+
+    payload = mock_post.call_args.kwargs["json"]["richnotification"]
+    assert payload["header"]["from"] == "bot-id"
+    assert payload["content"][0]["body"]["row"][0]["column"][0]["type"] == "label"
