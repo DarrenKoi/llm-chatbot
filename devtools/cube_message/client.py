@@ -20,7 +20,6 @@ from devtools.cube_message import blocks as rich_blocks
 logger = logging.getLogger(__name__)
 
 DEFAULT_CUBE_API_URL = "http://cube.skhynix.com:8888"
-DEFAULT_WEB_APP_URL = "http://itc-1stop-solution-llm-webapp.aipp02.skhynix.com"
 
 
 class CubeMessageError(RuntimeError):
@@ -46,19 +45,21 @@ class CubeMessageConfig:
         api_token: str,
         bot_username: str = "ITC OSS",
         api_url: str = DEFAULT_CUBE_API_URL,
-        web_app_url: str = DEFAULT_WEB_APP_URL,
+        callback_url: str = "",
         timeout_seconds: float = 10.0,
     ) -> "CubeMessageConfig":
-        """파이썬 코드 안에서 자격증명을 직접 적어 쓰는 단축 생성자."""
+        """파이썬 코드 안에서 자격증명을 직접 적어 쓰는 단축 생성자.
 
-        api_url = api_url.rstrip("/")
-        web_app_url = web_app_url.rstrip("/")
+        ``callback_url``은 봇 서비스마다 다르므로 사용자가 전체 주소를 그대로 넣는다.
+        select 등 콜백이 필요한 블록을 쓰지 않으면 빈 문자열로 둔다.
+        """
+
         return cls(
-            richnotification_url=f"{api_url}/legacy/richnotification",
+            richnotification_url=f"{api_url.rstrip('/')}/legacy/richnotification",
             bot_id=api_id,
             bot_token=api_token,
             bot_usernames=(bot_username,),
-            callback_url=f"{web_app_url}/api/v1/cube/richnotification/callback",
+            callback_url=callback_url,
             timeout_seconds=timeout_seconds,
         )
 
@@ -70,7 +71,6 @@ class CubeMessageConfig:
         api_token = os.environ.get("CUBE_API_TOKEN", "")
         api_url = os.environ.get("CUBE_API_URL", DEFAULT_CUBE_API_URL).rstrip("/")
         bot_name = os.environ.get("CUBE_BOT_NAME", "ITC OSS")
-        web_app_url = os.environ.get("WEB_APP_URL", DEFAULT_WEB_APP_URL).rstrip("/")
         bot_usernames = tuple(
             name.strip() for name in os.environ.get("CUBE_BOT_USERNAMES", bot_name).split(",") if name.strip()
         )
@@ -80,10 +80,7 @@ class CubeMessageConfig:
             bot_id=os.environ.get("CUBE_BOT_ID", api_id),
             bot_token=os.environ.get("CUBE_BOT_TOKEN", api_token),
             bot_usernames=bot_usernames,
-            callback_url=os.environ.get(
-                "CUBE_RICHNOTIFICATION_CALLBACK_URL",
-                f"{web_app_url}/api/v1/cube/richnotification/callback",
-            ).rstrip("/"),
+            callback_url=os.environ.get("CUBE_RICHNOTIFICATION_CALLBACK_URL", ""),
             timeout_seconds=float(os.environ.get("CUBE_TIMEOUT_SECONDS", "10")),
         )
 

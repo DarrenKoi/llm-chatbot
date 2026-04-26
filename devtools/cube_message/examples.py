@@ -26,10 +26,13 @@ from devtools.cube_message.client import CubeMessageConfig, send_blocks, send_te
 
 # ---------------------------------------------------------------------------
 # 본인 정보로 직접 채운다. 커밋 전에 빈 문자열로 되돌릴 것.
+# callback_url은 봇 서비스마다 다르므로 전체 주소를 직접 적는다.
+# select 등 콜백을 쓰지 않는 예제만 보낼 거면 빈 문자열로 둬도 된다.
 CONFIG = CubeMessageConfig.inline(
     api_id="",
     api_token="",
     bot_username="ITC OSS",
+    callback_url="",
 )
 USER_ID = "your.cube.id"
 CHANNEL_ID = "your.channel.id"

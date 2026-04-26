@@ -36,7 +36,12 @@ from devtools.cube_message import blocks, send_blocks, send_text
 from devtools.cube_message.client import CubeMessageConfig
 
 # (A) 자격증명을 코드에 직접 적기
-CONFIG = CubeMessageConfig.inline(api_id="...", api_token="...")
+# callback_url은 봇 서비스마다 다르므로 전체 주소를 그대로 적는다 (선택).
+CONFIG = CubeMessageConfig.inline(
+    api_id="...",
+    api_token="...",
+    callback_url="https://my-bot.example.com/cube/callback",
+)
 
 # (B) .env에서 읽어오기
 # CONFIG = CubeMessageConfig.from_env()
@@ -56,7 +61,8 @@ send_blocks(
 ```
 
 `add_select`처럼 `requestid`가 있는 블록을 포함하면 `send_blocks`가 자동으로
-콜백 주소(`callback_url`)를 채워 넣는다. `config`를 생략하면 `from_env()`가 호출된다.
+`config.callback_url`을 채워 넣는다. 봇 서비스마다 콜백 주소가 다를 수 있으니
+전체 URL을 직접 지정한다. `config`를 생략하면 `from_env()`가 호출된다.
 
 ## (선택) `.env` 환경변수
 
@@ -68,5 +74,5 @@ send_blocks(
 | `CUBE_BOT_ID` / `CUBE_BOT_TOKEN`    | 별도 봇 사용 시. 비우면 `CUBE_API_*`로 대체        |
 | `CUBE_BOT_USERNAMES`                | 봇 표시 이름. 콤마로 다국어 분리 (선택)            |
 | `CUBE_RICHNOTIFICATION_URL`         | 엔드포인트 오버라이드 (선택)                       |
-| `CUBE_RICHNOTIFICATION_CALLBACK_URL`| select 등 콜백 주소 (선택)                         |
+| `CUBE_RICHNOTIFICATION_CALLBACK_URL`| select 등 콜백 전체 URL (봇 서비스마다 다름)        |
 | `CUBE_TIMEOUT_SECONDS`              | HTTP 타임아웃, 기본 10초 (선택)                    |
