@@ -137,17 +137,44 @@ def test_send_raw_content_replaces_header_and_fills_callback(mocker):
     assert raw[0]["process"]["callbackaddress"] == "", "원본은 변경되면 안 된다 (deepcopy 보장)"
 
 
-def test_samples_list_and_send_uses_raw_content(mocker):
+def test_samples_list_includes_known_probes():
+    available = samples.list_samples()
+
+    assert "text_baseline" in available
+    assert "approval_buttons" in available
+    assert "grid_table" in available
+
+
+def test_send_sample_dispatches_by_name(mocker):
     mock_post = mocker.patch(
         "devtools.cube_message.client.httpx.post",
         return_value=_response(),
     )
 
-    available = samples.list_samples()
-    assert 1 in available
-
-    samples.send_sample(1, user_id="u1", channel_id="c1", config=_config())
+    samples.send_sample("text_baseline", user_id="u1", channel_id="c1", config=_config())
 
     payload = mock_post.call_args.kwargs["json"]["richnotification"]
     assert payload["header"]["from"] == "bot-id"
     assert payload["content"][0]["body"]["row"][0]["column"][0]["type"] == "label"
+
+
+def test_send_sample_with_buttons_attaches_callback(mocker):
+    mock_post = mocker.patch(
+        "devtools.cube_message.client.httpx.post",
+        return_value=_response(),
+    )
+
+    samples.send_sample("approval_buttons", user_id="u1", channel_id="c1", config=_config())
+
+    process = mock_post.call_args.kwargs["json"]["richnotification"]["content"][0]["process"]
+    assert process["callbacktype"] == "url"
+    assert process["callbackaddress"] == "https://app.example.com/callback"
+    assert "AgreeButton" in process["requestid"]
+    assert "RejectButton" in process["requestid"]
+
+
+def test_send_sample_unknown_name_raises():
+    import pytest
+
+    with pytest.raises(ValueError, match="알 수 없는 샘플"):
+        samples.send_sample("does_not_exist", user_id="u1", channel_id="c1", config=_config())

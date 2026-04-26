@@ -123,20 +123,20 @@ def example_select_callback() -> None:
     )
 
 
-def example_verified_sample(number: int = 1) -> None:
-    """``richnotification_samples.md``에 있는 검증된 샘플을 그대로 전송.
+def example_rule_probe(name: str = "label_basics") -> None:
+    """``samples.py``의 규칙 탐색 샘플을 골라 Cube에 그대로 전송.
 
-    사용 가능한 번호는 ``samples.list_samples()``로 확인할 수 있다.
-    ``send_sample``은 헤더(from/token/to)만 ``CONFIG`` 값으로 채우고 본문은
-    문서의 JSON을 손대지 않는다.
+    각 샘플은 한두 개의 렌더링 변수(색상/너비/콜백 등)에 집중되어 있다.
+    실제 Cube 화면을 보고 ``richnotification_rule.txt``의 규칙을 좁혀 나간다.
     """
 
     available = samples.list_samples()
     print("사용 가능한 샘플:")
-    for num, title in available.items():
-        print(f"  {num}: {title}")
+    for sample_name, title in available.items():
+        marker = "→" if sample_name == name else " "
+        print(f"  {marker} {sample_name}: {title}")
 
-    samples.send_sample(number, user_id=USER_ID, channel_id=CHANNEL_ID, config=CONFIG)
+    samples.send_sample(name, user_id=USER_ID, channel_id=CHANNEL_ID, config=CONFIG)
 
 
 def main() -> None:
@@ -153,7 +153,11 @@ def main() -> None:
     # example_table()
     # example_hyperlink()
     # example_select_callback()
-    # example_verified_sample(1)
+    # example_rule_probe("label_basics")
+    # example_rule_probe("column_widths")
+    # example_rule_probe("grid_table")
+    # example_rule_probe("approval_buttons")
+    # example_rule_probe("hyperlink_card")
 
 
 if __name__ == "__main__":

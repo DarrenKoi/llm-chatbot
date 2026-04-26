@@ -11,7 +11,12 @@ Flask 앱(`api.config`)을 임포트하지 않고, 자격증명을 코드에 직
 | ------------- | ----------------------------------------------------------------- |
 | `blocks.py`   | text/table/hyperlink/select 등 블록 빌더                          |
 | `client.py`   | `.env` 로드 + `send_text` / `send_blocks` (실제 전송)             |
+| `samples.py`  | richnotification 규칙/한계 탐색용 standalone 샘플 (Python으로 작성) |
 | `examples.py` | 본인 ID를 채워 넣고 실행하는 샘플 모음 — **여기를 편집해 사용**   |
+
+`samples.py`는 외부 마크다운을 읽지 않고 모든 샘플 본문을 파이썬 딕셔너리로
+직접 구성한다. 각 샘플 함수는 한두 개의 렌더링 변수만 노출하도록 최소화되어
+있어, 결과를 보고 `richnotification_rule.txt`의 규칙을 좁혀 가는 데 쓴다.
 
 ## 사용법 (권장: 코드에 직접 자격증명 적기)
 
