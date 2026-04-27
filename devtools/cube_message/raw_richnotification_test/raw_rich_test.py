@@ -37,17 +37,33 @@ def resolve_richnotification_file(path_or_name: str | Path) -> Path:
     """Resolve either an absolute path or a name under raw_richnotification_test/."""
 
     path = Path(path_or_name)
+    candidates = [path]
     if not path.suffix:
-        path = path.with_suffix(".json")
-    if path.is_absolute() or path.exists():
-        return path
-    return RAW_RICHNOTIFICATION_TEST_DIR / path
+        candidates.append(path.with_suffix(".json"))
+    if not path.is_absolute():
+        candidates.append(RAW_RICHNOTIFICATION_TEST_DIR / path)
+        if not path.suffix:
+            candidates.append(RAW_RICHNOTIFICATION_TEST_DIR / path.with_suffix(".json"))
+
+    for candidate in candidates:
+        if candidate.exists():
+            return candidate
+    return path if path.is_absolute() else RAW_RICHNOTIFICATION_TEST_DIR / path
 
 
 def list_richnotification_files() -> list[Path]:
     """Return available raw richnotification JSON files."""
 
-    return sorted(RAW_RICHNOTIFICATION_TEST_DIR.glob("*.json"))
+    return sorted(
+        path
+        for path in RAW_RICHNOTIFICATION_TEST_DIR.iterdir()
+        if (
+            path.is_file()
+            and not path.name.startswith(".")
+            and path.name != "__init__.py"
+            and path.suffix in ("", ".json")
+        )
+    )
 
 
 def load_raw_richnotification(path_or_name: str | Path) -> dict[str, Any]:
@@ -118,7 +134,10 @@ def main() -> None:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Post a raw Cube richnotification JSON file.")
-    parser.add_argument("--file", help="JSON file name under raw_richnotification_test/ or an explicit path.")
+    parser.add_argument(
+        "--file",
+        help="JSON file name under raw_richnotification_test/ or an explicit path. .json is optional.",
+    )
     parser.add_argument("--user-id", help="Cube uniquename to replace in the header.")
     parser.add_argument("--channel-id", help="Cube channel id to replace in the header. Default is empty.")
     parser.add_argument(
@@ -131,7 +150,11 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Do not fill empty URL callback addresses from config.",
     )
-    parser.add_argument("--list", action="store_true", help="List available raw_richnotification_test/*.json files.")
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="List available raw richnotification sample files.",
+    )
     return parser.parse_args()
 
 

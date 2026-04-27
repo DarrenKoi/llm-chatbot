@@ -1,0 +1,64 @@
+{
+  "richnotification": {
+    "header": {
+      "from": "raw-placeholder-bot",
+      "token": "raw-placeholder-token",
+      "fromusername": ["Raw Test Bot", "", "", "", ""],
+      "to": {
+        "uniquename": ["target.user"],
+        "channelid": [""]
+      }
+    },
+    "content": [
+      {
+        "header": {},
+        "body": {
+          "bodystyle": "none",
+          "row": [
+            {
+              "bgcolor": "",
+              "border": false,
+              "align": "left",
+              "width": "100%",
+              "column": [
+                {
+                  "type": "label",
+                  "control": {
+                    "active": true,
+                    "text": ["확장자 없는 raw richnotification 샘플입니다.", "", "", "", ""],
+                    "color": "#000000"
+                  },
+                  "width": "100%",
+                  "align": "left",
+                  "valign": "middle",
+                  "border": false,
+                  "bgcolor": ""
+                }
+              ]
+            }
+          ]
+        },
+        "process": {
+          "callbacktype": "",
+          "callbackaddress": "",
+          "processdata": "",
+          "processtype": "",
+          "summary": ["extensionless raw sample", "", "", "", ""],
+          "session": {
+            "sessionid": "raw-rich-extensionless-sample",
+            "sequence": "1"
+          },
+          "mandatory": [],
+          "requestid": [
+            "cubeuniquename",
+            "cubechannelid",
+            "cubeaccountid",
+            "cubelanguagetype",
+            "cubemessageid"
+          ]
+        }
+      }
+    ],
+    "result": ""
+  }
+}

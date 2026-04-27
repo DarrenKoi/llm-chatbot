@@ -215,6 +215,20 @@ def test_raw_rich_test_send_raw_file_loads_named_example(mocker):
     assert rich["content"][0]["body"]["bodystyle"] == "grid"
 
 
+def test_raw_rich_test_loads_extensionless_sample_file():
+    raw = raw_richnotification_test.load_raw_richnotification("extensionless_sample")
+
+    session = raw["richnotification"]["content"][0]["process"]["session"]
+    assert session["sessionid"] == "raw-rich-extensionless-sample"
+
+
+def test_raw_rich_test_list_includes_json_and_extensionless_samples():
+    names = {path.name for path in raw_richnotification_test.list_richnotification_files()}
+
+    assert "text_summary.json" in names
+    assert "extensionless_sample" in names
+
+
 def test_prepare_raw_richnotification_requires_richnotification_object():
     with pytest.raises(CubeMessageError, match="richnotification"):
         prepare_raw_richnotification_payload({}, user_id="u1", channel_id="", config=_config())

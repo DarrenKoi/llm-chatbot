@@ -60,6 +60,9 @@ python -m devtools.cube_message.raw_richnotification_test --file text_summary.js
 python -m devtools.cube_message.raw_richnotification_test --list
 ```
 
+`--file`은 확장자 없는 샘플 이름도 그대로 받으며, 같은 이름이 없을 때만
+`.json` 파일을 fallback으로 찾는다.
+
 기본 동작은 JSON 파일의 `content`는 유지하고, 실제 전송에 필요한
 `header.from`, `header.token`, `header.fromusername`, `header.to`만 `.env` 설정과
 `--user-id` / `--channel-id` 값으로 교체한다. 파일의 header까지 그대로 보내야
