@@ -9,6 +9,8 @@ from api.conversation_service import ConversationStoreError, append_message
 from api.cube import rich_blocks
 from api.cube.chunker import plan_delivery
 from api.cube.client import CubeClientError, send_multimessage, send_richnotification, send_richnotification_blocks
+from api.cube.intent_renderer import intents_to_blocks
+from api.cube.intents import TextIntent
 from api.cube.models import CubeAcceptedMessage, CubeHandledMessage, CubeIncomingMessage, CubeQueuedMessage
 from api.cube.payload import extract_cube_request_fields
 from api.cube.queue import CubeQueueError, enqueue_incoming_message
@@ -367,20 +369,31 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
         )
         raise CubeUpstreamError("Workflow reply generation failed.") from exc
 
+    intents = workflow_result.intents
+    has_structured_intent = bool(intents) and any(not isinstance(i, TextIntent) for i in intents)
+
     try:
-        for item in plan_delivery(llm_reply):
-            if item.method == "rich":
-                _send_rich_delivery_item(
-                    user_id=incoming.user_id,
-                    channel_id=incoming.channel_id,
-                    kind=item.kind,
-                    content=item.content,
-                )
-            else:
-                send_multimessage(
-                    user_id=incoming.user_id,
-                    reply_message=item.content,
-                )
+        if has_structured_intent:
+            blocks = intents_to_blocks(intents)
+            send_richnotification_blocks(
+                *blocks,
+                user_id=incoming.user_id,
+                channel_id=incoming.channel_id,
+            )
+        else:
+            for item in plan_delivery(llm_reply):
+                if item.method == "rich":
+                    _send_rich_delivery_item(
+                        user_id=incoming.user_id,
+                        channel_id=incoming.channel_id,
+                        kind=item.kind,
+                        content=item.content,
+                    )
+                else:
+                    send_multimessage(
+                        user_id=incoming.user_id,
+                        reply_message=item.content,
+                    )
     except CubeClientError as exc:
         log_activity(
             "cube_reply_failed",

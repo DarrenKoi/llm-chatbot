@@ -224,7 +224,9 @@ def handle_message(incoming: CubeIncomingMessage, attempt: int = 0) -> WorkflowR
         reply_length=len(reply or ""),
     )
 
+    intents = result_state.values.get("reply_intents") if not result_state.tasks else None
     return WorkflowReply(
         reply=reply or "[start_chat] 처리 완료.",
         workflow_id=workflow_id,
+        intents=intents,
     )

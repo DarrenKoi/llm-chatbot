@@ -104,10 +104,11 @@ def _build_file_context(user_id: str) -> str:
 
 
 def generate_reply_node(state: StartChatState) -> dict:
-    """LLM을 호출하여 응답을 생성한다."""
+    """LLM을 호출하여 ReplyIntent를 받고, 평문/구조 블록을 함께 상태에 적재한다."""
 
     from api.conversation_service import get_history
-    from api.llm.service import generate_reply
+    from api.cube.intents import TextIntent
+    from api.llm.service import generate_reply_intent
     from api.workflows.start_chat.prompts import START_CHAT_CONTEXT_TEMPLATE
 
     user_id = state.get("user_id", "")
@@ -137,13 +138,21 @@ def generate_reply_node(state: StartChatState) -> dict:
     else:
         augmented_message = user_message
 
-    reply = generate_reply(
+    reply_intent = generate_reply_intent(
         history=history,
         user_message=augmented_message,
         user_profile_text=profile_summary,
     )
 
-    return {"messages": [AIMessage(content=reply)]}
+    text_fallback = "\n\n".join(block.text for block in reply_intent.blocks if isinstance(block, TextIntent)).strip()
+    if not text_fallback:
+        text_fallback = "[start_chat] 처리 완료."
+
+    has_structured = any(not isinstance(block, TextIntent) for block in reply_intent.blocks)
+    return {
+        "messages": [AIMessage(content=text_fallback)],
+        "reply_intents": list(reply_intent.blocks) if has_structured else None,
+    }
 
 
 def _route_after_classify(state: StartChatState) -> str:

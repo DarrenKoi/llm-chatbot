@@ -37,9 +37,7 @@ _ASK_TARGET_REPLY = (
 # "de", "es", "fr", "th", "vi" collide with ordinary words in user text and
 # would otherwise be stripped out by _extract_source_text.
 _TARGET_LANGUAGE_ALIASES = {
-    k: v
-    for k, v in LANGUAGE_ALIASES.items()
-    if v in _TARGET_LANGUAGES and not (k.isascii() and len(k) <= 2)
+    k: v for k, v in LANGUAGE_ALIASES.items() if v in _TARGET_LANGUAGES and not (k.isascii() and len(k) <= 2)
 }
 _TARGET_LANGUAGE_ALIASES_SORTED = sorted(_TARGET_LANGUAGE_ALIASES.items(), key=lambda item: len(item[0]), reverse=True)
 _QUOTED_TEXT_PATTERN = re.compile(r"""["']([^"']+)["']""")

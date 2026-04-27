@@ -18,6 +18,19 @@ Flask 앱(`api.config`)을 임포트하지 않고, 자격증명을 코드에 직
 직접 구성한다. 각 샘플 함수는 한두 개의 렌더링 변수만 노출하도록 최소화되어
 있어, 결과를 보고 `richnotification_rule.txt`의 규칙을 좁혀 가는 데 쓴다.
 
+샘플은 두 갈래가 섞여 있다:
+
+- **standalone 샘플**: `devtools/cube_message/blocks.py`만 사용 — `text_baseline`,
+  `label_basics`, `column_widths`, `grid_table`, `approval_buttons`,
+  `hyperlink_card`. `api/`에 의존하지 않는다.
+- **production 헬퍼 probe**: `api/cube/rich_blocks.py`의 `add_button` /
+  `add_choice` / `add_input` / `add_textarea` / `add_select` / `add_datepicker`
+  / `add_datetimepicker` / `add_image`를 직접 호출 — `buttons_basic`,
+  `radio_choice`, `checkbox_choice`, `select_dropdown`, `input_field`,
+  `textarea_field`, `datepicker_basic`, `datetimepicker_basic`, `image_basic`,
+  `mixed_form`. `rich_blocks` 모듈은 `api.config`나 Flask 상태에 의존하지 않는
+  순수 스키마 모듈이라 devtools에서 임포트해도 standalone 원칙을 깨지 않는다.
+
 ## 사용법 (권장: 코드에 직접 자격증명 적기)
 
 `examples.py`를 열고 상단의 `CONFIG`, `USER_ID`, `CHANNEL_ID`를 본인 정보로

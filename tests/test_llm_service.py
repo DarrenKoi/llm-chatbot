@@ -2,8 +2,15 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from api import config
+from api.cube.intents import ChoiceIntent, ReplyIntent, TextIntent
 from api.llm.prompt import DEFAULT_SYSTEM_PROMPT, get_system_prompt
-from api.llm.service import LLMServiceError, _build_messages, _extract_content, generate_json_reply
+from api.llm.service import (
+    LLMServiceError,
+    _build_messages,
+    _extract_content,
+    generate_json_reply,
+    generate_reply_intent,
+)
 
 
 def test_build_messages_includes_system_prompt_and_history(monkeypatch):
@@ -124,3 +131,78 @@ def test_generate_json_reply_raises_for_invalid_json(mocker, monkeypatch):
 
     with pytest.raises(LLMServiceError, match="LLM JSON reply is invalid"):
         generate_json_reply(system_prompt="system", user_prompt="user")
+
+
+def _stub_llm_env(monkeypatch):
+    monkeypatch.setattr("api.config.LLM_BASE_URL", "https://llm.example.com/v1")
+    monkeypatch.setattr("api.config.LLM_MODEL", "gpt-test")
+
+
+def test_generate_reply_intent_uses_structured_output_when_supported(mocker, monkeypatch):
+    _stub_llm_env(monkeypatch)
+
+    structured_llm = mocker.Mock()
+    structured_llm.invoke.return_value = ReplyIntent(
+        blocks=[
+            TextIntent(text="형식을 골라주세요."),
+            ChoiceIntent(
+                question="형식",
+                options=[{"label": "PDF", "value": "pdf"}, {"label": "엑셀", "value": "xlsx"}],
+                processid="SelectFormat",
+            ),
+        ]
+    )
+    mock_llm = mocker.Mock()
+    mock_llm.with_structured_output.return_value = structured_llm
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    intent = generate_reply_intent(history=[], user_message="PDF로 받을까요 엑셀로 받을까요?")
+
+    assert isinstance(intent, ReplyIntent)
+    assert intent.blocks[0].kind == "text"
+    assert intent.blocks[1].kind == "choice"
+    mock_llm.invoke.assert_not_called()
+
+
+def test_generate_reply_intent_falls_back_to_json_in_text(mocker, monkeypatch):
+    _stub_llm_env(monkeypatch)
+
+    structured_llm = mocker.Mock()
+    structured_llm.invoke.side_effect = RuntimeError("tool calling not supported")
+    mock_llm = mocker.Mock()
+    mock_llm.with_structured_output.return_value = structured_llm
+    mock_llm.invoke.return_value = mocker.Mock(content='```json\n{"blocks":[{"kind":"text","text":"안녕하세요"}]}\n```')
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    intent = generate_reply_intent(history=[], user_message="안녕")
+
+    assert intent.blocks == [TextIntent(text="안녕하세요")]
+
+
+def test_generate_reply_intent_wraps_unparseable_text_as_text_intent(mocker, monkeypatch):
+    _stub_llm_env(monkeypatch)
+
+    structured_llm = mocker.Mock()
+    structured_llm.invoke.side_effect = RuntimeError("nope")
+    mock_llm = mocker.Mock()
+    mock_llm.with_structured_output.return_value = structured_llm
+    mock_llm.invoke.return_value = mocker.Mock(content="평문 답변, JSON 아님")
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    intent = generate_reply_intent(history=[], user_message="아무거나")
+
+    assert intent.blocks == [TextIntent(text="평문 답변, JSON 아님")]
+
+
+def test_generate_reply_intent_raises_on_total_llm_failure(mocker, monkeypatch):
+    _stub_llm_env(monkeypatch)
+
+    structured_llm = mocker.Mock()
+    structured_llm.invoke.side_effect = RuntimeError("structured failed")
+    mock_llm = mocker.Mock()
+    mock_llm.with_structured_output.return_value = structured_llm
+    mock_llm.invoke.side_effect = RuntimeError("free-text invoke also failed")
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    with pytest.raises(LLMServiceError, match="LLM request failed"):
+        generate_reply_intent(history=[], user_message="x")

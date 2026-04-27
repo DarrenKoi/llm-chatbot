@@ -1,4 +1,5 @@
 import httpx
+import pytest
 
 from devtools.cube_message import blocks, samples
 from devtools.cube_message.client import (
@@ -174,7 +175,93 @@ def test_send_sample_with_buttons_attaches_callback(mocker):
 
 
 def test_send_sample_unknown_name_raises():
-    import pytest
-
     with pytest.raises(ValueError, match="알 수 없는 샘플"):
         samples.send_sample("does_not_exist", user_id="u1", channel_id="c1", config=_config())
+
+
+# --- Production block probe smoke tests ----------------------------------
+
+
+PROD_PROBES = [
+    "buttons_basic",
+    "radio_choice",
+    "checkbox_choice",
+    "select_dropdown",
+    "input_field",
+    "textarea_field",
+    "datepicker_basic",
+    "datetimepicker_basic",
+    "image_basic",
+    "mixed_form",
+]
+
+
+@pytest.mark.parametrize("probe", PROD_PROBES)
+def test_production_probe_posts_valid_payload(mocker, probe):
+    mock_post = mocker.patch(
+        "devtools.cube_message.client.httpx.post",
+        return_value=_response(),
+    )
+
+    samples.send_sample(probe, user_id="u1", channel_id="c1", config=_config())
+
+    payload = mock_post.call_args.kwargs["json"]["richnotification"]
+    assert payload["header"]["from"] == "bot-id"
+    assert payload["header"]["to"]["uniquename"] == ["u1"]
+    assert payload["content"], f"{probe}: content array should not be empty"
+    assert payload["content"][0]["body"]["row"], f"{probe}: should have at least one row"
+
+
+def test_radio_choice_uses_radio_cells_not_checkbox(mocker):
+    mock_post = mocker.patch(
+        "devtools.cube_message.client.httpx.post",
+        return_value=_response(),
+    )
+
+    samples.send_sample("radio_choice", user_id="u1", channel_id="c1", config=_config())
+
+    rows = mock_post.call_args.kwargs["json"]["richnotification"]["content"][0]["body"]["row"]
+    cell_types = {col["type"] for row in rows for col in row["column"]}
+    assert "radio" in cell_types
+    assert "checkbox" not in cell_types
+
+
+def test_checkbox_choice_uses_checkbox_cells(mocker):
+    mock_post = mocker.patch(
+        "devtools.cube_message.client.httpx.post",
+        return_value=_response(),
+    )
+
+    samples.send_sample("checkbox_choice", user_id="u1", channel_id="c1", config=_config())
+
+    rows = mock_post.call_args.kwargs["json"]["richnotification"]["content"][0]["body"]["row"]
+    cell_types = {col["type"] for row in rows for col in row["column"]}
+    assert "checkbox" in cell_types
+    assert "radio" not in cell_types
+
+
+def test_datepicker_default_value_propagates(mocker):
+    mock_post = mocker.patch(
+        "devtools.cube_message.client.httpx.post",
+        return_value=_response(),
+    )
+
+    samples.send_sample("datepicker_basic", user_id="u1", channel_id="c1", config=_config())
+
+    rows = mock_post.call_args.kwargs["json"]["richnotification"]["content"][0]["body"]["row"]
+    datepicker_cell = next(col for row in rows for col in row["column"] if col["type"] == "datepicker")
+    assert datepicker_cell["control"]["value"] == "2026/05/01"
+
+
+def test_mixed_form_attaches_callback_and_aggregates_request_ids(mocker):
+    mock_post = mocker.patch(
+        "devtools.cube_message.client.httpx.post",
+        return_value=_response(),
+    )
+
+    samples.send_sample("mixed_form", user_id="u1", channel_id="c1", config=_config())
+
+    process = mock_post.call_args.kwargs["json"]["richnotification"]["content"][0]["process"]
+    assert process["callbackaddress"] == "https://app.example.com/callback"
+    for expected_pid in ("SelectRoom", "SelectDateTime", "InputCount", "SendButton"):
+        assert expected_pid in process["requestid"], f"{expected_pid} missing from requestid"

@@ -5,8 +5,10 @@ from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
+from pydantic import ValidationError
 
 from api import config
+from api.cube.intents import ReplyIntent, TextIntent
 from api.llm.prompt import get_system_prompt
 
 logger = logging.getLogger(__name__)
@@ -42,6 +44,56 @@ def generate_reply(
         logger.error("LLM 응답이 비어 있음: model=%s", config.LLM_MODEL)
         raise LLMServiceError("LLM reply is empty.")
     return reply
+
+
+def generate_reply_intent(
+    *,
+    history: list[dict[str, Any]],
+    user_message: str,
+    user_profile_text: str = "",
+) -> ReplyIntent:
+    """LLM에게 ``ReplyIntent`` 형태의 응답을 요청한다.
+
+    1) ``with_structured_output``으로 Pydantic 스키마 강제. 도구 호출이 가능한
+       모델은 여기서 끝난다.
+    2) 실패 시 평문 응답에서 JSON 블록을 정규식으로 추출해 검증.
+    3) 둘 다 실패하면 평문 전체를 단일 ``TextIntent``로 감싸 반환 — 어떤 경우에도
+       사용자에게 응답이 가도록 보장한다.
+    """
+
+    llm = _get_llm()
+    messages = _build_messages(
+        history=history,
+        user_message=user_message,
+        user_profile_text=user_profile_text,
+    )
+
+    try:
+        structured = llm.with_structured_output(ReplyIntent).invoke(messages)
+    except Exception:
+        logger.warning("structured output 실패, 평문 fallback으로 전환", exc_info=True)
+    else:
+        if isinstance(structured, ReplyIntent):
+            return structured
+
+    try:
+        response = llm.invoke(messages)
+    except Exception as exc:
+        logger.exception("LLM 응답 생성 실패: model=%s", config.LLM_MODEL)
+        raise LLMServiceError(f"LLM request failed: {exc}") from exc
+
+    raw_text = _extract_content(response.content)
+    if not raw_text:
+        raise LLMServiceError("LLM reply is empty.")
+
+    match = _JSON_BLOCK_PATTERN.search(raw_text)
+    if match:
+        try:
+            return ReplyIntent.model_validate_json(match.group(1))
+        except ValidationError:
+            logger.warning("JSON-in-text ReplyIntent 검증 실패, 텍스트 fallback")
+
+    return ReplyIntent(blocks=[TextIntent(text=raw_text)])
 
 
 def generate_json_reply(

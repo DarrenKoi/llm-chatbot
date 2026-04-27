@@ -8,6 +8,8 @@ from typing import Annotated, TypedDict
 
 from langgraph.graph import add_messages
 
+from api.cube.intents import BlockIntent
+
 
 class ChatState(TypedDict, total=False):
     """모든 LangGraph 워크플로가 공유하는 기본 상태."""
@@ -18,3 +20,6 @@ class ChatState(TypedDict, total=False):
     user_message: str
     conversation_ended: bool
     pending_reply: str
+    # richnotification 경로용. ``None``/미설정이면 평문 chunker로 보낸다.
+    # LangGraph가 빌드 시점에 type hints를 평가하므로 BlockIntent를 런타임에 임포트한다.
+    reply_intents: list[BlockIntent] | None
