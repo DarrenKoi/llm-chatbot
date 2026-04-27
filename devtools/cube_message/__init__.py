@@ -6,6 +6,7 @@ from devtools.cube_message.client import (
     CubeMessageError,
     send_blocks,
     send_raw_content,
+    send_raw_richnotification,
     send_text,
 )
 
@@ -16,5 +17,6 @@ __all__ = [
     "samples",
     "send_blocks",
     "send_raw_content",
+    "send_raw_richnotification",
     "send_text",
 ]

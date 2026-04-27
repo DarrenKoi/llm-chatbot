@@ -165,12 +165,7 @@ def send_raw_content(
     items: list[dict[str, Any]] = list(content_items)
     if fill_callback:
         items = [copy.deepcopy(item) for item in items]
-        for item in items:
-            process = item.get("process")
-            if not isinstance(process, dict):
-                continue
-            if process.get("callbacktype") == "url" and not process.get("callbackaddress"):
-                process["callbackaddress"] = cfg.callback_url
+        _fill_callback_addresses(items, cfg.callback_url)
 
     payload = rich_blocks.build_richnotification(
         from_id=cfg.bot_id,
@@ -181,6 +176,71 @@ def send_raw_content(
         content_items=items,
     )
     return _post(cfg.richnotification_url, payload, cfg.timeout_seconds)
+
+
+def send_raw_richnotification(
+    payload: dict[str, Any],
+    *,
+    user_id: str | None = None,
+    channel_id: str | None = None,
+    fill_header: bool = True,
+    fill_callback: bool = True,
+    config: CubeMessageConfig | None = None,
+) -> dict[str, Any] | None:
+    """Post a complete raw richnotification JSON payload.
+
+    By default, the top-level Cube header is replaced with runtime config and
+    target values, while the raw ``content`` array from the JSON file is kept
+    intact. Set ``fill_header=False`` to post the file header exactly as-is.
+    """
+
+    cfg = config or CubeMessageConfig.from_env()
+    prepared = prepare_raw_richnotification_payload(
+        payload,
+        user_id=user_id,
+        channel_id=channel_id,
+        fill_header=fill_header,
+        fill_callback=fill_callback,
+        config=cfg,
+    )
+    return _post(cfg.richnotification_url, prepared, cfg.timeout_seconds)
+
+
+def prepare_raw_richnotification_payload(
+    payload: dict[str, Any],
+    *,
+    user_id: str | None = None,
+    channel_id: str | None = None,
+    fill_header: bool = True,
+    fill_callback: bool = True,
+    config: CubeMessageConfig,
+) -> dict[str, Any]:
+    """Return a POST-ready copy of a raw richnotification payload."""
+
+    _require(config.richnotification_url, "CUBE_RICHNOTIFICATION_URL")
+
+    prepared = copy.deepcopy(payload)
+    rich = _coerce_richnotification(prepared)
+
+    if fill_header:
+        _require(config.bot_id, "CUBE_BOT_ID")
+        _require(config.bot_token, "CUBE_BOT_TOKEN")
+        _require(user_id or "", "user_id")
+        rich["header"] = {
+            "from": config.bot_id,
+            "token": config.bot_token,
+            "fromusername": _lang5_config_values(config.bot_usernames),
+            "to": {
+                "uniquename": [user_id],
+                "channelid": [channel_id or ""],
+            },
+        }
+
+    content = rich.get("content")
+    if fill_callback and isinstance(content, list):
+        _fill_callback_addresses(content, config.callback_url)
+
+    return prepared
 
 
 def _post(url: str, payload: dict[str, Any], timeout: float) -> dict[str, Any] | None:
@@ -210,6 +270,27 @@ def _post(url: str, payload: dict[str, Any], timeout: float) -> dict[str, Any] |
 def _require(value: str, name: str) -> None:
     if not value:
         raise CubeMessageError(f"{name}이(가) 설정되지 않았습니다.")
+
+
+def _coerce_richnotification(payload: dict[str, Any]) -> dict[str, Any]:
+    rich = payload.get("richnotification")
+    if isinstance(rich, dict):
+        return rich
+    raise CubeMessageError("raw richnotification JSON must contain a 'richnotification' object.")
+
+
+def _fill_callback_addresses(content_items: list[dict[str, Any]], callback_url: str) -> None:
+    for item in content_items:
+        process = item.get("process")
+        if not isinstance(process, dict):
+            continue
+        if process.get("callbacktype") == "url" and not process.get("callbackaddress"):
+            process["callbackaddress"] = callback_url
+
+
+def _lang5_config_values(values: tuple[str, ...]) -> list[str]:
+    padded = list(values) + [""] * rich_blocks.LANG_COUNT
+    return padded[: rich_blocks.LANG_COUNT]
 
 
 def _load_env(env_file: Path | None) -> None:

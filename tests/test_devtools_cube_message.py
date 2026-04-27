@@ -1,11 +1,14 @@
 import httpx
 import pytest
 
-from devtools.cube_message import blocks, samples
+from devtools.cube_message import blocks, raw_rich_test, samples
 from devtools.cube_message.client import (
     CubeMessageConfig,
+    CubeMessageError,
+    prepare_raw_richnotification_payload,
     send_blocks,
     send_raw_content,
+    send_raw_richnotification,
     send_text,
 )
 
@@ -136,6 +139,85 @@ def test_send_raw_content_replaces_header_and_fills_callback(mocker):
     assert payload["header"]["to"]["uniquename"] == ["u1"]
     assert payload["content"][0]["process"]["callbackaddress"] == "https://app.example.com/callback"
     assert raw[0]["process"]["callbackaddress"] == "", "원본은 변경되면 안 된다 (deepcopy 보장)"
+
+
+def test_prepare_raw_richnotification_replaces_header_and_allows_empty_channel():
+    raw = {
+        "richnotification": {
+            "header": {
+                "from": "old-bot",
+                "token": "old-token",
+                "fromusername": ["Old Bot"],
+                "to": {"uniquename": ["old-user"], "channelid": ["old-channel"]},
+            },
+            "content": [
+                {
+                    "header": {},
+                    "body": {"bodystyle": "none", "row": []},
+                    "process": {
+                        "callbacktype": "url",
+                        "callbackaddress": "",
+                        "requestid": ["SomeRequest"],
+                    },
+                }
+            ],
+            "result": "",
+        }
+    }
+
+    prepared = prepare_raw_richnotification_payload(
+        raw,
+        user_id="u1",
+        channel_id="",
+        config=_config(),
+    )
+
+    rich = prepared["richnotification"]
+    assert rich["header"]["from"] == "bot-id"
+    assert rich["header"]["token"] == "bot-token"
+    assert rich["header"]["fromusername"] == ["Bot", "", "", "", ""]
+    assert rich["header"]["to"] == {"uniquename": ["u1"], "channelid": [""]}
+    assert rich["content"][0]["process"]["callbackaddress"] == "https://app.example.com/callback"
+    assert raw["richnotification"]["header"]["from"] == "old-bot"
+    assert raw["richnotification"]["content"][0]["process"]["callbackaddress"] == ""
+
+
+def test_send_raw_richnotification_posts_complete_payload(mocker):
+    mock_post = mocker.patch(
+        "devtools.cube_message.client.httpx.post",
+        return_value=_response(),
+    )
+    raw = raw_rich_test.load_raw_richnotification("text_summary.json")
+
+    send_raw_richnotification(raw, user_id="u1", channel_id="", config=_config())
+
+    payload = mock_post.call_args.kwargs["json"]
+    rich = payload["richnotification"]
+    assert rich["header"]["to"] == {"uniquename": ["u1"], "channelid": [""]}
+    assert rich["content"][0]["process"]["session"]["sessionid"] == "raw-rich-text-summary"
+    assert raw["richnotification"]["header"]["from"] == "raw-placeholder-bot"
+
+
+def test_raw_rich_test_defaults_channel_id_to_empty_string():
+    assert raw_rich_test.CHANNEL_ID == ""
+
+
+def test_raw_rich_test_send_raw_file_loads_named_example(mocker):
+    mock_post = mocker.patch(
+        "devtools.cube_message.client.httpx.post",
+        return_value=_response(),
+    )
+
+    raw_rich_test.send_raw_file("grid_table", user_id="u1", config=_config())
+
+    rich = mock_post.call_args.kwargs["json"]["richnotification"]
+    assert rich["header"]["to"]["channelid"] == [""]
+    assert rich["content"][0]["body"]["bodystyle"] == "grid"
+
+
+def test_prepare_raw_richnotification_requires_richnotification_object():
+    with pytest.raises(CubeMessageError, match="richnotification"):
+        prepare_raw_richnotification_payload({}, user_id="u1", channel_id="", config=_config())
 
 
 def test_samples_list_includes_known_probes():

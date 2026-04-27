@@ -1,0 +1,85 @@
+{
+  "richnotification": {
+    "header": {
+      "from": "raw-placeholder-bot",
+      "token": "raw-placeholder-token",
+      "fromusername": ["Raw Test Bot", "", "", "", ""],
+      "to": {
+        "uniquename": ["target.user"],
+        "channelid": [""]
+      }
+    },
+    "content": [
+      {
+        "header": {},
+        "body": {
+          "bodystyle": "none",
+          "row": [
+            {
+              "bgcolor": "",
+              "border": false,
+              "align": "center",
+              "width": "100%",
+              "column": [
+                {
+                  "type": "label",
+                  "control": {
+                    "active": true,
+                    "text": ["Raw richnotification 테스트", "", "", "", ""],
+                    "color": "#0066cc"
+                  },
+                  "width": "100%",
+                  "align": "center",
+                  "valign": "middle",
+                  "border": false,
+                  "bgcolor": ""
+                }
+              ]
+            },
+            {
+              "bgcolor": "",
+              "border": false,
+              "align": "left",
+              "width": "100%",
+              "column": [
+                {
+                  "type": "label",
+                  "control": {
+                    "active": true,
+                    "text": ["JSON 파일 전체를 그대로 POST하는 샘플입니다.", "", "", "", ""],
+                    "color": "#000000"
+                  },
+                  "width": "100%",
+                  "align": "left",
+                  "valign": "middle",
+                  "border": false,
+                  "bgcolor": ""
+                }
+              ]
+            }
+          ]
+        },
+        "process": {
+          "callbacktype": "",
+          "callbackaddress": "",
+          "processdata": "",
+          "processtype": "",
+          "summary": ["raw text summary", "", "", "", ""],
+          "session": {
+            "sessionid": "raw-rich-text-summary",
+            "sequence": "1"
+          },
+          "mandatory": [],
+          "requestid": [
+            "cubeuniquename",
+            "cubechannelid",
+            "cubeaccountid",
+            "cubelanguagetype",
+            "cubemessageid"
+          ]
+        }
+      }
+    ],
+    "result": ""
+  }
+}

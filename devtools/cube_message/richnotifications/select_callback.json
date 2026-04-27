@@ -1,0 +1,109 @@
+{
+  "richnotification": {
+    "header": {
+      "from": "raw-placeholder-bot",
+      "token": "raw-placeholder-token",
+      "fromusername": ["Raw Test Bot", "", "", "", ""],
+      "to": {
+        "uniquename": ["target.user"],
+        "channelid": [""]
+      }
+    },
+    "content": [
+      {
+        "header": {},
+        "body": {
+          "bodystyle": "none",
+          "row": [
+            {
+              "bgcolor": "",
+              "border": false,
+              "align": "left",
+              "width": "100%",
+              "column": [
+                {
+                  "type": "label",
+                  "control": {
+                    "active": true,
+                    "text": ["원하는 처리 방식을 선택해 주세요.", "", "", "", ""],
+                    "color": "#000000"
+                  },
+                  "width": "100%",
+                  "align": "left",
+                  "valign": "middle",
+                  "border": false,
+                  "bgcolor": ""
+                }
+              ]
+            },
+            {
+              "bgcolor": "",
+              "border": false,
+              "align": "left",
+              "width": "100%",
+              "column": [
+                {
+                  "type": "select",
+                  "control": {
+                    "processid": "RawSelectAction",
+                    "active": true,
+                    "text": ["처리 방식", "", "", "", ""],
+                    "item": [
+                      {
+                        "text": ["승인", "", "", "", ""],
+                        "value": "approve",
+                        "selected": true
+                      },
+                      {
+                        "text": ["보류", "", "", "", ""],
+                        "value": "hold",
+                        "selected": false
+                      },
+                      {
+                        "text": ["반려", "", "", "", ""],
+                        "value": "reject",
+                        "selected": false
+                      }
+                    ]
+                  },
+                  "width": "100%",
+                  "align": "left",
+                  "valign": "middle",
+                  "border": false,
+                  "bgcolor": ""
+                }
+              ]
+            }
+          ]
+        },
+        "process": {
+          "callbacktype": "url",
+          "callbackaddress": "",
+          "processdata": "",
+          "processtype": "",
+          "summary": ["raw select callback", "", "", "", ""],
+          "session": {
+            "sessionid": "raw-rich-select-callback",
+            "sequence": "1"
+          },
+          "mandatory": [
+            {
+              "requestid": "RawSelectAction",
+              "required": true,
+              "alertmsg": ["처리 방식을 선택해야 합니다.", "", "", "", ""]
+            }
+          ],
+          "requestid": [
+            "RawSelectAction",
+            "cubeuniquename",
+            "cubechannelid",
+            "cubeaccountid",
+            "cubelanguagetype",
+            "cubemessageid"
+          ]
+        }
+      }
+    ],
+    "result": ""
+  }
+}

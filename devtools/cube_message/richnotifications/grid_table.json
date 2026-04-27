@@ -1,0 +1,137 @@
+{
+  "richnotification": {
+    "header": {
+      "from": "raw-placeholder-bot",
+      "token": "raw-placeholder-token",
+      "fromusername": ["Raw Test Bot", "", "", "", ""],
+      "to": {
+        "uniquename": ["target.user"],
+        "channelid": [""]
+      }
+    },
+    "content": [
+      {
+        "header": {},
+        "body": {
+          "bodystyle": "grid",
+          "row": [
+            {
+              "bgcolor": "#d9eaf7",
+              "border": true,
+              "align": "center",
+              "width": "100%",
+              "column": [
+                {
+                  "type": "label",
+                  "control": {
+                    "active": true,
+                    "text": ["항목", "", "", "", ""],
+                    "color": "#000000"
+                  },
+                  "width": "34%",
+                  "align": "center",
+                  "valign": "middle",
+                  "border": true,
+                  "bgcolor": "#d9eaf7"
+                },
+                {
+                  "type": "label",
+                  "control": {
+                    "active": true,
+                    "text": ["상태", "", "", "", ""],
+                    "color": "#000000"
+                  },
+                  "width": "33%",
+                  "align": "center",
+                  "valign": "middle",
+                  "border": true,
+                  "bgcolor": "#d9eaf7"
+                },
+                {
+                  "type": "label",
+                  "control": {
+                    "active": true,
+                    "text": ["담당", "", "", "", ""],
+                    "color": "#000000"
+                  },
+                  "width": "33%",
+                  "align": "center",
+                  "valign": "middle",
+                  "border": true,
+                  "bgcolor": "#d9eaf7"
+                }
+              ]
+            },
+            {
+              "bgcolor": "#ffffff",
+              "border": true,
+              "align": "left",
+              "width": "100%",
+              "column": [
+                {
+                  "type": "label",
+                  "control": {
+                    "active": true,
+                    "text": ["배치 점검", "", "", "", ""],
+                    "color": "#000000"
+                  },
+                  "width": "34%",
+                  "align": "left",
+                  "valign": "middle",
+                  "border": true,
+                  "bgcolor": "#ffffff"
+                },
+                {
+                  "type": "label",
+                  "control": {
+                    "active": true,
+                    "text": ["완료", "", "", "", ""],
+                    "color": "#008a22"
+                  },
+                  "width": "33%",
+                  "align": "center",
+                  "valign": "middle",
+                  "border": true,
+                  "bgcolor": "#ffffff"
+                },
+                {
+                  "type": "label",
+                  "control": {
+                    "active": true,
+                    "text": ["ITC OSS", "", "", "", ""],
+                    "color": "#000000"
+                  },
+                  "width": "33%",
+                  "align": "left",
+                  "valign": "middle",
+                  "border": true,
+                  "bgcolor": "#ffffff"
+                }
+              ]
+            }
+          ]
+        },
+        "process": {
+          "callbacktype": "",
+          "callbackaddress": "",
+          "processdata": "",
+          "processtype": "",
+          "summary": ["raw grid table", "", "", "", ""],
+          "session": {
+            "sessionid": "raw-rich-grid-table",
+            "sequence": "1"
+          },
+          "mandatory": [],
+          "requestid": [
+            "cubeuniquename",
+            "cubechannelid",
+            "cubeaccountid",
+            "cubelanguagetype",
+            "cubemessageid"
+          ]
+        }
+      }
+    ],
+    "result": ""
+  }
+}
