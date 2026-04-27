@@ -48,7 +48,7 @@ def build_cube_message_config() -> CubeMessageConfig:
 
     base = CubeMessageConfig.from_env()
     return CubeMessageConfig(
-        richnotification_url=raw_config.RICHNOTIFICATION_URL or base.richnotification_url,
+        richnotification_url=base.richnotification_url,
         bot_id=raw_config.HEADER_FROM or base.bot_id,
         bot_token=raw_config.HEADER_TOKEN or base.bot_token,
         bot_usernames=_configured_usernames(base.bot_usernames),

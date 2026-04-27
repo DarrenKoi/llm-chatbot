@@ -15,11 +15,10 @@ Cube `richnotification` payload JSON 파일을 **그대로** Cube에 POST해서 
 
 ## 빠른 사용법
 
-1. **`config.py`를 채운다.** Cube API URL, 봇 ID/토큰, 본인 Cube `uniquename`이 필요하다. 비어 있는 값은 프로젝트 루트의 `.env`에서 자동 보충된다 (`CubeMessageConfig.from_env()`).
+1. **`config.py`를 채운다.** 봇 ID/토큰과 본인 Cube `uniquename`이 필요하다. 비어 있는 값은 프로젝트 루트의 `.env`에서 자동 보충된다 (`CubeMessageConfig.from_env()`). richnotification URL은 `client.py`의 `DEFAULT_CUBE_API_URL`에서 자동으로 가져오므로 따로 설정하지 않는다.
 
    ```python
    # config.py
-   RICHNOTIFICATION_URL = ""           # 비우면 .env의 CUBE_RICHNOTIFICATION_URL 사용
    HEADER_FROM = ""                    # 봇 ID
    HEADER_TOKEN = ""                   # 봇 토큰
    HEADER_FROMUSERNAME = ("ITC OSS",)  # 봇 표시 이름
@@ -86,6 +85,5 @@ def sample_my_payload() -> None:
 ## 트러블슈팅
 
 - **`config.py의 HEADER_TO_UNIQUENAME을 본인 Cube ID로 바꿔야 실행할 수 있습니다.`** → `HEADER_TO_UNIQUENAME`이 `your.cube.id` 그대로다. 본인 Cube ID로 교체.
-- **`CUBE_RICHNOTIFICATION_URL이(가) 설정되지 않았습니다.`** → `config.py`의 `RICHNOTIFICATION_URL` 또는 `.env`의 `CUBE_RICHNOTIFICATION_URL`을 채운다.
 - **`raw richnotification 파일은 'richnotification' 객체를 포함해야 합니다.`** → 최상위가 `{"richnotification": {...}}` 인지 확인.
 - **`Cube richnotification HTTP 4xx`** → 봇 ID/토큰, `to.uniquename` 값을 확인. 사내망에서만 도달 가능한 URL이라면 사무실 환경에서 실행해야 한다.

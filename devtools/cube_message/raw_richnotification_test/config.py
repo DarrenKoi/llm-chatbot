@@ -3,7 +3,6 @@
 Edit these values for quick local runs. Do not commit real tokens.
 """
 
-RICHNOTIFICATION_URL = ""
 TIMEOUT_SECONDS = 10.0
 
 # richnotification.header
