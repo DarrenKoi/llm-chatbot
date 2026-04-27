@@ -8,14 +8,18 @@
 
        python raw_rich_test.py
 
-각 샘플은 같은 디렉터리의 JSON(또는 확장자 없는) 파일을 읽어 ``richnotification``
-헤더/콜백 주소만 ``config.py`` 값으로 채운 뒤 그대로 POST한다.
+각 샘플은 ``samples/`` 디렉터리의 JSON(또는 확장자 없는) 파일을 읽어
+``richnotification`` 헤더/콜백 주소만 ``config.py`` 값으로 채운 뒤 그대로 POST한다.
+
+여러 샘플을 한 번에 검증하고 싶으면 ``sample_all()``을 호출한다. Cube 대역폭
+보호를 위해 각 전송 사이에 ``ITERATION_DELAY_SECONDS``(기본 2초)만큼 대기한다.
 """
 
 import copy
 import json
 import logging
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
@@ -35,12 +39,33 @@ from devtools.cube_message.client import (  # noqa: E402
 from devtools.cube_message.raw_richnotification_test import config as raw_config  # noqa: E402
 
 RAW_RICHNOTIFICATION_TEST_DIR = Path(__file__).resolve().parent
+SAMPLES_DIR = RAW_RICHNOTIFICATION_TEST_DIR / "samples"
 
 FILL_HEADER = True
 FILL_CALLBACK = True
 
+# Cube 대역폭/연속 전송 보호용 기본 간격 (초).
+ITERATION_DELAY_SECONDS = 2.0
+
 USER_ID = raw_config.HEADER_TO_UNIQUENAME
 CHANNEL_ID = raw_config.HEADER_TO_CHANNELID
+
+
+def _configured_usernames(fallback: tuple[str, ...]) -> tuple[str, ...]:
+    configured = raw_config.HEADER_FROMUSERNAME
+    if isinstance(configured, str):
+        return (configured,) if configured else fallback
+    values = tuple(name for name in configured if name)
+    return values or fallback
+
+
+def _lang5(values: tuple[str, ...]) -> list[str]:
+    """fromusername: 단일 값이면 5개 슬롯 모두에 동일하게 채운다."""
+
+    if len(values) == 1:
+        return [values[0]] * 5
+    padded = list(values) + [""] * 5
+    return padded[:5]
 
 
 def build_cube_message_config() -> CubeMessageConfig:
@@ -58,13 +83,17 @@ def build_cube_message_config() -> CubeMessageConfig:
 
 
 def resolve_richnotification_file(path_or_name: str | Path) -> Path:
-    """절대 경로 또는 ``raw_richnotification_test/`` 하위 이름을 모두 받아 해석."""
+    """절대 경로 또는 ``samples/`` 하위 이름을 모두 받아 해석."""
 
     path = Path(path_or_name)
     candidates = [path]
     if not path.suffix:
         candidates.append(path.with_suffix(".json"))
     if not path.is_absolute():
+        candidates.append(SAMPLES_DIR / path)
+        if not path.suffix:
+            candidates.append(SAMPLES_DIR / path.with_suffix(".json"))
+        # 이전 위치(테스트 디렉터리 직접 하위)에 둔 샘플도 호환을 위해 검사.
         candidates.append(RAW_RICHNOTIFICATION_TEST_DIR / path)
         if not path.suffix:
             candidates.append(RAW_RICHNOTIFICATION_TEST_DIR / path.with_suffix(".json"))
@@ -72,21 +101,18 @@ def resolve_richnotification_file(path_or_name: str | Path) -> Path:
     for candidate in candidates:
         if candidate.exists():
             return candidate
-    return path if path.is_absolute() else RAW_RICHNOTIFICATION_TEST_DIR / path
+    return path if path.is_absolute() else SAMPLES_DIR / path
 
 
 def list_richnotification_files() -> list[Path]:
-    """``raw_richnotification_test/`` 하위 raw richnotification 샘플 목록."""
+    """``samples/`` 디렉터리 안의 raw richnotification 샘플 목록."""
 
+    if not SAMPLES_DIR.exists():
+        return []
     return sorted(
         path
-        for path in RAW_RICHNOTIFICATION_TEST_DIR.iterdir()
-        if (
-            path.is_file()
-            and not path.name.startswith(".")
-            and path.name != "__init__.py"
-            and path.suffix in ("", ".json")
-        )
+        for path in SAMPLES_DIR.iterdir()
+        if (path.is_file() and not path.name.startswith(".") and path.suffix in ("", ".json"))
     )
 
 
@@ -209,6 +235,43 @@ def sample_extensionless() -> None:
     send_raw_file("extensionless_sample")
 
 
+def send_all_samples(
+    *,
+    delay_seconds: float = ITERATION_DELAY_SECONDS,
+    user_id: str | None = None,
+    channel_id: str | None = None,
+) -> list[dict[str, Any] | None]:
+    """``samples/`` 디렉터리의 모든 샘플을 ``delay_seconds`` 간격으로 순차 전송."""
+
+    cfg = build_cube_message_config()
+    files = list_richnotification_files()
+    if not files:
+        raise CubeMessageError(f"samples 디렉터리에서 보낼 파일을 찾지 못했습니다: {SAMPLES_DIR}")
+
+    results: list[dict[str, Any] | None] = []
+    total = len(files)
+    for index, path in enumerate(files):
+        if index > 0 and delay_seconds > 0:
+            print(f"  ⏳ {delay_seconds}s 대기 후 다음 샘플 전송")
+            time.sleep(delay_seconds)
+        print(f"[{index + 1}/{total}] {path.name}")
+        results.append(
+            send_raw_file(
+                path,
+                user_id=user_id,
+                channel_id=channel_id,
+                config=cfg,
+            )
+        )
+    return results
+
+
+def sample_all() -> None:
+    """``samples/`` 디렉터리의 모든 샘플을 ``ITERATION_DELAY_SECONDS`` 간격으로 전송."""
+
+    send_all_samples()
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -221,19 +284,7 @@ def main() -> None:
     # sample_grid_table()
     # sample_select_callback()
     # sample_extensionless()
-
-
-def _configured_usernames(fallback: tuple[str, ...]) -> tuple[str, ...]:
-    configured = raw_config.HEADER_FROMUSERNAME
-    if isinstance(configured, str):
-        return (configured,) if configured else fallback
-    values = tuple(name for name in configured if name)
-    return values or fallback
-
-
-def _lang5(values: tuple[str, ...]) -> list[str]:
-    padded = list(values) + [""] * 5
-    return padded[:5]
+    # sample_all()  # samples/ 안의 모든 파일을 2초 간격으로 순회 전송
 
 
 if __name__ == "__main__":

@@ -291,7 +291,7 @@ def build_richnotification(
             "header": {
                 "from": from_id,
                 "token": token,
-                "fromusername": _lang5(list(from_usernames)),
+                "fromusername": _lang5_username(list(from_usernames)),
                 "to": {
                     "uniquename": [user_id],
                     "channelid": [channel_id],
@@ -308,6 +308,15 @@ def _lang5(text: TextValue) -> list[str]:
         padded = list(text) + [""] * LANG_COUNT
         return padded[:LANG_COUNT]
     return [text, "", "", "", ""]
+
+
+def _lang5_username(values: list[str]) -> list[str]:
+    """fromusername: 단일 값이면 5개 슬롯 모두에 동일하게 채운다."""
+
+    if len(values) == 1:
+        return [values[0]] * LANG_COUNT
+    padded = values + [""] * LANG_COUNT
+    return padded[:LANG_COUNT]
 
 
 def _row(

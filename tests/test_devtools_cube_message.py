@@ -175,7 +175,7 @@ def test_prepare_raw_richnotification_replaces_header_and_allows_empty_channel()
     rich = prepared["richnotification"]
     assert rich["header"]["from"] == "bot-id"
     assert rich["header"]["token"] == "bot-token"
-    assert rich["header"]["fromusername"] == ["Bot", "", "", "", ""]
+    assert rich["header"]["fromusername"] == ["Bot"] * 5
     assert rich["header"]["to"] == {"uniquename": ["u1"], "channelid": [""]}
     assert rich["content"][0]["process"]["callbackaddress"] == "https://app.example.com/callback"
     assert raw["richnotification"]["header"]["from"] == "old-bot"
@@ -230,7 +230,7 @@ def test_raw_rich_test_applies_config_without_mutating_payload():
     assert header["custom-header"] == "keep-me"
     assert header["from"] == "bot-id"
     assert header["token"] == "bot-token"
-    assert header["fromusername"] == ["Bot", "", "", "", ""]
+    assert header["fromusername"] == ["Bot"] * 5
     assert header["to"] == {"accountid": ["account-1"], "uniquename": ["u1"], "channelid": [""]}
 
     process = prepared["richnotification"]["content"][0]["process"]

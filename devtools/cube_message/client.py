@@ -289,6 +289,10 @@ def _fill_callback_addresses(content_items: list[dict[str, Any]], callback_url: 
 
 
 def _lang5_config_values(values: tuple[str, ...]) -> list[str]:
+    """fromusername: 단일 값이면 5개 슬롯 모두에 동일하게 채운다."""
+
+    if len(values) == 1:
+        return [values[0]] * rich_blocks.LANG_COUNT
     padded = list(values) + [""] * rich_blocks.LANG_COUNT
     return padded[: rich_blocks.LANG_COUNT]
 
