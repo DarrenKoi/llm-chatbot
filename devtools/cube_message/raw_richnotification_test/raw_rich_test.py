@@ -1,39 +1,50 @@
-"""Post raw Cube richnotification JSON files for rendering checks.
+"""Raw Cube richnotification JSON 파일을 그대로 Cube에 보내 렌더링을 확인한다.
 
-Edit the constants below or pass CLI arguments when running:
+사용법
+------
+1. ``config.py``의 자격증명/대상 ID를 본인 값으로 채운다.
+2. ``main()`` 안에서 보고 싶은 샘플 함수의 주석만 풀고 실행한다.
+3. IDE의 Run 버튼이나 다음 명령으로 바로 실행 (``python -m`` 불필요)::
 
-    python -m devtools.cube_message.raw_richnotification_test --file text_summary.json --user-id my.cube.id
+       python raw_rich_test.py
 
-The JSON file should contain the complete ``{"richnotification": ...}``
-payload. By default this script replaces only the top-level auth/target header
-with local config values before posting.
+각 샘플은 같은 디렉터리의 JSON(또는 확장자 없는) 파일을 읽어 ``richnotification``
+헤더/콜백 주소만 ``config.py`` 값으로 채운 뒤 그대로 POST한다.
 """
 
-import argparse
 import copy
 import json
 import logging
+import sys
 from pathlib import Path
 from typing import Any
 
-from devtools.cube_message.client import (
+# ---------------------------------------------------------------------------
+# 단독 실행(`python raw_rich_test.py`) 시 프로젝트 루트를 sys.path에 추가해
+# `devtools.cube_message...` 절대 임포트가 동작하도록 한다.
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+# ---------------------------------------------------------------------------
+
+from devtools.cube_message.client import (  # noqa: E402
     CubeMessageConfig,
     CubeMessageError,
     send_raw_richnotification,
 )
-from devtools.cube_message.raw_richnotification_test import config as raw_config
+from devtools.cube_message.raw_richnotification_test import config as raw_config  # noqa: E402
 
 RAW_RICHNOTIFICATION_TEST_DIR = Path(__file__).resolve().parent
 
-# Edit config.py for quick IDE runs. Keep CHANNEL_ID as an empty string for
-# direct user delivery unless a Cube test case specifically needs a channel id.
-RICHNOTIFICATION_FILE = RAW_RICHNOTIFICATION_TEST_DIR / "text_summary.json"
 FILL_HEADER = True
 FILL_CALLBACK = True
 
+USER_ID = raw_config.HEADER_TO_UNIQUENAME
+CHANNEL_ID = raw_config.HEADER_TO_CHANNELID
+
 
 def build_cube_message_config() -> CubeMessageConfig:
-    """Build send config from raw-test config.py, falling back to .env."""
+    """``config.py``를 우선 사용하고 비어 있는 항목만 ``.env``로 보충한다."""
 
     base = CubeMessageConfig.from_env()
     return CubeMessageConfig(
@@ -47,7 +58,7 @@ def build_cube_message_config() -> CubeMessageConfig:
 
 
 def resolve_richnotification_file(path_or_name: str | Path) -> Path:
-    """Resolve either an absolute path or a name under raw_richnotification_test/."""
+    """절대 경로 또는 ``raw_richnotification_test/`` 하위 이름을 모두 받아 해석."""
 
     path = Path(path_or_name)
     candidates = [path]
@@ -65,7 +76,7 @@ def resolve_richnotification_file(path_or_name: str | Path) -> Path:
 
 
 def list_richnotification_files() -> list[Path]:
-    """Return available raw richnotification JSON files."""
+    """``raw_richnotification_test/`` 하위 raw richnotification 샘플 목록."""
 
     return sorted(
         path
@@ -80,7 +91,7 @@ def list_richnotification_files() -> list[Path]:
 
 
 def load_raw_richnotification(path_or_name: str | Path) -> dict[str, Any]:
-    """Load a raw richnotification JSON file without applying runtime defaults."""
+    """런타임 보정 없이 raw richnotification JSON을 그대로 로드."""
 
     path = resolve_richnotification_file(path_or_name)
     try:
@@ -105,7 +116,7 @@ def apply_raw_test_config(
     fill_callback: bool = FILL_CALLBACK,
     config: CubeMessageConfig | None = None,
 ) -> dict[str, Any]:
-    """Apply config.py header and process defaults to a raw payload copy."""
+    """raw 페이로드 사본에 ``config.py`` 헤더/콜백 기본값을 채운다."""
 
     prepared = copy.deepcopy(payload)
     rich = prepared["richnotification"]
@@ -152,7 +163,7 @@ def send_raw_file(
     fill_callback: bool = FILL_CALLBACK,
     config: CubeMessageConfig | None = None,
 ) -> dict[str, Any] | None:
-    """Load a raw JSON file and POST it to Cube."""
+    """샘플 JSON을 로드해 Cube로 POST."""
 
     cfg = config or build_cube_message_config()
     raw_payload = load_raw_richnotification(path_or_name)
@@ -164,65 +175,52 @@ def send_raw_file(
         fill_callback=fill_callback,
         config=cfg,
     )
-    return send_raw_richnotification(
+    result = send_raw_richnotification(
         payload,
         fill_header=False,
         fill_callback=False,
         config=cfg,
     )
+    print(json.dumps(result or {"ok": True}, ensure_ascii=False, indent=2))
+    return result
+
+
+def sample_text_summary() -> None:
+    """텍스트 요약 카드 샘플."""
+
+    send_raw_file("text_summary.json")
+
+
+def sample_grid_table() -> None:
+    """그리드 테이블 샘플."""
+
+    send_raw_file("grid_table.json")
+
+
+def sample_select_callback() -> None:
+    """select 콜백 샘플 (callbackaddress가 비어 있으면 config 값으로 채운다)."""
+
+    send_raw_file("select_callback.json")
+
+
+def sample_extensionless() -> None:
+    """확장자 없는 raw 페이로드 샘플."""
+
+    send_raw_file("extensionless_sample")
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    args = _parse_args()
 
-    if args.list:
-        for path in list_richnotification_files():
-            print(path.name)
-        return
+    user_id = raw_config.HEADER_TO_UNIQUENAME
+    if FILL_HEADER and (not user_id or user_id.startswith("your.")):
+        raise SystemExit("config.py의 HEADER_TO_UNIQUENAME을 본인 Cube ID로 바꿔야 실행할 수 있습니다.")
 
-    selected_file = args.file or RICHNOTIFICATION_FILE
-    user_id = args.user_id if args.user_id is not None else raw_config.HEADER_TO_UNIQUENAME
-    channel_id = args.channel_id if args.channel_id is not None else raw_config.HEADER_TO_CHANNELID
-    fill_header = not args.keep_header
-
-    if fill_header and (not user_id or user_id.startswith("your.")):
-        raise SystemExit("config.py의 HEADER_TO_UNIQUENAME을 바꾸거나 --user-id를 지정해야 합니다.")
-
-    result = send_raw_file(
-        selected_file,
-        user_id=user_id,
-        channel_id=channel_id,
-        fill_header=fill_header,
-        fill_callback=not args.keep_callback,
-    )
-    print(json.dumps(result or {"ok": True}, ensure_ascii=False, indent=2))
-
-
-def _parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Post a raw Cube richnotification JSON file.")
-    parser.add_argument(
-        "--file",
-        help="JSON file name under raw_richnotification_test/ or an explicit path. .json is optional.",
-    )
-    parser.add_argument("--user-id", help="Cube uniquename to replace in the header.")
-    parser.add_argument("--channel-id", help="Cube channel id to replace in the header. Default is empty.")
-    parser.add_argument(
-        "--keep-header",
-        action="store_true",
-        help="Post the JSON header exactly as the file contains it.",
-    )
-    parser.add_argument(
-        "--keep-callback",
-        action="store_true",
-        help="Do not fill empty URL callback addresses from config.",
-    )
-    parser.add_argument(
-        "--list",
-        action="store_true",
-        help="List available raw richnotification sample files.",
-    )
-    return parser.parse_args()
+    # 보내고 싶은 샘플의 주석만 풀어서 실행한다.
+    sample_text_summary()
+    # sample_grid_table()
+    # sample_select_callback()
+    # sample_extensionless()
 
 
 def _configured_usernames(fallback: tuple[str, ...]) -> tuple[str, ...]:
@@ -236,10 +234,6 @@ def _configured_usernames(fallback: tuple[str, ...]) -> tuple[str, ...]:
 def _lang5(values: tuple[str, ...]) -> list[str]:
     padded = list(values) + [""] * 5
     return padded[:5]
-
-
-USER_ID = raw_config.HEADER_TO_UNIQUENAME
-CHANNEL_ID = raw_config.HEADER_TO_CHANNELID
 
 
 if __name__ == "__main__":
