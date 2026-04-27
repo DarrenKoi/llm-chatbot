@@ -72,7 +72,7 @@ richnotification_rule.txt 문서를 완성하기 위해 Cube에서 직접 테스
 
 ## 6. [x] Callback POST payload 형식
 
-**확인 결과:** `callbackaddress`는 POST로 수신되며 서버에서 확인한 payload 형식은 `callbaackaddress.txt` 예시와 같다.
+**확인 결과:** `callbackaddress`는 POST로 수신되며 서버에서 확인한 payload 형식은 `callbackaddress.txt` 예시와 같다.
 루트 구조는 `result`, `header`, `process`를 사용한다.
 
 | 확인 항목 | 결과 |
