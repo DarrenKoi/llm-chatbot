@@ -162,6 +162,24 @@ def test_generate_reply_intent_uses_structured_output_when_supported(mocker, mon
     assert intent.blocks[0].kind == "text"
     assert intent.blocks[1].kind == "choice"
     mock_llm.invoke.assert_not_called()
+    mock_llm.with_structured_output.assert_called_once_with(ReplyIntent, method="function_calling")
+
+
+def test_generate_reply_intent_parses_bare_json_without_fences(mocker, monkeypatch):
+    _stub_llm_env(monkeypatch)
+
+    structured_llm = mocker.Mock()
+    structured_llm.invoke.side_effect = RuntimeError("structured output failed")
+    mock_llm = mocker.Mock()
+    mock_llm.with_structured_output.return_value = structured_llm
+    mock_llm.invoke.return_value = mocker.Mock(
+        content='{"blocks":[{"kind":"text","text":"안녕"},{"kind":"table","headers":["a"],"rows":[["1"]]}]}'
+    )
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    intent = generate_reply_intent(history=[], user_message="표 보여줘")
+
+    assert [block.kind for block in intent.blocks] == ["text", "table"]
 
 
 def test_generate_reply_intent_falls_back_to_json_in_text(mocker, monkeypatch):

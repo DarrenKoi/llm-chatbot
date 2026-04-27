@@ -69,7 +69,7 @@ def generate_reply_intent(
     )
 
     try:
-        structured = llm.with_structured_output(ReplyIntent).invoke(messages)
+        structured = llm.with_structured_output(ReplyIntent, method="function_calling").invoke(messages)
     except Exception:
         logger.warning("structured output 실패, 평문 fallback으로 전환", exc_info=True)
     else:
@@ -86,14 +86,39 @@ def generate_reply_intent(
     if not raw_text:
         raise LLMServiceError("LLM reply is empty.")
 
-    match = _JSON_BLOCK_PATTERN.search(raw_text)
-    if match:
-        try:
-            return ReplyIntent.model_validate_json(match.group(1))
-        except ValidationError:
-            logger.warning("JSON-in-text ReplyIntent 검증 실패, 텍스트 fallback")
+    parsed = _parse_reply_intent_from_text(raw_text)
+    if parsed is not None:
+        return parsed
 
     return ReplyIntent(blocks=[TextIntent(text=raw_text)])
+
+
+def _parse_reply_intent_from_text(raw_text: str) -> ReplyIntent | None:
+    """평문 응답에서 ReplyIntent JSON을 best-effort로 추출한다."""
+    stripped = raw_text.strip()
+    candidates: list[str] = []
+
+    fenced = _JSON_BLOCK_PATTERN.search(raw_text)
+    if fenced:
+        candidates.append(fenced.group(1).strip())
+
+    if stripped.startswith("{") and stripped.endswith("}"):
+        candidates.append(stripped)
+    else:
+        start = stripped.find("{")
+        end = stripped.rfind("}")
+        if start >= 0 and end > start:
+            candidates.append(stripped[start : end + 1])
+
+    for candidate in dict.fromkeys(candidates):
+        try:
+            return ReplyIntent.model_validate_json(candidate)
+        except ValidationError:
+            continue
+
+    if candidates:
+        logger.warning("JSON-in-text ReplyIntent 검증 실패, 텍스트 fallback")
+    return None
 
 
 def generate_json_reply(
