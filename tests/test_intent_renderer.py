@@ -14,6 +14,7 @@ from api.cube.intents import (
     DatePickerIntent,
     ImageIntent,
     InputIntent,
+    RawBlockIntent,
     TableIntent,
     TextIntent,
 )
@@ -103,6 +104,48 @@ class TestIntentToBlock:
         col = block.rows[0]["column"][0]
         assert col["type"] == "datepicker"
         assert col["control"]["value"] == "2026/04/20"
+
+    def test_raw_block_intent_passes_rows_through_unchanged(self):
+        custom_rows = [
+            {
+                "bgcolor": "",
+                "border": False,
+                "align": "left",
+                "width": "100%",
+                "column": [
+                    {
+                        "bgcolor": "",
+                        "border": False,
+                        "align": "left",
+                        "valign": "middle",
+                        "width": "100%",
+                        "type": "label",
+                        "control": {"active": True, "text": ["raw", "", "", "", ""], "color": "#000"},
+                    }
+                ],
+            }
+        ]
+        block = intent_to_block(
+            RawBlockIntent(
+                rows=custom_rows,
+                requestid=["CustomProcess"],
+                bodystyle="grid",
+            )
+        )
+        assert isinstance(block, rich_blocks.Block)
+        assert block.rows == custom_rows
+        assert block.requestid == ["CustomProcess"]
+        assert block.bodystyle == "grid"
+
+    def test_raw_block_intent_grid_bodystyle_propagates_through_container(self):
+        custom_rows = [{"column": [], "bgcolor": "", "border": False, "align": "left", "width": "100%"}]
+        item = intents_to_content_item(
+            [
+                TextIntent(text="title"),
+                RawBlockIntent(rows=custom_rows, bodystyle="grid"),
+            ]
+        )
+        assert item["body"]["bodystyle"] == "grid"
 
 
 class TestIntentsToBlocks:

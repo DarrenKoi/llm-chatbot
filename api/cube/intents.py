@@ -11,7 +11,7 @@ tool calling과 직접 호환되도록 한다.
 참조: doc/sample_codes/intent_schema.py (dataclass 버전)
 """
 
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -67,8 +67,27 @@ class DatePickerIntent(BaseModel):
     required: bool = True
 
 
+class RawBlockIntent(BaseModel):
+    """추상 BlockIntent로 표현되지 않는 케이스용 escape hatch.
+
+    먼저 새 BlockIntent 타입을 추가할 수 있는지 검토하라(다른 워크플로도 재사용
+    가능한지 살피기 위함). 그게 어려운 경우에만 이 escape hatch를 사용해
+    ``rich_blocks.py``의 ``add_*``가 만들어내는 row 형식을 그대로 채워 넣는다.
+
+    LLM이 직접 채우는 용도가 아니라 워크플로 코드가 ``WorkflowReply.intents``에
+    수동으로 넣는 용도다. 그래서 ``BlockIntent`` 디스크리미네이티드 유니언에는
+    포함하지만 시스템 프롬프트의 LLM 가이드에는 노출하지 않는다.
+    """
+
+    kind: Literal["raw_block"] = "raw_block"
+    rows: list[dict[str, Any]]
+    mandatory: list[dict[str, Any]] = Field(default_factory=list)
+    requestid: list[str] = Field(default_factory=list)
+    bodystyle: Literal["none", "grid"] = "none"
+
+
 BlockIntent = Annotated[
-    TextIntent | TableIntent | ImageIntent | ChoiceIntent | InputIntent | DatePickerIntent,
+    TextIntent | TableIntent | ImageIntent | ChoiceIntent | InputIntent | DatePickerIntent | RawBlockIntent,
     Field(discriminator="kind"),
 ]
 

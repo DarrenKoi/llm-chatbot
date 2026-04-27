@@ -10,6 +10,7 @@ from api.cube.intents import (
     DatePickerIntent,
     ImageIntent,
     InputIntent,
+    RawBlockIntent,
     ReplyIntent,
     TableIntent,
     TextIntent,
@@ -70,6 +71,20 @@ class TestDiscriminator:
         intent = _block_adapter.validate_python({"kind": "date", "label": "출발일"})
         assert isinstance(intent, DatePickerIntent)
         assert intent.processid == "SelectDate"
+
+    def test_raw_block_kind_resolves(self):
+        intent = _block_adapter.validate_python(
+            {
+                "kind": "raw_block",
+                "rows": [{"bgcolor": "", "border": False, "align": "left", "width": "100%", "column": []}],
+                "requestid": ["CustomProcess"],
+                "bodystyle": "grid",
+            }
+        )
+        assert isinstance(intent, RawBlockIntent)
+        assert intent.bodystyle == "grid"
+        assert intent.requestid == ["CustomProcess"]
+        assert intent.mandatory == []  # default
 
     def test_unknown_kind_raises_validation_error(self):
         with pytest.raises(ValidationError):

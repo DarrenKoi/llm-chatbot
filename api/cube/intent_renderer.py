@@ -14,6 +14,7 @@ from api.cube.intents import (
     DatePickerIntent,
     ImageIntent,
     InputIntent,
+    RawBlockIntent,
     TableIntent,
     TextIntent,
 )
@@ -50,6 +51,13 @@ def intent_to_block(intent: BlockIntent) -> rich_blocks.Block:
             processid=intent.processid,
             default=intent.default,
             required=intent.required,
+        )
+    if isinstance(intent, RawBlockIntent):
+        return rich_blocks.Block(
+            rows=list(intent.rows),
+            mandatory=list(intent.mandatory),
+            requestid=list(intent.requestid),
+            bodystyle=intent.bodystyle,
         )
     raise TypeError(f"Unknown intent kind: {type(intent).__name__}")
 
