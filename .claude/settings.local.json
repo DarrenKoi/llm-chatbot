@@ -14,7 +14,8 @@
       "Bash(git *)",
       "Bash(.venv/Scripts/python.exe -m pip list)",
       "Bash(ruff --version)",
-      "Bash(ruff check *)"
+      "Bash(ruff check *)",
+      "Bash(ruff format *)"
     ]
   }
 }
