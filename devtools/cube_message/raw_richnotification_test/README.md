@@ -79,13 +79,18 @@ def sample_my_payload() -> None:
 `samples/` 폴더에 쌓인 모든 페이로드를 한 번에 검증하려면 `sample_all()` (또는 `send_all_samples()`)을 사용한다. Cube의 대역폭/연속 전송 제한을 피하기 위해 매 요청 사이에 `ITERATION_DELAY_SECONDS`(기본 **2초**) 만큼 대기한다.
 
 ```python
-from devtools.cube_message.raw_richnotification_test import send_all_samples
+from devtools.cube_message.raw_richnotification_test import sample_all, send_all_samples
 
-# 기본 2초 간격
-send_all_samples()
+# 기본: samples/ 폴더, 2초 간격
+sample_all()
 
-# 더 느리게 보내고 싶으면 직접 지정
+# 다른 폴더를 지정 — 상대 경로는 패키지 디렉터리 기준으로 우선 해석
+sample_all("experimental")              # raw_richnotification_test/experimental/
+sample_all("/abs/path/to/dir")          # 절대 경로도 지원
+
+# 더 느리게/빠르게 보내고 싶으면 send_all_samples로 직접 지정
 send_all_samples(delay_seconds=5.0)
+send_all_samples("experimental", delay_seconds=1.0)
 ```
 
 순회는 파일명의 알파벳 순서로 진행되며, 각 단계마다 `[1/4] grid_table.json` 형태의 진행 표시를 출력한다.

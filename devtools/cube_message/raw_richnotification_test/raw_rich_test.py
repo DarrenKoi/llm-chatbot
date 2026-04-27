@@ -68,6 +68,20 @@ def _lang5(values: tuple[str, ...]) -> list[str]:
     return padded[:5]
 
 
+def _resolve_samples_folder(folder: str | Path | None) -> Path:
+    """폴더 인자를 절대 경로로 해석. 상대 경로는 패키지 디렉터리 기준을 우선한다."""
+
+    if folder is None:
+        return SAMPLES_DIR
+    path = Path(folder)
+    if path.is_absolute():
+        return path
+    package_relative = RAW_RICHNOTIFICATION_TEST_DIR / path
+    if package_relative.exists():
+        return package_relative
+    return path
+
+
 def build_cube_message_config() -> CubeMessageConfig:
     """``config.py``를 우선 사용하고 비어 있는 항목만 ``.env``로 보충한다."""
 
@@ -104,14 +118,15 @@ def resolve_richnotification_file(path_or_name: str | Path) -> Path:
     return path if path.is_absolute() else SAMPLES_DIR / path
 
 
-def list_richnotification_files() -> list[Path]:
-    """``samples/`` 디렉터리 안의 raw richnotification 샘플 목록."""
+def list_richnotification_files(folder: str | Path | None = None) -> list[Path]:
+    """``samples/``(기본) 또는 지정한 폴더 안의 raw richnotification 샘플 목록."""
 
-    if not SAMPLES_DIR.exists():
+    target = _resolve_samples_folder(folder)
+    if not target.exists():
         return []
     return sorted(
         path
-        for path in SAMPLES_DIR.iterdir()
+        for path in target.iterdir()
         if (path.is_file() and not path.name.startswith(".") and path.suffix in ("", ".json"))
     )
 
@@ -236,20 +251,23 @@ def sample_extensionless() -> None:
 
 
 def send_all_samples(
+    folder: str | Path | None = None,
     *,
     delay_seconds: float = ITERATION_DELAY_SECONDS,
     user_id: str | None = None,
     channel_id: str | None = None,
 ) -> list[dict[str, Any] | None]:
-    """``samples/`` 디렉터리의 모든 샘플을 ``delay_seconds`` 간격으로 순차 전송."""
+    """지정한 폴더(기본 ``samples/``)의 모든 샘플을 ``delay_seconds`` 간격으로 순차 전송."""
 
     cfg = build_cube_message_config()
-    files = list_richnotification_files()
+    target = _resolve_samples_folder(folder)
+    files = list_richnotification_files(target)
     if not files:
-        raise CubeMessageError(f"samples 디렉터리에서 보낼 파일을 찾지 못했습니다: {SAMPLES_DIR}")
+        raise CubeMessageError(f"샘플 디렉터리에서 보낼 파일을 찾지 못했습니다: {target}")
 
     results: list[dict[str, Any] | None] = []
     total = len(files)
+    print(f"📂 {target} (총 {total}개)")
     for index, path in enumerate(files):
         if index > 0 and delay_seconds > 0:
             print(f"  ⏳ {delay_seconds}s 대기 후 다음 샘플 전송")
@@ -266,10 +284,10 @@ def send_all_samples(
     return results
 
 
-def sample_all() -> None:
-    """``samples/`` 디렉터리의 모든 샘플을 ``ITERATION_DELAY_SECONDS`` 간격으로 전송."""
+def sample_all(folder: str | Path | None = None) -> None:
+    """지정한 폴더(기본 ``samples/``)의 모든 샘플을 ``ITERATION_DELAY_SECONDS`` 간격으로 전송."""
 
-    send_all_samples()
+    send_all_samples(folder)
 
 
 def main() -> None:
@@ -284,7 +302,9 @@ def main() -> None:
     # sample_grid_table()
     # sample_select_callback()
     # sample_extensionless()
-    # sample_all()  # samples/ 안의 모든 파일을 2초 간격으로 순회 전송
+    # sample_all()                     # samples/ 안의 모든 파일을 2초 간격으로 순회 전송
+    # sample_all("experimental")       # raw_richnotification_test/experimental/ 폴더 사용
+    # sample_all("/abs/path/to/dir")   # 절대 경로도 지원
 
 
 if __name__ == "__main__":
