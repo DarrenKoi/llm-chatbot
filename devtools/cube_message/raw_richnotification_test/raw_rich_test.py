@@ -302,7 +302,15 @@ def main() -> None:
     # sample_grid_table()
     # sample_select_callback()
     # sample_extensionless()
-    # sample_all()                     # samples/ 안의 모든 파일을 2초 간격으로 순회 전송
+
+    # --- 단일 파일 직접 지정 (확장자 생략 가능, 절대 경로도 OK) ---
+    # send_raw_file("samples/Sample20.json")
+    # send_raw_file("samples/test1")
+    # send_raw_file("Sample20")              # samples/ 하위 이름만 적어도 자동 탐색
+    # send_raw_file("/abs/path/to/payload.json")
+
+    # --- 폴더 단위 일괄 전송 (요청 사이 2초 대기) ---
+    # sample_all()                     # samples/ 안의 모든 파일을 순회 전송
     # sample_all("experimental")       # raw_richnotification_test/experimental/ 폴더 사용
     # sample_all("/abs/path/to/dir")   # 절대 경로도 지원
 
