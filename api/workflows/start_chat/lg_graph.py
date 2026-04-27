@@ -107,6 +107,7 @@ def generate_reply_node(state: StartChatState) -> dict:
     """LLM을 호출하여 ReplyIntent를 받고, 평문/구조 블록을 함께 상태에 적재한다."""
 
     from api.conversation_service import get_history
+    from api.cube.intent_renderer import intents_to_history_text
     from api.cube.intents import TextIntent
     from api.llm.service import generate_reply_intent
     from api.workflows.start_chat.prompts import START_CHAT_CONTEXT_TEMPLATE
@@ -144,9 +145,14 @@ def generate_reply_node(state: StartChatState) -> dict:
         user_profile_text=profile_summary,
     )
 
-    text_fallback = "\n\n".join(block.text for block in reply_intent.blocks if isinstance(block, TextIntent)).strip()
+    text_fallback = "\n\n".join(
+        block.text for block in reply_intent.blocks if isinstance(block, TextIntent) and block.text.strip()
+    ).strip()
     if not text_fallback:
-        text_fallback = "[start_chat] 처리 완료."
+        text_fallback = intents_to_history_text(reply_intent.blocks)
+    if not text_fallback:
+        text_fallback = "응답을 생성하지 못했습니다. 다시 시도해 주세요."
+        log.warning("generate_reply_intent가 빈 ReplyIntent를 반환했습니다 — 사용자에게 재시도 안내")
 
     has_structured = any(not isinstance(block, TextIntent) for block in reply_intent.blocks)
     return {

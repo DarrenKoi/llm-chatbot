@@ -9,7 +9,7 @@ from api.conversation_service import ConversationStoreError, append_message
 from api.cube import rich_blocks
 from api.cube.chunker import plan_delivery
 from api.cube.client import CubeClientError, send_multimessage, send_richnotification, send_richnotification_blocks
-from api.cube.intent_renderer import intents_to_blocks
+from api.cube.intent_renderer import intents_to_blocks, intents_to_history_text
 from api.cube.intents import TextIntent
 from api.cube.models import CubeAcceptedMessage, CubeHandledMessage, CubeIncomingMessage, CubeQueuedMessage
 from api.cube.payload import extract_cube_request_fields
@@ -408,10 +408,13 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
         )
         raise CubeUpstreamError("Cube multiMessage delivery failed.") from exc
 
+    history_content = intents_to_history_text(intents) if has_structured_intent else llm_reply
+    if not history_content.strip():
+        history_content = llm_reply
     try:
         append_message(
             incoming.user_id,
-            {"role": "assistant", "content": llm_reply},
+            {"role": "assistant", "content": history_content},
             conversation_id=incoming.channel_id,
             metadata=_build_conversation_metadata(
                 incoming,

@@ -66,6 +66,37 @@ def intents_to_blocks(intents: list[BlockIntent]) -> list[rich_blocks.Block]:
     return [intent_to_block(intent) for intent in intents]
 
 
+def intents_to_history_text(intents: list[BlockIntent]) -> str:
+    """대화 기록(conversation history)에 저장하기 위한 텍스트 다이제스트.
+
+    richnotification으로 전송된 구조 블록도 LLM이 다음 턴에서 맥락을 이어갈 수
+    있도록, 사람과 LLM 모두 읽을 수 있는 한국어 요약으로 변환한다.
+    """
+
+    parts: list[str] = []
+    for intent in intents:
+        if isinstance(intent, TextIntent):
+            text = intent.text.strip()
+            if text:
+                parts.append(text)
+        elif isinstance(intent, TableIntent):
+            title = f" {intent.title}" if intent.title else ""
+            parts.append(f"[표{title}] 헤더: {', '.join(intent.headers)} ({len(intent.rows)}행)")
+        elif isinstance(intent, ImageIntent):
+            label = intent.alt or intent.source_url
+            parts.append(f"[이미지] {label}")
+        elif isinstance(intent, ChoiceIntent):
+            options = ", ".join(opt.label for opt in intent.options)
+            parts.append(f"[선택지] {intent.question} (옵션: {options})")
+        elif isinstance(intent, InputIntent):
+            parts.append(f"[입력 요청] {intent.label}")
+        elif isinstance(intent, DatePickerIntent):
+            parts.append(f"[날짜 선택] {intent.label}")
+        elif isinstance(intent, RawBlockIntent):
+            parts.append(f"[richnotification 블록] rows={len(intent.rows)}")
+    return "\n".join(parts).strip()
+
+
 def intents_to_content_item(
     intents: list[BlockIntent],
     *,

@@ -73,8 +73,9 @@ def generate_reply_intent(
     except Exception:
         logger.warning("structured output 실패, 평문 fallback으로 전환", exc_info=True)
     else:
-        if isinstance(structured, ReplyIntent):
+        if isinstance(structured, ReplyIntent) and _has_usable_content(structured):
             return structured
+        logger.warning("structured output이 빈 ReplyIntent를 반환, 평문 fallback으로 전환")
 
     try:
         response = llm.invoke(messages)
@@ -87,10 +88,21 @@ def generate_reply_intent(
         raise LLMServiceError("LLM reply is empty.")
 
     parsed = _parse_reply_intent_from_text(raw_text)
-    if parsed is not None:
+    if parsed is not None and _has_usable_content(parsed):
         return parsed
 
     return ReplyIntent(blocks=[TextIntent(text=raw_text)])
+
+
+def _has_usable_content(reply: ReplyIntent) -> bool:
+    """ReplyIntent에 사용자에게 보낼 만한 내용이 하나라도 있는지 확인한다."""
+    for block in reply.blocks:
+        if isinstance(block, TextIntent):
+            if block.text.strip():
+                return True
+        else:
+            return True
+    return False
 
 
 def _parse_reply_intent_from_text(raw_text: str) -> ReplyIntent | None:
