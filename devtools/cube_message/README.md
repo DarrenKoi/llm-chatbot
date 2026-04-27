@@ -53,7 +53,7 @@ IDE의 Run 버튼으로 직접 실행해도 된다. CLI 인자는 없으며, 모
 이미 만든 richnotification JSON 전체 payload를 그대로 Cube에 보내려면
 `raw_rich_test.py`를 사용한다. 기본 예제 파일은
 `devtools/cube_message/raw_richnotification_test/text_summary.json`이고,
-`CHANNEL_ID = ""`가 기본값이다.
+`config.py`의 `HEADER_TO_CHANNELID = ""`가 기본값이다.
 
 ```bash
 python -m devtools.cube_message.raw_richnotification_test --file text_summary.json --user-id my.cube.id
@@ -63,10 +63,14 @@ python -m devtools.cube_message.raw_richnotification_test --list
 `--file`은 확장자 없는 샘플 이름도 그대로 받으며, 같은 이름이 없을 때만
 `.json` 파일을 fallback으로 찾는다.
 
-기본 동작은 JSON 파일의 `content`는 유지하고, 실제 전송에 필요한
-`header.from`, `header.token`, `header.fromusername`, `header.to`만 `.env` 설정과
-`--user-id` / `--channel-id` 값으로 교체한다. 파일의 header까지 그대로 보내야
-하는 케이스는 `--keep-header`를 사용한다.
+`raw_richnotification_test/config.py`에서 실제 전송에 필요한
+`HEADER_FROM`, `HEADER_TOKEN`, `HEADER_FROMUSERNAME`, `HEADER_TO_UNIQUENAME`,
+`HEADER_TO_CHANNELID`, `PROCESS_CALLBACKADDRESS`를 한 번만 설정한다. raw JSON 파일은
+가능하면 그대로 두고, 전송 직전에 deep copy 위에 운영 값만 덮어쓴다:
+`richnotification.header.from`, `token`, `fromusername`, `to.uniquename`,
+`to.channelid`, 그리고 `content[].process.callbackaddress`. `callbacktype`이 비어
+있으면 기본값 `url`을 넣는다. 파일의 header나 callback 값을 그대로 보내야 하는
+케이스는 `--keep-header`, `--keep-callback`을 사용한다.
 
 ## 임포트해서 쓰기
 

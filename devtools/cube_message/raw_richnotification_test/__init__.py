@@ -2,12 +2,13 @@
 
 from devtools.cube_message.raw_richnotification_test.raw_rich_test import (
     CHANNEL_ID,
-    CONFIG,
     FILL_CALLBACK,
     FILL_HEADER,
     RAW_RICHNOTIFICATION_TEST_DIR,
     RICHNOTIFICATION_FILE,
     USER_ID,
+    apply_raw_test_config,
+    build_cube_message_config,
     list_richnotification_files,
     load_raw_richnotification,
     main,
@@ -17,12 +18,13 @@ from devtools.cube_message.raw_richnotification_test.raw_rich_test import (
 
 __all__ = [
     "CHANNEL_ID",
-    "CONFIG",
     "FILL_CALLBACK",
     "FILL_HEADER",
     "RAW_RICHNOTIFICATION_TEST_DIR",
     "RICHNOTIFICATION_FILE",
     "USER_ID",
+    "apply_raw_test_config",
+    "build_cube_message_config",
     "list_richnotification_files",
     "load_raw_richnotification",
     "main",

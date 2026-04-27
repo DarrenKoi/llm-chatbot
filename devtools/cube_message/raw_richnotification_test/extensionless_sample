@@ -1,14 +1,5 @@
 {
   "richnotification": {
-    "header": {
-      "from": "raw-placeholder-bot",
-      "token": "raw-placeholder-token",
-      "fromusername": ["Raw Test Bot", "", "", "", ""],
-      "to": {
-        "uniquename": ["target.user"],
-        "channelid": [""]
-      }
-    },
     "content": [
       {
         "header": {},
@@ -39,8 +30,6 @@
           ]
         },
         "process": {
-          "callbacktype": "",
-          "callbackaddress": "",
           "processdata": "",
           "processtype": "",
           "summary": ["extensionless raw sample", "", "", "", ""],

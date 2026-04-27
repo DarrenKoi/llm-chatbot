@@ -198,6 +198,53 @@ def test_send_raw_richnotification_posts_complete_payload(mocker):
     assert raw["richnotification"]["header"]["from"] == "raw-placeholder-bot"
 
 
+def test_raw_rich_test_applies_config_without_mutating_payload():
+    raw = {
+        "richnotification": {
+            "header": {
+                "custom-header": "keep-me",
+                "to": {"accountid": ["account-1"]},
+            },
+            "content": [
+                {
+                    "header": {},
+                    "body": {"bodystyle": "none", "row": []},
+                    "process": {
+                        "callbacktype": "",
+                        "callbackaddress": "https://placeholder.example.com/callback",
+                    },
+                }
+            ],
+            "result": "",
+        }
+    }
+
+    prepared = raw_richnotification_test.apply_raw_test_config(
+        raw,
+        user_id="u1",
+        channel_id="",
+        config=_config(),
+    )
+
+    header = prepared["richnotification"]["header"]
+    assert header["custom-header"] == "keep-me"
+    assert header["from"] == "bot-id"
+    assert header["token"] == "bot-token"
+    assert header["fromusername"] == ["Bot", "", "", "", ""]
+    assert header["to"] == {"accountid": ["account-1"], "uniquename": ["u1"], "channelid": [""]}
+
+    process = prepared["richnotification"]["content"][0]["process"]
+    assert process["callbacktype"] == "url"
+    assert process["callbackaddress"] == "https://app.example.com/callback"
+
+    assert "from" not in raw["richnotification"]["header"]
+    assert raw["richnotification"]["content"][0]["process"]["callbacktype"] == ""
+    assert (
+        raw["richnotification"]["content"][0]["process"]["callbackaddress"]
+        == "https://placeholder.example.com/callback"
+    )
+
+
 def test_raw_rich_test_defaults_channel_id_to_empty_string():
     assert raw_richnotification_test.CHANNEL_ID == ""
 
@@ -218,6 +265,7 @@ def test_raw_rich_test_send_raw_file_loads_named_example(mocker):
 def test_raw_rich_test_loads_extensionless_sample_file():
     raw = raw_richnotification_test.load_raw_richnotification("extensionless_sample")
 
+    assert "header" not in raw["richnotification"]
     session = raw["richnotification"]["content"][0]["process"]["session"]
     assert session["sessionid"] == "raw-rich-extensionless-sample"
 
