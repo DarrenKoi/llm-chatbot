@@ -13,8 +13,7 @@ Flask 앱(`api.config`)을 임포트하지 않고, 자격증명을 코드에 직
 | `client.py`   | `.env` 로드 + `send_text` / `send_blocks` (실제 전송)             |
 | `samples.py`  | richnotification 규칙/한계 탐색용 standalone 샘플 (Python으로 작성) |
 | `examples.py` | 본인 ID를 채워 넣고 실행하는 샘플 모음 — **여기를 편집해 사용**   |
-| `raw_rich_test.py` | `richnotifications/*.json` 전체 payload를 그대로 POST하는 샘플 |
-| `richnotifications/` | raw richnotification JSON 예제 파일 |
+| `raw_richnotification_test/` | raw JSON 예제 파일과 `raw_rich_test.py` POST 샘플 |
 
 `samples.py`는 외부 마크다운을 읽지 않고 모든 샘플 본문을 파이썬 딕셔너리로
 직접 구성한다. 각 샘플 함수는 한두 개의 렌더링 변수만 노출하도록 최소화되어
@@ -53,12 +52,12 @@ IDE의 Run 버튼으로 직접 실행해도 된다. CLI 인자는 없으며, 모
 
 이미 만든 richnotification JSON 전체 payload를 그대로 Cube에 보내려면
 `raw_rich_test.py`를 사용한다. 기본 예제 파일은
-`devtools/cube_message/richnotifications/text_summary.json`이고,
+`devtools/cube_message/raw_richnotification_test/text_summary.json`이고,
 `CHANNEL_ID = ""`가 기본값이다.
 
 ```bash
-python -m devtools.cube_message.raw_rich_test --file text_summary.json --user-id my.cube.id
-python -m devtools.cube_message.raw_rich_test --list
+python -m devtools.cube_message.raw_richnotification_test --file text_summary.json --user-id my.cube.id
+python -m devtools.cube_message.raw_richnotification_test --list
 ```
 
 기본 동작은 JSON 파일의 `content`는 유지하고, 실제 전송에 필요한

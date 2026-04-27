@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from devtools.cube_message import blocks, raw_rich_test, samples
+from devtools.cube_message import blocks, raw_richnotification_test, samples
 from devtools.cube_message.client import (
     CubeMessageConfig,
     CubeMessageError,
@@ -187,7 +187,7 @@ def test_send_raw_richnotification_posts_complete_payload(mocker):
         "devtools.cube_message.client.httpx.post",
         return_value=_response(),
     )
-    raw = raw_rich_test.load_raw_richnotification("text_summary.json")
+    raw = raw_richnotification_test.load_raw_richnotification("text_summary.json")
 
     send_raw_richnotification(raw, user_id="u1", channel_id="", config=_config())
 
@@ -199,7 +199,7 @@ def test_send_raw_richnotification_posts_complete_payload(mocker):
 
 
 def test_raw_rich_test_defaults_channel_id_to_empty_string():
-    assert raw_rich_test.CHANNEL_ID == ""
+    assert raw_richnotification_test.CHANNEL_ID == ""
 
 
 def test_raw_rich_test_send_raw_file_loads_named_example(mocker):
@@ -208,7 +208,7 @@ def test_raw_rich_test_send_raw_file_loads_named_example(mocker):
         return_value=_response(),
     )
 
-    raw_rich_test.send_raw_file("grid_table", user_id="u1", config=_config())
+    raw_richnotification_test.send_raw_file("grid_table", user_id="u1", config=_config())
 
     rich = mock_post.call_args.kwargs["json"]["richnotification"]
     assert rich["header"]["to"]["channelid"] == [""]

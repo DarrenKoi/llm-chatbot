@@ -2,7 +2,7 @@
 
 Edit the constants below or pass CLI arguments when running:
 
-    python -m devtools.cube_message.raw_rich_test --file text_summary.json --user-id my.cube.id
+    python -m devtools.cube_message.raw_richnotification_test --file text_summary.json --user-id my.cube.id
 
 The JSON file should contain the complete ``{"richnotification": ...}``
 payload. By default this script replaces only the top-level auth/target header
@@ -21,12 +21,12 @@ from devtools.cube_message.client import (
     send_raw_richnotification,
 )
 
-RICHNOTIFICATIONS_DIR = Path(__file__).resolve().parent / "richnotifications"
+RAW_RICHNOTIFICATION_TEST_DIR = Path(__file__).resolve().parent
 
 # Edit these for quick IDE runs. Keep CHANNEL_ID as an empty string for direct
 # user delivery unless a Cube test case specifically needs a channel id.
 CONFIG = CubeMessageConfig.from_env()
-RICHNOTIFICATION_FILE = RICHNOTIFICATIONS_DIR / "text_summary.json"
+RICHNOTIFICATION_FILE = RAW_RICHNOTIFICATION_TEST_DIR / "text_summary.json"
 USER_ID = "your.cube.id"
 CHANNEL_ID = ""
 FILL_HEADER = True
@@ -34,20 +34,20 @@ FILL_CALLBACK = True
 
 
 def resolve_richnotification_file(path_or_name: str | Path) -> Path:
-    """Resolve either an absolute path or a name under richnotifications/."""
+    """Resolve either an absolute path or a name under raw_richnotification_test/."""
 
     path = Path(path_or_name)
     if not path.suffix:
         path = path.with_suffix(".json")
     if path.is_absolute() or path.exists():
         return path
-    return RICHNOTIFICATIONS_DIR / path
+    return RAW_RICHNOTIFICATION_TEST_DIR / path
 
 
 def list_richnotification_files() -> list[Path]:
     """Return available raw richnotification JSON files."""
 
-    return sorted(RICHNOTIFICATIONS_DIR.glob("*.json"))
+    return sorted(RAW_RICHNOTIFICATION_TEST_DIR.glob("*.json"))
 
 
 def load_raw_richnotification(path_or_name: str | Path) -> dict[str, Any]:
@@ -118,7 +118,7 @@ def main() -> None:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Post a raw Cube richnotification JSON file.")
-    parser.add_argument("--file", help="JSON file name under richnotifications/ or an explicit path.")
+    parser.add_argument("--file", help="JSON file name under raw_richnotification_test/ or an explicit path.")
     parser.add_argument("--user-id", help="Cube uniquename to replace in the header.")
     parser.add_argument("--channel-id", help="Cube channel id to replace in the header. Default is empty.")
     parser.add_argument(
@@ -131,7 +131,7 @@ def _parse_args() -> argparse.Namespace:
         action="store_true",
         help="Do not fill empty URL callback addresses from config.",
     )
-    parser.add_argument("--list", action="store_true", help="List available richnotifications/*.json files.")
+    parser.add_argument("--list", action="store_true", help="List available raw_richnotification_test/*.json files.")
     return parser.parse_args()
 
 
