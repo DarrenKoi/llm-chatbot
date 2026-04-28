@@ -16,7 +16,12 @@ class CubeClientError(RuntimeError):
 
 
 def _send_cube_request(*, url: str, payload: dict[str, Any], label: str) -> dict[str, Any] | None:
-    logger.info("Cube %s request started", label)
+    logger.info(
+        "cube_outbound label=%s url=%s payload=%s",
+        label,
+        url,
+        json.dumps(payload, ensure_ascii=False, default=str),
+    )
     try:
         response = httpx.post(
             url,
@@ -33,19 +38,28 @@ def _send_cube_request(*, url: str, payload: dict[str, Any], label: str) -> dict
     raw_body = response.content
 
     if not raw_body:
-        logger.info("Cube %s request completed: empty_response=True", label)
+        logger.info("cube_response label=%s status=%s body=<empty>", label, response.status_code)
         return None
 
     try:
         data = response.json()
     except json.JSONDecodeError:
-        logger.info("Cube %s request completed: raw_text=True", label)
+        logger.info(
+            "cube_response label=%s status=%s body_kind=raw_text body=%s",
+            label,
+            response.status_code,
+            json.dumps(response.text, ensure_ascii=False),
+        )
         return {"raw": response.text}
 
+    logger.info(
+        "cube_response label=%s status=%s body=%s",
+        label,
+        response.status_code,
+        json.dumps(data, ensure_ascii=False, default=str),
+    )
     if not isinstance(data, dict):
-        logger.info("Cube %s request completed: wrapped=True", label)
         return {"payload": data}
-    logger.info("Cube %s request completed", label)
     return data
 
 

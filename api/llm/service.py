@@ -43,6 +43,7 @@ def generate_reply(
     if not reply:
         logger.error("LLM 응답이 비어 있음: model=%s", config.LLM_MODEL)
         raise LLMServiceError("LLM reply is empty.")
+    logger.info("llm_reply model=%s text=%s", config.LLM_MODEL, json.dumps(reply, ensure_ascii=False))
     return reply
 
 
@@ -74,6 +75,11 @@ def generate_reply_intent(
         logger.warning("structured output 실패, 평문 fallback으로 전환", exc_info=True)
     else:
         if isinstance(structured, ReplyIntent) and _has_usable_content(structured):
+            logger.info(
+                "llm_reply_intent path=structured model=%s intent=%s",
+                config.LLM_MODEL,
+                json.dumps(structured.model_dump(), ensure_ascii=False, default=str),
+            )
             return structured
         logger.warning("structured output이 빈 ReplyIntent를 반환, 평문 fallback으로 전환")
 
@@ -86,12 +92,26 @@ def generate_reply_intent(
     raw_text = _extract_content(response.content)
     if not raw_text:
         raise LLMServiceError("LLM reply is empty.")
+    logger.info(
+        "llm_reply_intent path=raw_text model=%s text=%s", config.LLM_MODEL, json.dumps(raw_text, ensure_ascii=False)
+    )
 
     parsed = _parse_reply_intent_from_text(raw_text)
     if parsed is not None and _has_usable_content(parsed):
+        logger.info(
+            "llm_reply_intent path=parsed_json model=%s intent=%s",
+            config.LLM_MODEL,
+            json.dumps(parsed.model_dump(), ensure_ascii=False, default=str),
+        )
         return parsed
 
-    return ReplyIntent(blocks=[TextIntent(text=raw_text)])
+    fallback = ReplyIntent(blocks=[TextIntent(text=raw_text)])
+    logger.info(
+        "llm_reply_intent path=text_fallback model=%s intent=%s",
+        config.LLM_MODEL,
+        json.dumps(fallback.model_dump(), ensure_ascii=False, default=str),
+    )
+    return fallback
 
 
 def _has_usable_content(reply: ReplyIntent) -> bool:
@@ -157,10 +177,17 @@ def generate_json_reply(
         raise LLMServiceError("LLM JSON reply is empty.")
 
     try:
-        return _extract_json_object(raw_reply)
+        parsed = _extract_json_object(raw_reply)
     except ValueError as exc:
         logger.exception("LLM JSON 파싱 실패: model=%s", config.LLM_MODEL)
         raise LLMServiceError(f"LLM JSON reply is invalid: {exc}") from exc
+
+    logger.info(
+        "llm_json_reply model=%s payload=%s",
+        config.LLM_MODEL,
+        json.dumps(parsed, ensure_ascii=False, default=str),
+    )
+    return parsed
 
 
 def _get_llm() -> ChatOpenAI:

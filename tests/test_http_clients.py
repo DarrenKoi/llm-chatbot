@@ -137,8 +137,8 @@ def test_send_multimessage_emits_info_logs(mocker, monkeypatch, caplog):
     result = send_multimessage(user_id="u1", reply_message="hello")
 
     assert result == {"raw": "accepted"}
-    assert "Cube multiMessage request started" in caplog.text
-    assert "Cube multiMessage request completed" in caplog.text
+    assert "cube_outbound label=multiMessage" in caplog.text
+    assert "cube_response label=multiMessage" in caplog.text
 
 
 def test_send_richnotification_emits_info_logs(mocker, monkeypatch, caplog):
@@ -155,8 +155,8 @@ def test_send_richnotification_emits_info_logs(mocker, monkeypatch, caplog):
     result = send_richnotification(user_id="u1", channel_id="c1", reply_message="hello")
 
     assert result == {"raw": "accepted"}
-    assert "Cube richnotification request started" in caplog.text
-    assert "Cube richnotification request completed" in caplog.text
+    assert "cube_outbound label=richnotification" in caplog.text
+    assert "cube_response label=richnotification" in caplog.text
 
 
 def test_send_richnotification_blocks_uses_structured_payload(mocker, monkeypatch):
