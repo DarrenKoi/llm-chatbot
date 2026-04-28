@@ -1,9 +1,11 @@
 # 파일 구조 가이드
 
-> 최종 업데이트: 2026-04-17
+> 최종 업데이트: 2026-04-28
 
 이 문서는 `shared_docs/`에서 프로젝트 구조를 빠르게 공유하기 위한 요약본입니다.
 팀원이 실제로 볼 수 있는 경로 기준으로 정리했으며, top-level에서는 `api/`, `devtools/`, `shared_docs/`와 실행 파일만 설명합니다.
+
+> ⚠️ **최근 변경 (2026-04-28)** — `api/mcp/` → `api/mcp_runtime/`, `devtools/mcp/` → `devtools/mcp_runtime/` 로 패키지명이 바뀌었고, 호환성 shim도 제거되었습니다. 이전 경로로 import하던 코드는 즉시 깨지므로 새 경로로 갱신해 주십시오. 워크플로/MCP 영역은 직접 정비 중이니 변경 전 [`workflow_catalog.md`](./workflow_catalog.md)의 인프라 소유권 정책을 먼저 확인해 주십시오.
 
 ## 1. 한눈에 보는 구조
 

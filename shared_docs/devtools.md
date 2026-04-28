@@ -1,9 +1,11 @@
 # Devtools 가이드
 
-> 최종 업데이트: 2026-04-17
+> 최종 업데이트: 2026-04-28
 
 이 문서는 `shared_docs/`에서 팀원이 공통으로 참고할 수 있도록, 현재 `devtools/`의 역할과 워크플로 개발 절차를 요약한 문서입니다.
 원문 기준은 `doc/guideline/workflow_추가_가이드.md`, `doc/guideline/workflow_등록_가이드.md`, `doc/project_structure.md`입니다.
+
+> ⚠️ **최근 변경 (2026-04-28)** — dev MCP 경로가 `devtools/mcp/` → `devtools/mcp_runtime/` 로, 운영 MCP 경로가 `api/mcp/` → `api/mcp_runtime/` 로 변경되었습니다. 호환성 shim은 제거되었으므로 `devtools.mcp.*` / `api.mcp.*` import는 더 이상 동작하지 않습니다. 본 문서의 모든 명령과 경로 예시는 새 패키지명 기준입니다.
 
 ## 1. devtools의 목적
 
