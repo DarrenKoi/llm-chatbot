@@ -12,7 +12,27 @@ select = [
     "I",
     "B",
     "UP",
+    "TID",
 ]
+
+# api/ ↔ devtools/ 격리 정책 (HARNESS.md "api/ ↔ devtools/ 격리 정책" 참조)
+# devtools/workflows/, devtools/workflow_runner/ 안에서 module-level api.* import를 금지한다.
+# 함수 본문 안의 lazy import는 module-level이 아니라 자동 면제되므로,
+# dev_orchestrator.py의 의도적 start_chat lazy import 같은 예외는 추가 설정 없이 통과한다.
+[tool.ruff.lint.flake8-tidy-imports]
+banned-module-level-imports = ["api"]
+
+[tool.ruff.lint.per-file-ignores]
+# 정책은 devtools/workflows/, devtools/workflow_runner/ 두 곳에서만 강제한다.
+# 그 외 위치는 api.* 모듈 import가 정상 동작이므로 TID253을 면제한다.
+"api/**" = ["TID253"]
+"tests/**" = ["TID253"]
+"index.py" = ["TID253"]
+"cube_worker.py" = ["TID253"]
+"scheduler_worker.py" = ["TID253"]
+"devtools/cube_message/**" = ["TID253"]
+"devtools/mcp_runtime/**" = ["TID253"]
+"devtools/scripts/**" = ["TID253"]
 
 [tool.ruff.format]
 quote-style = "double"

@@ -160,10 +160,10 @@ devtools/workflows/
 |---|---|---|---|
 | 1 | `ChatState` (3 import) | mirror → `devtools/workflows/lg_state.py` | ✅ 완료 (`88d64ad`) |
 | 2 | `richinotification_test/` 워크플로 (3 import: `api.cube.client/rich_blocks/payload`) | **삭제** (devtools는 Cube에 보내지 않음) | ✅ 완료 (`677305f`) |
-| 3 | `is_stop_conversation_message` (1 import) | mirror → `devtools/workflows/intent_utils.py` | ✅ 완료 (이번 커밋) |
-| 4 | `devtools/workflow_runner/` 측 cross-import 5건 (`config`, `conversation_service` 3x, `discover_workflows`, lazy `start_chat.lg_graph`) | 분리 설계 필요 — 단순 mirror가 아니라 dev runner 자체의 책임 정리 (조사 필요) | ⏳ 미진행 |
-| 5 | `devtools/cube_message/samples.py`의 `api.cube.rich_blocks` (1 import) | 보류 — `cube_message`는 사무실에서 Cube 외형 점검용 매뉴얼 도구. 워크플로 격리 정책 직접 대상 아님 | ⏸ 보류 |
-| 6 | CI/ruff 가드 (`from api.`가 `devtools/workflows/` 트리 안에 등장하면 실패) | 정책 강제 | ⏳ 미진행 |
+| 3 | `is_stop_conversation_message` (1 import) | mirror → `devtools/workflows/intent_utils.py` | ✅ 완료 (`9810191`) |
+| 4 | `devtools/workflow_runner/` 측 cross-import 5건 (`config`, `conversation_service` 3x, `discover_workflows`, lazy `start_chat.lg_graph`) | dev runner 자체 인프라 도입: `registry.py` + `conversation_history.py`. `start_chat` lazy import는 의도적 예외로 유지 (entry routing 점검용) | ✅ 완료 (`03945d1`) |
+| 5 | `devtools/cube_message/samples.py`의 `api.cube.rich_blocks` (1 import) | 보류 — `cube_message`는 사무실에서 Cube 외형 점검용 매뉴얼 도구. 워크플로 격리 정책 직접 대상 아님 | ⏸ 영구 보류 |
+| 6 | ruff 가드 (`pyproject.toml`의 `banned-module-level-imports = ["api"]` + `per-file-ignores`로 `devtools/workflows/`, `devtools/workflow_runner/`만 강제) | 정책 자동 강제 | ✅ 완료 (이번 커밋) |
 
 **원칙 정리**
 
