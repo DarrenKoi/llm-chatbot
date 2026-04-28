@@ -9,7 +9,7 @@ from typing import Any
 from api import config
 from api.conversation_service import ConversationStoreError, append_message
 from api.cube import rich_blocks
-from api.cube.chunker import plan_delivery
+from api.cube.chunker import chunk_text, plan_delivery
 from api.cube.client import CubeClientError, send_multimessage, send_richnotification, send_richnotification_blocks
 from api.cube.intent_renderer import intent_to_block, intents_to_history_text
 from api.cube.intents import BlockIntent, TextIntent
@@ -319,12 +319,12 @@ def _send_text_intent_group(*, user_id: str, texts: list[str], sent_count: int) 
     if not reply:
         return sent_count
 
-    for item in plan_delivery(reply):
+    for chunk in chunk_text(reply):
         sent_count = _send_with_delivery_delay(
             sent_count,
-            lambda item=item: send_multimessage(
+            lambda chunk=chunk: send_multimessage(
                 user_id=user_id,
-                reply_message=item.content,
+                reply_message=chunk,
             ),
         )
     return sent_count

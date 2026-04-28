@@ -23,6 +23,21 @@ class DeliveryItem:
     kind: Literal["text", "code", "table"] = "text"
 
 
+def chunk_text(text: str, *, max_lines: int = 0) -> list[str]:
+    """텍스트를 multimessage 전송용 청크로 분할한다.
+
+    `plan_delivery`와 달리 코드/표 감지나 rich 라우팅을 수행하지 않는다.
+    이미 multimessage로 보내기로 결정된 텍스트(예: TextIntent)에 사용한다.
+    """
+    if max_lines <= 0:
+        max_lines = config.CUBE_MESSAGE_MAX_LINES
+
+    if not text or not text.strip():
+        return []
+
+    return _chunk_text(text, max_lines)
+
+
 def plan_delivery(text: str, *, max_lines: int = 0) -> list[DeliveryItem]:
     """LLM 응답 텍스트를 DeliveryItem 리스트로 변환한다.
 
@@ -186,7 +201,8 @@ def _chunk_text(text: str, max_lines: int) -> list[str]:
             continue
 
         # 추가하면 초과 → 현재 버퍼 플러시
-        if current_count + para_line_count > max_lines:
+        separator_line_count = 1 if current_lines else 0
+        if current_count + separator_line_count + para_line_count > max_lines:
             if current_lines:
                 chunks.append("\n".join(current_lines))
             current_lines = para.split("\n")
