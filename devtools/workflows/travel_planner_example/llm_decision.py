@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from api.workflows.intent_utils import is_stop_conversation_message
+from devtools.workflows.intent_utils import is_stop_conversation_message
 
 from .constants import parse_request
 

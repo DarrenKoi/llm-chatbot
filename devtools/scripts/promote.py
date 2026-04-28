@@ -76,6 +76,9 @@ def promote(workflow_id: str) -> None:
     # mirror 인프라 모듈은 promote 시 api 측 사본을 가리키도록 치환한다.
     # (HARNESS.md "api/ ↔ devtools/ 격리 정책" 참조)
     _rewrite_import_prefix(target, old_prefix="devtools.workflows.lg_state", new_prefix="api.workflows.lg_state")
+    _rewrite_import_prefix(
+        target, old_prefix="devtools.workflows.intent_utils", new_prefix="api.workflows.intent_utils"
+    )
 
     # 4. Import 검증
     print("import 검증 중...")

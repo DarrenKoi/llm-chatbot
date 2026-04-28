@@ -159,11 +159,11 @@ devtools/workflows/
 | 단계 | 대상 | 처리 방식 | 상태 |
 |---|---|---|---|
 | 1 | `ChatState` (3 import) | mirror → `devtools/workflows/lg_state.py` | ✅ 완료 (`88d64ad`) |
-| 2 | `richinotification_test/` 워크플로 (3 import: `api.cube.client/rich_blocks/payload`) | **삭제** (devtools는 Cube에 보내지 않음) | ✅ 완료 (이번 커밋) |
-| 3 | `is_stop_conversation_message` (1 import) | mirror → `devtools/workflows/intent_utils.py` | ⏳ 미진행 |
-| 4 | `dev_orchestrator.py`의 `discover_workflows` / `start_chat.lg_graph` (2 import) | dev 측 등가 로직 복제 | ⏳ 미진행 |
-| 5 | `devtools/cube_message/samples.py`의 `api.cube.rich_blocks` (1 import) | 별도 검토 — `cube_message`는 사무실 환경에서 Cube 외형을 점검하는 매뉴얼 도구라 워크플로 격리 정책의 직접 대상이 아님 | ⏳ 보류 |
-| 6 | CI/ruff 가드 추가 (`from api.`가 `devtools/workflows/` 트리 안에 등장하면 실패) | 정책 강제 | ⏳ 미진행 |
+| 2 | `richinotification_test/` 워크플로 (3 import: `api.cube.client/rich_blocks/payload`) | **삭제** (devtools는 Cube에 보내지 않음) | ✅ 완료 (`677305f`) |
+| 3 | `is_stop_conversation_message` (1 import) | mirror → `devtools/workflows/intent_utils.py` | ✅ 완료 (이번 커밋) |
+| 4 | `devtools/workflow_runner/` 측 cross-import 5건 (`config`, `conversation_service` 3x, `discover_workflows`, lazy `start_chat.lg_graph`) | 분리 설계 필요 — 단순 mirror가 아니라 dev runner 자체의 책임 정리 (조사 필요) | ⏳ 미진행 |
+| 5 | `devtools/cube_message/samples.py`의 `api.cube.rich_blocks` (1 import) | 보류 — `cube_message`는 사무실에서 Cube 외형 점검용 매뉴얼 도구. 워크플로 격리 정책 직접 대상 아님 | ⏸ 보류 |
+| 6 | CI/ruff 가드 (`from api.`가 `devtools/workflows/` 트리 안에 등장하면 실패) | 정책 강제 | ⏳ 미진행 |
 
 **원칙 정리**
 
