@@ -136,7 +136,8 @@ def load_raw_richnotification(path_or_name: str | Path) -> dict[str, Any]:
 
     path = resolve_richnotification_file(path_or_name)
     try:
-        with path.open(encoding="utf-8") as file:
+        # utf-8-sig: BOM이 붙은 Windows 저장 JSON도 그대로 읽을 수 있게 한다.
+        with path.open(encoding="utf-8-sig") as file:
             payload = json.load(file)
     except OSError as exc:
         raise CubeMessageError(f"raw richnotification 파일을 읽을 수 없습니다: {path}") from exc
