@@ -5,7 +5,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, render_template, request
 
-from api import conversation_service
+from devtools.workflow_runner import conversation_history
 from devtools.workflow_runner.dev_orchestrator import (
     get_dev_state,
     handle_dev_message,
@@ -110,7 +110,7 @@ def api_history():
     default_user_id = get_default_dev_user_id()
     user_id = str(request.args.get("user_id", default_user_id)).strip() or default_user_id
     workflow_id = str(request.args.get("workflow_id", "")).strip()
-    history = conversation_service.get_history(
+    history = conversation_history.get_history(
         user_id,
         conversation_id=workflow_id or None,
     )

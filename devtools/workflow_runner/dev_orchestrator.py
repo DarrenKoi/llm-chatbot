@@ -12,9 +12,9 @@ from langchain_core.messages import BaseMessage
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 
-from api import conversation_service
-from api.workflows.registry import discover_workflows
+from devtools.workflow_runner import conversation_history
 from devtools.workflow_runner.identity import get_default_dev_user_id
+from devtools.workflow_runner.registry import discover_workflows
 
 log = logging.getLogger(__name__)
 
@@ -96,6 +96,11 @@ def _get_compiled_graph(workflow_id: str):
     checkpointer = _checkpointers.setdefault(workflow_id, MemorySaver())
 
     if workflow_id == START_CHAT_ID:
+        # 의도적인 cross-import 예외: dev runner UI에서 운영 start_chat 진입 라우팅을
+        # 직접 검증하기 위해 운영 그래프를 lazy import한다. HARNESS.md "api/ ↔ devtools/
+        # 격리 정책"의 일반 원칙에는 어긋나지만, "워크플로 entry 점검"이라는 이 단일
+        # 용도가 dev 작업 자체의 일부라 유지한다. start_chat을 사용하지 않는 환경에서는
+        # 이 import가 실행되지 않으므로 import-time 부작용은 없다.
         from api.workflows.start_chat.lg_graph import build_lg_graph
 
         graph = build_lg_graph().compile(checkpointer=checkpointer)
@@ -150,12 +155,12 @@ def handle_dev_message(
     after_state = graph.get_state(config)
     final_reply = _extract_reply(after_state, fallback=f"[{workflow_id}] 처리 완료.")
 
-    conversation_service.append_message(
+    conversation_history.append_message(
         resolved_user_id,
         {"role": "user", "content": user_message},
         conversation_id=workflow_id,
     )
-    conversation_service.append_message(
+    conversation_history.append_message(
         resolved_user_id,
         {"role": "assistant", "content": final_reply},
         conversation_id=workflow_id,
