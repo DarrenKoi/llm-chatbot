@@ -33,13 +33,17 @@ _ASK_TARGET_REPLY = (
     f"어떤 언어로 번역할까요? {', '.join(_LANGUAGE_LABELS.values())} 중 하나를 말씀해주세요.\n"
     '원하시면 문장과 언어를 함께 다시 보내거나 "취소"라고 말씀하셔도 됩니다.'
 )
-# Drop ≤2-char ASCII aliases from the fallback regex matcher: short codes like
-# "de", "es", "fr", "th", "vi" collide with ordinary words in user text and
-# would otherwise be stripped out by _extract_source_text.
-_TARGET_LANGUAGE_ALIASES = {
-    k: v for k, v in LANGUAGE_ALIASES.items() if v in _TARGET_LANGUAGES and not (k.isascii() and len(k) <= 2)
+_TARGET_LANGUAGE_ALIASES = {k: v for k, v in LANGUAGE_ALIASES.items() if v in _TARGET_LANGUAGES}
+# Drop ≤2-char ASCII aliases only from the fallback regex matcher: short codes
+# like "de", "es", "fr", "th", "vi" collide with ordinary words in user text
+# and would otherwise be stripped out by _extract_source_text. LLM decisions may
+# still return canonical codes such as "en" or "ja", so normalization keeps them.
+_TARGET_LANGUAGE_MATCH_ALIASES = {
+    k: v for k, v in _TARGET_LANGUAGE_ALIASES.items() if not (k.isascii() and len(k) <= 2)
 }
-_TARGET_LANGUAGE_ALIASES_SORTED = sorted(_TARGET_LANGUAGE_ALIASES.items(), key=lambda item: len(item[0]), reverse=True)
+_TARGET_LANGUAGE_MATCH_ALIASES_SORTED = sorted(
+    _TARGET_LANGUAGE_MATCH_ALIASES.items(), key=lambda item: len(item[0]), reverse=True
+)
 _QUOTED_TEXT_PATTERN = re.compile(r"""["']([^"']+)["']""")
 _FOLLOW_UP_SOURCE_PATTERNS = (
     r"(?i)\bthis time\b",
@@ -254,7 +258,7 @@ def _parse_translation_request(user_message: str) -> tuple[str, str]:
 
 def _extract_target_language(user_message: str) -> str:
     stripped = _QUOTED_TEXT_PATTERN.sub("", user_message)
-    for alias, language_code in _TARGET_LANGUAGE_ALIASES_SORTED:
+    for alias, language_code in _TARGET_LANGUAGE_MATCH_ALIASES_SORTED:
         if re.search(_build_language_alias_pattern(alias), stripped, flags=re.IGNORECASE):
             return language_code
     return ""
@@ -272,7 +276,7 @@ def _extract_source_text(user_message: str, *, target_language: str) -> str:
     cleaned = re.sub(r"번역(해줘|해주세요|해 줘|해 주세요)?", " ", cleaned)
     cleaned = re.sub(r"바꿔(줘|주세요)?", " ", cleaned)
 
-    for alias, _ in _TARGET_LANGUAGE_ALIASES_SORTED:
+    for alias, _ in _TARGET_LANGUAGE_MATCH_ALIASES_SORTED:
         cleaned = re.sub(_build_language_alias_pattern(alias), " ", cleaned, flags=re.IGNORECASE)
 
     cleaned = re.sub(r"[?.,!]", " ", cleaned)

@@ -96,7 +96,7 @@ def test_handle_message_translator_interrupt_and_resume(mock_profile, monkeypatc
             {
                 "action": "translate",
                 "source_text": "감사합니다",
-                "target_language": "일본어",
+                "target_language": "ja",
                 "missing_slot": "",
                 "reply": "",
             },
