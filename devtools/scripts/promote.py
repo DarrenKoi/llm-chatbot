@@ -73,6 +73,10 @@ def promote(workflow_id: str) -> None:
     if mcp_target:
         _rewrite_import_prefix(mcp_target, old_prefix="devtools.mcp_runtime.", new_prefix="api.mcp_runtime.")
 
+    # mirror 인프라 모듈은 promote 시 api 측 사본을 가리키도록 치환한다.
+    # (HARNESS.md "api/ ↔ devtools/ 격리 정책" 참조)
+    _rewrite_import_prefix(target, old_prefix="devtools.workflows.lg_state", new_prefix="api.workflows.lg_state")
+
     # 4. Import 검증
     print("import 검증 중...")
     try:

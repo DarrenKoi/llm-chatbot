@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from api.workflows.lg_state import ChatState
+from devtools.workflows.lg_state import ChatState
 
 
 class RichinotificationTestState(ChatState, total=False):

@@ -1,6 +1,6 @@
 """__WORKFLOW_ID__ 워크플로 전용 LangGraph 상태를 정의한다."""
 
-from api.workflows.lg_state import ChatState
+from devtools.workflows.lg_state import ChatState
 
 
 class __STATE_CLASS__(ChatState, total=False):
