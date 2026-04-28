@@ -367,17 +367,22 @@ def _normalize_reply_intent_payload(payload: Any) -> dict[str, Any] | None:
     return None
 
 
-def _load_jsonish(text: str) -> Any | None:
+def _load_jsonish(text: str, *, _depth: int = 0) -> Any | None:
     for variant in _jsonish_variants(text):
-        try:
-            return json.loads(variant)
-        except json.JSONDecodeError:
-            pass
-
-        try:
-            return ast.literal_eval(variant)
-        except (SyntaxError, ValueError):
-            pass
+        for loader in (json.loads, ast.literal_eval):
+            try:
+                payload = loader(variant)
+            except (json.JSONDecodeError, SyntaxError, ValueError):
+                continue
+            if _depth == 0 and isinstance(payload, str):
+                stripped = payload.strip()
+                if stripped.startswith(("{", "[")):
+                    # 일부 모델이 JSON 객체 전체를 따옴표로 감싸 문자열로 직렬화하는 케이스.
+                    unwrapped = _load_jsonish(stripped, _depth=1)
+                    if unwrapped is not None:
+                        return unwrapped
+                    continue
+            return payload
 
     return None
 

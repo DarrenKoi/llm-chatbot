@@ -239,6 +239,27 @@ def test_generate_reply_intent_parses_bare_json_without_fences(mocker, monkeypat
     assert [block.kind for block in intent.blocks] == ["text", "table"]
 
 
+def test_generate_reply_intent_parses_double_encoded_json_string(mocker, monkeypatch):
+    _stub_llm_env(monkeypatch)
+
+    inner = '{"blocks":[{"kind":"table","headers":["a"],"rows":[["1"]]}],"needs_callback":false}'
+    raw = json.dumps(inner, ensure_ascii=False)
+
+    structured_llm = mocker.Mock()
+    structured_llm.invoke.side_effect = RuntimeError("structured output failed")
+    mock_llm = mocker.Mock()
+    mock_llm.with_structured_output.return_value = structured_llm
+    mock_llm.invoke.return_value = mocker.Mock(content=raw)
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    intent = generate_reply_intent(history=[], user_message="표 보여줘")
+
+    assert len(intent.blocks) == 1
+    assert isinstance(intent.blocks[0], TableIntent)
+    assert intent.blocks[0].headers == ["a"]
+    assert intent.blocks[0].rows == [["1"]]
+
+
 def test_generate_reply_intent_parses_blocks_assignment_as_structured_intent(mocker, monkeypatch):
     _stub_llm_env(monkeypatch)
 

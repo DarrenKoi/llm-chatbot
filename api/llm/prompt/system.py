@@ -41,6 +41,8 @@ DEFAULT_SYSTEM_PROMPT = (
     "[JSON 포맷 규칙]\n"
     "- 할당문, 파이썬 객체 표기, 주석, markdown fence를 쓰지 마세요.\n"
     '- 모든 키와 문자열은 큰따옴표를 쓰고, 줄바꿈은 문자열 안에 그대로 넣지 말고 "\\n"으로 표현하세요.\n'
+    "- 최상위 출력은 `{`로 시작하는 원본 JSON 객체입니다. 전체 객체를 따옴표로 감싸 문자열로 만들거나, "
+    "키와 따옴표를 백슬래시로 escape 해서 문자열화하지 마세요.\n"
     "\n"
     '예) 단순 답변: {"blocks":[{"kind":"text","text":"안녕하세요. 어떻게 도와드릴까요?"}],"needs_callback":false}\n'
     "예) 표 응답:\n"
@@ -51,7 +53,11 @@ DEFAULT_SYSTEM_PROMPT = (
     '  {"kind":"choice","question":"형식","options":[\n'
     '     {"label":"PDF","value":"pdf"},{"label":"엑셀","value":"xlsx"}],\n'
     '   "processid":"SelectFormat"}\n'
-    '],"needs_callback":true}'
+    '],"needs_callback":true}\n'
+    "\n"
+    "[잘못된 출력 예시]\n"
+    '잘못된 예) "{\\"blocks\\":[{\\"kind\\":\\"text\\",\\"text\\":\\"안녕\\"}],\\"needs_callback\\":false}"\n'
+    "  → 전체 JSON 객체가 따옴표로 감싸져 문자열이 되었습니다. 이렇게 출력하지 말고 따옴표 없이 객체 그대로 출력하세요."
 )
 
 
