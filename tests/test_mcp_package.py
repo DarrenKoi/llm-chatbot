@@ -46,3 +46,17 @@ def test_mcp_package_still_allows_submodule_imports():
 
     assert local_tools.clear_handlers
     assert mcp_registry.list_tools
+
+
+def test_legacy_mcp_package_aliases_runtime_package():
+    import importlib
+
+    from api.mcp.models import MCPToolCall as LegacyMCPToolCall
+
+    from api.mcp import MCPToolCall
+    from api.mcp_runtime.models import MCPToolCall as RuntimeMCPToolCall
+
+    assert MCPToolCall is RuntimeMCPToolCall
+    assert LegacyMCPToolCall is RuntimeMCPToolCall
+    assert importlib.import_module("api.mcp.executor") is importlib.import_module("api.mcp_runtime.executor")
+    assert importlib.import_module("api.mcp.tool_selector") is importlib.import_module("api.mcp_runtime.tool_selector")
