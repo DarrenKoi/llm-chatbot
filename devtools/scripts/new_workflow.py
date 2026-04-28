@@ -12,8 +12,8 @@ from pathlib import Path
 DEVTOOLS_ROOT = Path(__file__).resolve().parent.parent
 TEMPLATE_DIR = DEVTOOLS_ROOT / "workflows" / "_template"
 WORKFLOWS_DIR = DEVTOOLS_ROOT / "workflows"
-MCP_TEMPLATE_FILE = DEVTOOLS_ROOT / "mcp" / "_template.py"
-MCP_DIR = DEVTOOLS_ROOT / "mcp"
+MCP_TEMPLATE_FILE = DEVTOOLS_ROOT / "mcp_runtime" / "_template.py"
+MCP_DIR = DEVTOOLS_ROOT / "mcp_runtime"
 
 WORKFLOW_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 

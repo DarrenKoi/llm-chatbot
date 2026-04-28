@@ -55,7 +55,7 @@ devtools/workflows/sample_flow/
 ├── lg_graph.py
 └── lg_state.py
 
-devtools/mcp/sample_flow.py
+devtools/mcp_runtime/sample_flow.py
 ```
 
 이 방식의 장점은 시작 파일 구성이 팀 공통 규칙에 맞춰 고정된다는 점입니다.
@@ -111,11 +111,11 @@ class SampleFlowState(ChatState, total=False):
 
 처음부터 복잡하게 만들기보다 진입 노드, 슬롯 수집 노드, 완료 노드 정도로 최소 구조를 먼저 세우는 편이 빠릅니다.
 
-### `devtools/mcp/<workflow_id>.py`
+### `devtools/mcp_runtime/<workflow_id>.py`
 
 이 파일은 dev 환경에서 쓸 MCP 서버와 도구 등록을 담당합니다.
 
-운영 반영 시 같은 이름으로 `api/mcp/` 아래로 이동하므로 파일명과 역할을 일치시켜 두는 편이 좋습니다.
+운영 반영 시 같은 이름으로 `api/mcp_runtime/` 아래로 이동하므로 파일명과 역할을 일치시켜 두는 편이 좋습니다.
 
 ## 4. 효과적으로 설계하는 방법
 
@@ -430,13 +430,13 @@ from .nodes import collect_slot_node
 from api.workflows.sample_flow.lg_state import SampleFlowState
 ```
 
-`promote` 스크립트는 `devtools.mcp.` → `api.mcp.` 경로만 치환하므로, 나머지 import는 처음부터 운영 경로 기준으로 작성해야 합니다.
+`promote` 스크립트는 `devtools.mcp_runtime.` → `api.mcp_runtime.` 경로만 치환하므로, 나머지 import는 처음부터 운영 경로 기준으로 작성해야 합니다.
 
 ### MCP import
 
-dev 단계에서는 템플릿처럼 `devtools.mcp.<workflow_id>`를 사용합니다.
+dev 단계에서는 템플릿처럼 `devtools.mcp_runtime.<workflow_id>`를 사용합니다.
 
-`promote` 스크립트가 운영 반영 시 이 경로를 `api.mcp.<workflow_id>`로 자동 치환합니다.
+`promote` 스크립트가 운영 반영 시 이 경로를 `api.mcp_runtime.<workflow_id>`로 자동 치환합니다.
 
 ### 도구 등록 호출 위치
 
@@ -552,8 +552,8 @@ python -m devtools.scripts.promote sample_flow
 이 스크립트는 현재 설정 기준으로 아래 작업을 수행합니다.
 
 1. `devtools/workflows/sample_flow/`를 `api/workflows/sample_flow/`로 복사합니다.
-2. `devtools/mcp/sample_flow.py`를 `api/mcp/sample_flow.py`로 복사합니다.
-3. `devtools.mcp.` import를 `api.mcp.` import로 자동 치환합니다.
+2. `devtools/mcp_runtime/sample_flow.py`를 `api/mcp_runtime/sample_flow.py`로 복사합니다.
+3. `devtools.mcp_runtime.` import를 `api.mcp_runtime.` import로 자동 치환합니다.
 4. import 검증을 수행합니다.
 5. 검증이 통과하면 dev 원본을 삭제합니다.
 

@@ -60,9 +60,9 @@ CLEAN_BEFORE_SYNC = [
 CLEAN_PRESERVE = [
     # 팀원이 직접 추가하는 워크플로 패키지 (하위 전체 보존)
     "api/workflows/",
-    "api/mcp/",
+    "api/mcp_runtime/",
     "devtools/workflows/",
-    "devtools/mcp/",
+    "devtools/mcp_runtime/",
     # 깊은 경로 예시: "api/workflows/start_chat/rag/"
     # 개별 파일 예시: "api/workflows/lg_state.py"
 ]

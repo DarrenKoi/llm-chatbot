@@ -10,7 +10,7 @@
 - **HEAD commit**: `ac3e88abf77ab3ccc09308f257b5f42063b202f8` (`ac3e88a`)
 - **Commit message**: `scripts: Bitbucket 동기화 경로 인자 제거`
 - **Recorded at**: 2026-04-26
-- **Working tree**: dirty (`.claude/settings.local.json`, `api/llm/service.py`, `api/mcp/executor.py` 변경 / `nuxt-ui-llm.md` 미추적)
+- **Working tree**: dirty (`.claude/settings.local.json`, `api/llm/service.py`, `api/mcp_runtime/executor.py` 변경 / `nuxt-ui-llm.md` 미추적)
 - **권장**: 작업 시작 전 미커밋 변경을 stash 또는 commit하여 깨끗한 상태에서 출발합니다.
 
 **롤백 명령**

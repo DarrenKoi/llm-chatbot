@@ -241,7 +241,7 @@ devtools/workflows/sample_flow/
 ├── lg_graph.py
 └── lg_state.py
 
-devtools/mcp/sample_flow.py
+devtools/mcp_runtime/sample_flow.py
 ```
 
 ### 3. 그래프 구현 패턴
@@ -319,7 +319,7 @@ def build_lg_graph():
     return builder()
 ```
 
-dev 단계에서는 `devtools/mcp/<workflow_id>.py`를 사용하고, promotion 시 `api/mcp/`로 옮깁니다.
+dev 단계에서는 `devtools/mcp_runtime/<workflow_id>.py`를 사용하고, promotion 시 `api/mcp_runtime/`로 옮깁니다.
 
 도구 연동 시 기억할 점:
 
@@ -344,8 +344,8 @@ python -m devtools.scripts.promote sample_flow
 `promote` 스크립트는 아래 작업을 수행합니다.
 
 1. dev 워크플로 패키지를 `api/workflows/`로 복사합니다.
-2. 대응하는 dev MCP 모듈을 `api/mcp/`로 복사합니다.
-3. `devtools.mcp.` import를 `api.mcp.`로 치환합니다.
+2. 대응하는 dev MCP 모듈을 `api/mcp_runtime/`로 복사합니다.
+3. `devtools.mcp_runtime.` import를 `api.mcp_runtime.`로 치환합니다.
 4. import 검증을 수행합니다.
 5. 검증이 통과하면 dev 원본을 삭제합니다.
 

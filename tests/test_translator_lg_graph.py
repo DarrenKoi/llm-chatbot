@@ -8,8 +8,8 @@ import pytest
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 
-from api.mcp import local_tools
-from api.mcp import registry as mcp_registry
+from api.mcp_runtime import local_tools
+from api.mcp_runtime import registry as mcp_registry
 from api.workflows.translator.lg_graph import build_lg_graph
 from api.workflows.translator.tools import register_translator_tools
 

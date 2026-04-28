@@ -2,10 +2,10 @@
 
 import logging
 
-from api.mcp.client import MCPClient
-from api.mcp.local_tools import get_handler
-from api.mcp.models import MCPToolCall, MCPToolResult
-from api.mcp.registry import get_server, get_tool
+from api.mcp_runtime.client import MCPClient
+from api.mcp_runtime.local_tools import get_handler
+from api.mcp_runtime.models import MCPToolCall, MCPToolResult
+from api.mcp_runtime.registry import get_server, get_tool
 
 logger = logging.getLogger(__name__)
 

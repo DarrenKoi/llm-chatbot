@@ -19,7 +19,7 @@ AI가 무엇이든 알아서 판단하게 두지 마십시오. 먼저 범위와 
 세션 시작 시 아래 내용을 AI에게 먼저 알려주십시오.
 
 1. 이 저장소의 기본 워크플로우 진입점은 `start_chat`이다.
-2. 작업 범위는 기본적으로 `api/mcp/`, `api/workflows/`, `devtools/workflows/`에 한정한다.
+2. 작업 범위는 기본적으로 `api/mcp_runtime/`, `api/workflows/`, `devtools/workflows/`에 한정한다.
 3. Control MCP 또는 워크플로우 로직과 직접 관련 없는 코드는 수정하지 않는다.
 4. `api/config.py`, `api/__init__.py`, `index.py`, `wsgi.ini`, `requirements.txt`, `.env`, `.env.example`는 사람이 명시적으로 요청한 경우에만 수정한다.
 5. 새로운 라우팅, 핸드오프, 워크플로우 제어는 `api/workflows/start_chat/`를 기준으로 설계한다.
@@ -33,7 +33,7 @@ AI가 무엇이든 알아서 판단하게 두지 마십시오. 먼저 범위와 
 
 ```text
 이 저장소에서는 start_chat이 기본 워크플로우 진입점이다.
-작업 범위는 기본적으로 api/workflows/, api/workflows/start_chat/, api/mcp/, devtools/workflows/로 제한한다.
+작업 범위는 기본적으로 api/workflows/, api/workflows/start_chat/, api/mcp_runtime/, devtools/workflows/로 제한한다.
 Control MCP 또는 워크플로우 로직과 직접 관련 없는 코드는 수정하지 마라.
 api/config.py, api/__init__.py, index.py, wsgi.ini, requirements.txt, .env, .env.example 는 내가 명시적으로 요청할 때만 수정해라.
 새 라우팅이나 핸드오프는 기존 workflow registry/orchestrator 규약을 따라라.
@@ -47,7 +47,7 @@ api/workflows/ 루트의 인프라 파일(registry.py, lg_orchestrator.py, lg_st
 
 이 저장소에서 AI가 작업해야 하는 핵심 범위는 Control MCP와 워크플로우 로직입니다.
 
-- 주요 범위: `api/mcp/`
+- 주요 범위: `api/mcp_runtime/`
 - 주요 범위: `api/workflows/`
 - 참고용 작성 범위: `devtools/workflows/`
 - 시작 지점: `start_chat`
@@ -72,7 +72,7 @@ api/workflows/ 루트의 인프라 파일(registry.py, lg_orchestrator.py, lg_st
 
 - `api/workflows/<workflow_id>/` (각 워크플로 패키지 내부, 예: `lg_graph.py`, `lg_state.py`, `tools.py`, `prompts.py` 등)
 - `api/workflows/start_chat/`
-- `api/mcp/`
+- `api/mcp_runtime/`
 - `devtools/workflows/`
 - `devtools/DEVGUIDE.md`
 
@@ -127,7 +127,7 @@ api/workflows/ 루트의 인프라 파일(registry.py, lg_orchestrator.py, lg_st
 
 AI가 작업을 끝냈다고 말하면, 아래 항목을 사람이 직접 확인하십시오.
 
-1. 수정 파일이 정말로 `api/workflows/`, `api/mcp/`, `devtools/workflows/` 중심인가?
+1. 수정 파일이 정말로 `api/workflows/`, `api/mcp_runtime/`, `devtools/workflows/` 중심인가?
 2. `start_chat` 진입 흐름을 우회하는 새 진입점이나 임시 로직이 생기지 않았는가?
 3. 설정 파일, 부트스트랩, 배포 파일이 불필요하게 바뀌지 않았는가?
 4. 새 워크플로우가 기존 `registry`와 `orchestrator` 규약을 따르는가?
@@ -176,7 +176,7 @@ AI가 작업을 끝냈다고 말하면, 아래 항목을 사람이 직접 확인
 먼저 제어 폴더 내부에서 가능한 가장 작은 유효 변경을 선택합니다.
 
 - 앱 전역 코드를 건드리기 전에 `api/workflows/start_chat/`에서 먼저 수정합니다.
-- 관련 없는 통합을 건드리기 전에 `api/mcp/`에서 먼저 수정합니다.
+- 관련 없는 통합을 건드리기 전에 `api/mcp_runtime/`에서 먼저 수정합니다.
 - 부트스트랩을 바꾸기 전에 워크플로우 노드와 라우팅 확장을 우선합니다.
 
 ## 아키텍처 상기
@@ -210,6 +210,6 @@ AI가 작업을 끝냈다고 말하면, 아래 항목을 사람이 직접 확인
 작업이 아래 위치 중 어디에서 처리되어야 하는지 먼저 확인하십시오.
 
 - `api/workflows/`
-- `api/mcp/`
+- `api/mcp_runtime/`
 
 해당하지 않는다면 스스로 범위를 넓히지 마십시오.

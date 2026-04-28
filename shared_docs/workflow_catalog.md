@@ -130,8 +130,8 @@ devtools/workflows/
 `devtools/scripts/promote.py`는 leaf 패키지만 옮기면 끝납니다.
 
 1. `devtools/workflows/<id>/` → `api/workflows/<id>/` 복사
-2. `devtools/mcp/<id>.py` → `api/mcp/<id>.py` 복사
-3. `devtools.mcp.` import를 `api.mcp.`로 치환 (인프라 import는 이미 `api.workflows.*`라 그대로 동작)
+2. `devtools/mcp_runtime/<id>.py` → `api/mcp_runtime/<id>.py` 복사
+3. `devtools.mcp_runtime.` import를 `api.mcp_runtime.`로 치환 (인프라 import는 이미 `api.workflows.*`라 그대로 동작)
 4. import 검증 후 dev 원본 삭제
 
 운영 인프라는 처음부터 `api/`에 있고 dev에서도 같은 import 경로로 사용했기 때문에, promote 시 “인프라 파일을 옮긴다”는 단계가 아예 없습니다.

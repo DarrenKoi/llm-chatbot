@@ -9,7 +9,7 @@ from types import ModuleType
 from typing import Any
 
 from api.logging_service import log_workflow_activity
-from api.mcp.models import normalize_tags
+from api.mcp_runtime.models import normalize_tags
 
 log = logging.getLogger(__name__)
 

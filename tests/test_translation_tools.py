@@ -2,8 +2,8 @@
 
 import pytest
 
-from api.mcp import local_tools
-from api.mcp import registry as mcp_registry
+from api.mcp_runtime import local_tools
+from api.mcp_runtime import registry as mcp_registry
 from api.workflows.translator.tools import _translate as translate_tool
 from api.workflows.translator.translation_engine import translate_text
 

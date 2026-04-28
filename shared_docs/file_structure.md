@@ -86,7 +86,7 @@ llm_chatbot/
   APScheduler 작업 등록, 분산 락, 점검 스냅샷, 실제 task 구현을 담습니다.
 - `api/monitoring_service.py`
   모니터링 화면에 보여줄 런타임 스냅샷을 만듭니다.
-- `api/mcp/`
+- `api/mcp_runtime/`
   MCP 클라이언트, 레지스트리, 로컬 툴 실행기, 툴 선택 로직을 담습니다.
 - `api/mongo.py`
   MongoDB 연결 유틸리티입니다.
@@ -105,7 +105,7 @@ llm_chatbot/
   새 워크플로 템플릿과 예제 구현이 있습니다.
 - `devtools/scripts/`
   워크플로 생성, 승격 등 반복 작업을 줄이는 스크립트가 있습니다.
-- `devtools/mcp/`
+- `devtools/mcp_runtime/`
   개발 중 사용하는 MCP 템플릿과 보조 코드가 있습니다.
 - `devtools/var/`
   dev runner가 사용하는 대화 이력과 상태 저장 경로입니다.

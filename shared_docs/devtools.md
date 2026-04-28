@@ -26,11 +26,11 @@
 - `travel_planner_example/`는 멀티턴 interrupt/resume 참고 예제입니다.
 - `richinotification_test/`는 richnotification payload 조립과 devtools 응답 규칙 참고 예제입니다.
 
-### `devtools/mcp/`
+### `devtools/mcp_runtime/`
 
 - dev 워크플로에서 사용하는 MCP 등록 코드를 둡니다.
 - 템플릿 파일 `_template.py`를 기준으로 새 dev MCP 모듈을 생성합니다.
-- promotion 시 같은 이름으로 `api/mcp/` 아래로 이동할 수 있습니다.
+- promotion 시 같은 이름으로 `api/mcp_runtime/` 아래로 이동할 수 있습니다.
 
 ### `devtools/workflow_runner/`
 
@@ -49,8 +49,8 @@
 ### `devtools/scripts/promote.py`
 
 - 검증이 끝난 dev 워크플로를 `api/workflows/`로 승격합니다.
-- 관련 dev MCP 파일도 함께 `api/mcp/`로 복사합니다.
-- `devtools.mcp.*` import를 `api.mcp.*`로 자동 치환합니다.
+- 관련 dev MCP 파일도 함께 `api/mcp_runtime/`로 복사합니다.
+- `devtools.mcp_runtime.*` import를 `api.mcp_runtime.*`로 자동 치환합니다.
 - import 검증이 실패하면 롤백합니다.
 - 검증 통과 후 dev 원본을 삭제합니다.
 
@@ -79,7 +79,7 @@ python -m devtools.scripts.new_workflow my_workflow
 - `devtools/workflows/my_workflow/__init__.py`
 - `devtools/workflows/my_workflow/lg_state.py`
 - `devtools/workflows/my_workflow/lg_graph.py`
-- `devtools/mcp/my_workflow.py`
+- `devtools/mcp_runtime/my_workflow.py`
 
 현재 템플릿은 `lg_state.py`를 기본 상태 파일로 사용합니다.
 오래된 문서처럼 `state.py`를 만드는 구조가 아닙니다.
@@ -107,7 +107,7 @@ from .lg_state import MyWorkflowState
 from .lg_graph import build_lg_graph
 ```
 
-반면 MCP 모듈은 promotion에서 `devtools.mcp.`를 `api.mcp.`로 치환하므로, 템플릿처럼 `devtools.mcp.<workflow_id>` 형태를 사용할 수 있습니다.
+반면 MCP 모듈은 promotion에서 `devtools.mcp_runtime.`를 `api.mcp_runtime.`로 치환하므로, 템플릿처럼 `devtools.mcp_runtime.<workflow_id>` 형태를 사용할 수 있습니다.
 
 주의할 점:
 
@@ -116,10 +116,10 @@ from .lg_graph import build_lg_graph
 
 ### 5. dev MCP 도구를 연결합니다
 
-외부 도구나 로컬 핸들러가 필요하면 `devtools/mcp/my_workflow.py`에 등록합니다.
+외부 도구나 로컬 핸들러가 필요하면 `devtools/mcp_runtime/my_workflow.py`에 등록합니다.
 
-- dev 단계에서는 `devtools.mcp.*`를 사용합니다.
-- promotion 시 이 prefix는 `api.mcp.*`로 바뀝니다.
+- dev 단계에서는 `devtools.mcp_runtime.*`를 사용합니다.
+- promotion 시 이 prefix는 `api.mcp_runtime.*`로 바뀝니다.
 - 도구가 필요한 워크플로는 `build_lg_graph()` 경로에서 등록 함수를 호출해야 합니다.
 
 ### 6. dev runner에서 직접 검증합니다
@@ -160,8 +160,8 @@ python -m devtools.scripts.promote my_workflow
 이 단계에서 스크립트는 아래 작업을 수행합니다.
 
 1. `devtools/workflows/my_workflow/`를 `api/workflows/my_workflow/`로 복사합니다.
-2. 관련 `devtools/mcp/my_workflow.py`를 `api/mcp/`로 복사합니다.
-3. `devtools.mcp.*` import를 `api.mcp.*`로 바꿉니다.
+2. 관련 `devtools/mcp_runtime/my_workflow.py`를 `api/mcp_runtime/`로 복사합니다.
+3. `devtools.mcp_runtime.*` import를 `api.mcp_runtime.*`로 바꿉니다.
 4. import 검증을 수행합니다.
 5. 검증이 통과하면 dev 원본을 삭제합니다.
 

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from api.mcp.errors import MCPRegistryError
-from api.mcp.models import MCPServerConfig, MCPTool
+from api.mcp_runtime.errors import MCPRegistryError
+from api.mcp_runtime.models import MCPServerConfig, MCPTool
 
 _SERVERS: dict[str, MCPServerConfig] = {}
 _TOOLS: dict[str, MCPTool] = {}

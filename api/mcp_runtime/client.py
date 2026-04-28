@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from api.mcp.models import MCPServerConfig, MCPToolCall, MCPToolResult
+from api.mcp_runtime.models import MCPServerConfig, MCPToolCall, MCPToolResult
 
 
 class MCPClient:

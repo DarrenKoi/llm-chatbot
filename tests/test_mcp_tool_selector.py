@@ -1,10 +1,10 @@
-from api.mcp.models import MCPTool
-from api.mcp.tool_selector import select_tools
+from api.mcp_runtime.models import MCPTool
+from api.mcp_runtime.tool_selector import select_tools
 
 
 def test_select_tools_filters_by_workflow_tool_tags(monkeypatch):
     monkeypatch.setattr(
-        "api.mcp.tool_selector.get_workflow",
+        "api.mcp_runtime.tool_selector.get_workflow",
         lambda workflow_id: {
             "workflow_id": workflow_id,
             "tool_tags": ("translation", "language"),
@@ -29,7 +29,7 @@ def test_select_tools_filters_by_workflow_tool_tags(monkeypatch):
 
 def test_select_tools_returns_all_when_workflow_has_no_tool_tags(monkeypatch):
     monkeypatch.setattr(
-        "api.mcp.tool_selector.get_workflow",
+        "api.mcp_runtime.tool_selector.get_workflow",
         lambda workflow_id: {
             "workflow_id": workflow_id,
             "tool_tags": (),

@@ -52,7 +52,8 @@ def _invalidate_dev_workflow_modules() -> None:
     stale_keys = [
         key
         for key in sys.modules
-        if (key.startswith("devtools.workflows.") or key.startswith("devtools.mcp.")) and not key.endswith("__init__")
+        if (key.startswith("devtools.workflows.") or key.startswith("devtools.mcp_runtime."))
+        and not key.endswith("__init__")
     ]
     for key in stale_keys:
         del sys.modules[key]
@@ -61,7 +62,7 @@ def _invalidate_dev_workflow_modules() -> None:
     if pkg is not None:
         importlib.reload(pkg)
 
-    mcp_pkg = sys.modules.get("devtools.mcp")
+    mcp_pkg = sys.modules.get("devtools.mcp_runtime")
     if mcp_pkg is not None:
         importlib.reload(mcp_pkg)
 

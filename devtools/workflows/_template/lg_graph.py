@@ -3,7 +3,7 @@
 from langchain_core.messages import AIMessage
 from langgraph.graph import END, StateGraph
 
-from devtools.mcp.__WORKFLOW_ID__ import register_tools
+from devtools.mcp_runtime.__WORKFLOW_ID__ import register_tools
 
 from .lg_state import __STATE_CLASS__
 

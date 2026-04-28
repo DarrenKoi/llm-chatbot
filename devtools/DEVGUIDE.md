@@ -14,7 +14,7 @@ python -m devtools.scripts.new_workflow my_workflow
 #    - devtools/workflows/_template/
 #    - devtools/workflows/travel_planner_example/
 #    - devtools/workflows/richinotification_test/
-#    - devtools/mcp/<workflow_id>.py
+#    - devtools/mcp_runtime/<workflow_id>.py
 
 # 3. dev runner 실행
 python -m devtools.workflow_runner.app
@@ -38,10 +38,10 @@ from .lg_graph import build_lg_graph
 
 # 공유 인프라 — 절대 import OK
 from api.workflows.lg_state import ChatState
-from api.mcp.executor import execute_tool_call
+from api.mcp_runtime.executor import execute_tool_call
 
-# dev 전용 MCP helper — promotion 시 api.mcp.* 로 자동 치환
-from devtools.mcp.my_workflow import register_tools
+# dev 전용 MCP helper — promotion 시 api.mcp_runtime.* 로 자동 치환
+from devtools.mcp_runtime.my_workflow import register_tools
 ```
 
 ### 2. 워크플로 구조
@@ -56,16 +56,16 @@ devtools/workflows/my_workflow/
 ```
 
 워크플로에서 사용하는 MCP helper를 분리하고 싶다면
-같은 이름의 모듈이나 패키지를 `devtools/mcp/` 아래에 둡니다:
+같은 이름의 모듈이나 패키지를 `devtools/mcp_runtime/` 아래에 둡니다:
 
 ```
-devtools/mcp/my_workflow.py
+devtools/mcp_runtime/my_workflow.py
 ```
 
 또는
 
 ```
-devtools/mcp/my_workflow/
+devtools/mcp_runtime/my_workflow/
     __init__.py
 ```
 
@@ -84,11 +84,11 @@ devtools/workflows/my_workflow/
 - `devtools/workflows/richinotification_test/`
 
 위 예제는 기본 패키지 구조, 멀티턴 interrupt/resume, richnotification payload 조립을 각각 보여주는 샘플입니다.
-scaffold로 생성한 기본 `lg_graph.py`는 같은 이름의 `devtools.mcp/<workflow_id>.py`
+scaffold로 생성한 기본 `lg_graph.py`는 같은 이름의 `devtools.mcp_runtime/<workflow_id>.py`
 의 `register_tools()`를 바로 호출합니다.
 
 필요하면 예제처럼 워크플로 내부 `tools.py`를 유지해도 되지만,
-워크플로와 MCP helper를 분리하고 싶을 때는 `devtools/mcp/`를 사용합니다.
+워크플로와 MCP helper를 분리하고 싶을 때는 `devtools/mcp_runtime/`를 사용합니다.
 
 ### 3. LangGraph 노드 규약
 
@@ -125,7 +125,7 @@ def get_workflow_definition() -> dict[str, object]:
 1. 기본 구조는 `_template`, 멀티턴 흐름은 `travel_planner_example`, payload 조립은 `richinotification_test` 중 가까운 예제를 고릅니다.
 2. 새 폴더를 만든 뒤 예제의 파일 분리 방식을 그대로 가져갑니다.
 3. 패키지 내부 import는 상대 import로 유지합니다.
-4. dev MCP helper가 필요하면 `devtools/mcp/<workflow_id>.py`에서 함께 정리합니다.
+4. dev MCP helper가 필요하면 `devtools/mcp_runtime/<workflow_id>.py`에서 함께 정리합니다.
 5. dev runner에서 먼저 검증합니다.
 6. 실제 운영 연결은 `api/workflows/start_chat/`에서 handoff 기준으로 붙입니다.
 
@@ -182,14 +182,14 @@ python -m devtools.scripts.promote my_workflow
 
 스크립트가 수행하는 단계:
 1. `devtools/workflows/my_workflow/` → `api/workflows/my_workflow/`로 복사
-2. 같은 이름의 `devtools/mcp/my_workflow.py` 또는 `devtools/mcp/my_workflow/`가 있으면 `api/mcp/`로 함께 복사
-3. 복사된 코드의 `devtools.mcp.*` import를 `api.mcp.*`로 자동 치환
+2. 같은 이름의 `devtools/mcp_runtime/my_workflow.py` 또는 `devtools/mcp_runtime/my_workflow/`가 있으면 `api/mcp_runtime/`로 함께 복사
+3. 복사된 코드의 `devtools.mcp_runtime.*` import를 `api.mcp_runtime.*`로 자동 치환
 4. import 검증 (실패 시 자동 롤백)
 5. 검증 통과 후 dev 소스 삭제
 
 Promotion 후:
 1. `pytest tests/ -v`로 전체 테스트 실행
-2. `git add api/workflows/my_workflow/ api/mcp/my_workflow*`로 스테이징
+2. `git add api/workflows/my_workflow/ api/mcp_runtime/my_workflow*`로 스테이징
 3. 코드 리뷰 → 배포
 
 ---
@@ -199,7 +199,7 @@ Promotion 후:
 | 실수 | 해결 |
 |------|------|
 | `from devtools.workflows.my_wf.state import ...` | 상대 import 사용: `from .lg_state import ...` |
-| `devtools.mcp.*` import를 수동으로 바꿔야 하나요? | promotion 스크립트가 `api.mcp.*`로 자동 치환합니다 |
+| `devtools.mcp_runtime.*` import를 수동으로 바꿔야 하나요? | promotion 스크립트가 `api.mcp_runtime.*`로 자동 치환합니다 |
 | Reload 눌러도 코드 변경이 안 반영됨 | Flask debug 모드에서 파일 저장 시 자동 재시작됨. Reload는 새 워크플로 추가 시 사용 |
 | state가 이상해짐 | Reset 버튼으로 초기화 |
 | `get_workflow_definition()` 없음 오류 | `__init__.py`에 함수를 정의했는지 확인 |
