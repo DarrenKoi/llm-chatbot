@@ -1,3 +1,4 @@
+import json
 import logging
 
 import pytest
@@ -14,6 +15,52 @@ from api.llm.service import (
     generate_json_reply,
     generate_reply_intent,
 )
+
+
+def _remove_tagged_handlers(logger: logging.Logger) -> None:
+    for handler in list(logger.handlers):
+        if getattr(handler, "_chatbot_handler_tag", "").startswith("chatbot."):
+            logger.removeHandler(handler)
+            handler.close()
+
+
+def _reset_logging_state() -> None:
+    from api.logging_service import service as logging_service
+
+    logging_service._setup_done = False
+    _remove_tagged_handlers(logging.getLogger())
+    _remove_tagged_handlers(logging.getLogger("activity"))
+
+    manager = logging.root.manager
+    for name, logger_obj in manager.loggerDict.items():
+        if isinstance(logger_obj, logging.Logger) and name.startswith("topic."):
+            _remove_tagged_handlers(logger_obj)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_llm_diagnostic_logs(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(config, "LOG_TIMEZONE", "Asia/Seoul")
+    monkeypatch.setattr(config, "LOG_RETENTION_DAYS", 7)
+    _reset_logging_state()
+
+    yield
+
+    _reset_logging_state()
+
+
+def _read_llm_log_payloads(log_root) -> list[dict]:
+    _flush_logger(logging.getLogger("topic.llm.json"))
+    llm_log_file = log_root / "llm" / "llm.jsonl"
+    if not llm_log_file.exists():
+        return []
+
+    return [json.loads(line) for line in llm_log_file.read_text(encoding="utf-8").splitlines()]
+
+
+def _flush_logger(logger: logging.Logger) -> None:
+    for handler in logger.handlers:
+        handler.flush()
 
 
 def test_build_messages_includes_system_prompt_and_history(monkeypatch):
@@ -264,6 +311,14 @@ def test_generate_reply_intent_falls_back_to_json_in_text(mocker, monkeypatch, c
     assert "llm_reply_intent_fallback path=json_in_text model=gpt-test" in caplog.text
     assert '"안녕하세요"' in caplog.text
 
+    payloads = _read_llm_log_payloads(config.LOG_DIR)
+    assert payloads[-1]["event"] == "llm_reply_intent_json_in_text_fallback"
+    assert payloads[-1]["path"] == "json_in_text"
+    assert payloads[-1]["model"] == "gpt-test"
+    assert payloads[-1]["raw_text"] == '```json\n{"blocks":[{"kind":"text","text":"안녕하세요"}]}\n```'
+    assert payloads[-1]["raw_text_truncated"] is False
+    assert payloads[-1]["intent"]["blocks"][0]["text"] == "안녕하세요"
+
 
 def test_generate_reply_intent_wraps_unparseable_text_as_text_intent(mocker, monkeypatch):
     _stub_llm_env(monkeypatch)
@@ -280,6 +335,26 @@ def test_generate_reply_intent_wraps_unparseable_text_as_text_intent(mocker, mon
     assert intent.blocks == [TextIntent(text="평문 답변, JSON 아님")]
 
 
+def test_generate_reply_intent_logs_unusable_json_in_text(mocker, monkeypatch):
+    _stub_llm_env(monkeypatch)
+
+    structured_llm = mocker.Mock()
+    structured_llm.invoke.side_effect = RuntimeError("nope")
+    mock_llm = mocker.Mock()
+    mock_llm.with_structured_output.return_value = structured_llm
+    mock_llm.invoke.return_value = mocker.Mock(content='{"blocks":[],"needs_callback":false}')
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    intent = generate_reply_intent(history=[], user_message="아무거나")
+
+    assert intent.blocks == [TextIntent(text=_UNPARSEABLE_REPLY_INTENT_FALLBACK_TEXT)]
+    payloads = _read_llm_log_payloads(config.LOG_DIR)
+    assert payloads[-1]["event"] == "llm_reply_intent_unusable_json_in_text"
+    assert payloads[-1]["path"] == "unusable_json_in_text"
+    assert payloads[-1]["reason"] == "empty_or_blank_reply_intent"
+    assert payloads[-1]["intent"] == {"blocks": [], "needs_callback": False}
+
+
 def test_generate_reply_intent_does_not_show_unparseable_blocks_payload(mocker, monkeypatch, caplog):
     _stub_llm_env(monkeypatch)
     caplog.set_level(logging.WARNING, logger="api.llm.service")
@@ -288,14 +363,22 @@ def test_generate_reply_intent_does_not_show_unparseable_blocks_payload(mocker, 
     structured_llm.invoke.side_effect = RuntimeError("nope")
     mock_llm = mocker.Mock()
     mock_llm.with_structured_output.return_value = structured_llm
-    mock_llm.invoke.return_value = mocker.Mock(content='blocks=[{"kind:"table", "tilte", ..}]')
+    mock_llm.invoke.return_value = mocker.Mock(content='{"blocks":[{"kind":"table","headers":["항목"]}]}')
     mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
 
     intent = generate_reply_intent(history=[], user_message="표 보여줘")
 
     assert intent.blocks == [TextIntent(text=_UNPARSEABLE_REPLY_INTENT_FALLBACK_TEXT)]
     assert "llm_reply_intent_fallback path=invalid_json_in_text model=gpt-test" in caplog.text
-    assert 'blocks=[{\\"kind:\\"table\\", \\"tilte\\", ..}]' in caplog.text
+    assert '\\"headers\\":[\\"항목\\"]' in caplog.text
+
+    payloads = _read_llm_log_payloads(config.LOG_DIR)
+    assert payloads[-1]["event"] == "llm_reply_intent_invalid_json_in_text"
+    assert payloads[-1]["path"] == "invalid_json_in_text"
+    assert payloads[-1]["candidate_count"] == 1
+    first_variant = payloads[-1]["candidate_diagnostics"][0]["variants"][0]
+    assert first_variant["status"] == "reply_intent_validation_failed"
+    assert any(error["type"] == "missing" and "rows" in error["loc"] for error in first_variant["validation_errors"])
 
 
 def test_generate_reply_intent_raises_on_total_llm_failure(mocker, monkeypatch):

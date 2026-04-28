@@ -11,6 +11,7 @@ from pydantic import ValidationError
 from api import config
 from api.cube.intents import ReplyIntent, TextIntent
 from api.llm.prompt import get_system_prompt
+from api.logging_service import get_topic_logger
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,8 @@ _MISQUOTED_OBJECT_KEY_PATTERN = re.compile(r'([{\[,]\s*)"([A-Za-z_][A-Za-z0-9_-]
 _TRAILING_COMMA_PATTERN = re.compile(r",(\s*[}\]])")
 _INTENT_SHAPED_TEXT_PATTERN = re.compile(r"""(?ix)(["']?blocks["']?\s*[:=]|["']?kind["']?\s*:)""")
 _UNPARSEABLE_REPLY_INTENT_FALLBACK_TEXT = "응답 형식이 올바르지 않아 내용을 표시하지 못했습니다. 다시 요청해 주세요."
+_LLM_LOG_RAW_TEXT_MAX_CHARS = 12000
+_LLM_LOG_CANDIDATE_MAX_CHARS = 1200
 
 
 def generate_reply(
@@ -105,19 +108,42 @@ def generate_reply_intent(
     )
 
     parsed = _parse_reply_intent_from_text(raw_text)
-    if parsed is not None and _has_usable_content(parsed):
+    if parsed is not None:
+        if _has_usable_content(parsed):
+            _log_llm_reply_intent_diagnostic(
+                "llm_reply_intent_json_in_text_fallback",
+                path="json_in_text",
+                raw_text=raw_text,
+                candidate_count=len(dict.fromkeys(_reply_intent_candidates(raw_text))),
+                intent=parsed.model_dump(),
+            )
+            logger.warning(
+                "llm_reply_intent_fallback path=json_in_text model=%s raw_text=%s intent=%s",
+                config.LLM_MODEL,
+                json.dumps(raw_text, ensure_ascii=False),
+                json.dumps(parsed.model_dump(), ensure_ascii=False, default=str),
+            )
+            logger.info(
+                "llm_reply_intent path=parsed_json model=%s intent=%s",
+                config.LLM_MODEL,
+                json.dumps(parsed.model_dump(), ensure_ascii=False, default=str),
+            )
+            return parsed
+
+        _log_llm_reply_intent_diagnostic(
+            "llm_reply_intent_unusable_json_in_text",
+            path="unusable_json_in_text",
+            raw_text=raw_text,
+            candidate_count=len(dict.fromkeys(_reply_intent_candidates(raw_text))),
+            intent=parsed.model_dump(),
+            reason="empty_or_blank_reply_intent",
+        )
         logger.warning(
-            "llm_reply_intent_fallback path=json_in_text model=%s raw_text=%s intent=%s",
+            "llm_reply_intent_fallback path=unusable_json_in_text model=%s raw_text=%s intent=%s",
             config.LLM_MODEL,
             json.dumps(raw_text, ensure_ascii=False),
             json.dumps(parsed.model_dump(), ensure_ascii=False, default=str),
         )
-        logger.info(
-            "llm_reply_intent path=parsed_json model=%s intent=%s",
-            config.LLM_MODEL,
-            json.dumps(parsed.model_dump(), ensure_ascii=False, default=str),
-        )
-        return parsed
 
     if _looks_like_reply_intent_text(raw_text):
         logger.warning("LLM 응답이 ReplyIntent 형태였으나 검증에 실패해 안전한 안내 문구로 대체")
@@ -155,6 +181,13 @@ def _parse_reply_intent_from_text(raw_text: str) -> ReplyIntent | None:
             return parsed
 
     if candidates:
+        _log_llm_reply_intent_diagnostic(
+            "llm_reply_intent_invalid_json_in_text",
+            path="invalid_json_in_text",
+            raw_text=raw_text,
+            candidate_count=len(dict.fromkeys(candidates)),
+            candidate_diagnostics=_reply_intent_candidate_diagnostics(candidates),
+        )
         logger.warning(
             "llm_reply_intent_fallback path=invalid_json_in_text model=%s candidate_count=%d raw_text=%s",
             config.LLM_MODEL,
@@ -162,6 +195,89 @@ def _parse_reply_intent_from_text(raw_text: str) -> ReplyIntent | None:
             json.dumps(raw_text, ensure_ascii=False),
         )
     return None
+
+
+def _log_llm_reply_intent_diagnostic(event: str, *, path: str, raw_text: str, **data: Any) -> None:
+    raw_text_value, raw_text_truncated = _truncate_for_log(raw_text, _LLM_LOG_RAW_TEXT_MAX_CHARS)
+    payload = {
+        "event": event,
+        "path": path,
+        "model": config.LLM_MODEL,
+        "raw_text": raw_text_value,
+        "raw_text_length": len(raw_text),
+        "raw_text_truncated": raw_text_truncated,
+        **data,
+    }
+    try:
+        get_topic_logger("llm", json_output=True).warning(event, extra={"activity_data": payload})
+    except Exception:
+        logger.exception("LLM 진단 로그 기록 실패: event=%s path=%s model=%s", event, path, config.LLM_MODEL)
+
+
+def _truncate_for_log(text: str, max_chars: int) -> tuple[str, bool]:
+    if len(text) <= max_chars:
+        return text, False
+    return text[:max_chars], True
+
+
+def _reply_intent_candidate_diagnostics(candidates: list[str]) -> list[dict[str, Any]]:
+    diagnostics: list[dict[str, Any]] = []
+    for index, candidate in enumerate(dict.fromkeys(candidates), start=1):
+        candidate_text, candidate_truncated = _truncate_for_log(candidate, _LLM_LOG_CANDIDATE_MAX_CHARS)
+        variants = []
+        for variant_index, variant in enumerate(dict.fromkeys(_reply_intent_candidate_variants(candidate)), start=1):
+            variant_text, variant_truncated = _truncate_for_log(variant, _LLM_LOG_CANDIDATE_MAX_CHARS)
+            variant_diagnostic: dict[str, Any] = {
+                "variant_index": variant_index,
+                "variant": variant_text,
+                "variant_length": len(variant),
+                "variant_truncated": variant_truncated,
+            }
+            payload = _load_jsonish(variant)
+            if payload is None:
+                variant_diagnostic["status"] = "jsonish_parse_failed"
+                variants.append(variant_diagnostic)
+                continue
+
+            variant_diagnostic["payload_type"] = type(payload).__name__
+            normalized = _normalize_reply_intent_payload(payload)
+            if normalized is None:
+                variant_diagnostic["status"] = "unsupported_reply_intent_shape"
+                variants.append(variant_diagnostic)
+                continue
+
+            try:
+                ReplyIntent.model_validate(normalized)
+            except ValidationError as exc:
+                variant_diagnostic["status"] = "reply_intent_validation_failed"
+                variant_diagnostic["validation_errors"] = _validation_error_summary(exc)
+            else:
+                variant_diagnostic["status"] = "valid"
+            variants.append(variant_diagnostic)
+
+        diagnostics.append(
+            {
+                "candidate_index": index,
+                "candidate": candidate_text,
+                "candidate_length": len(candidate),
+                "candidate_truncated": candidate_truncated,
+                "variants": variants,
+            }
+        )
+    return diagnostics
+
+
+def _validation_error_summary(error: ValidationError) -> list[dict[str, Any]]:
+    summary: list[dict[str, Any]] = []
+    for item in error.errors(include_input=False):
+        summary.append(
+            {
+                "type": item.get("type"),
+                "loc": item.get("loc"),
+                "msg": item.get("msg"),
+            }
+        )
+    return summary
 
 
 def _looks_like_reply_intent_text(raw_text: str) -> bool:
@@ -199,13 +315,7 @@ def _reply_intent_candidates(raw_text: str) -> list[str]:
 
 
 def _parse_reply_intent_candidate(candidate: str) -> ReplyIntent | None:
-    variants = [candidate]
-    assignment_value = _extract_blocks_assignment_value(candidate)
-    if assignment_value:
-        variants.append(assignment_value)
-        variants.append(f'{{"blocks": {assignment_value}}}')
-    if candidate.strip().startswith("["):
-        variants.append(f'{{"blocks": {candidate}}}')
+    variants = _reply_intent_candidate_variants(candidate)
 
     for variant in dict.fromkeys(variants):
         payload = _load_jsonish(variant)
@@ -222,6 +332,17 @@ def _parse_reply_intent_candidate(candidate: str) -> ReplyIntent | None:
             continue
 
     return None
+
+
+def _reply_intent_candidate_variants(candidate: str) -> list[str]:
+    variants = [candidate]
+    assignment_value = _extract_blocks_assignment_value(candidate)
+    if assignment_value:
+        variants.append(assignment_value)
+        variants.append(f'{{"blocks": {assignment_value}}}')
+    if candidate.strip().startswith("["):
+        variants.append(f'{{"blocks": {candidate}}}')
+    return variants
 
 
 def _normalize_reply_intent_payload(payload: Any) -> dict[str, Any] | None:
