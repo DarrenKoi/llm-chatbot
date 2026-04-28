@@ -150,31 +150,26 @@ devtools/workflows/
 
 ### 3.5 `api/` ↔ `devtools/` 격리 마이그레이션 (standalone but mirrored)
 
-`HARNESS.md`의 격리 정책에 따라 두 영역을 `import`로 묶지 않고, **공유 개념을 양쪽에 mirror된 사본으로** 유지합니다. 변경 시에는 두 사본을 같은 PR에서 함께 업데이트합니다.
+`HARNESS.md`의 격리 정책에 따라 두 영역을 `import`로 묶지 않습니다. 공유 개념은 양쪽에 mirror 사본으로 유지하고, Cube 송신처럼 dev에서 책임지지 않는 영역은 mirror 대신 dev 측에서 **삭제**합니다.
 
-**현재 잔존 cross-import (`devtools/` → `api/`, 2026-04-28 기준)**
+**핵심 원칙: devtools 워크플로는 Cube에 보내지 않습니다.** richnotification·multimessage·rich block 조립은 운영(`api/cube/`)의 책임이며, dev 워크플로는 평문 LLM 응답까지만 만듭니다. 이 원칙에 따라 cube 관련 cross-import는 mirror가 아니라 제거 대상입니다.
 
-| dev 측 파일 | 의존하는 `api.*` 심볼 | mirror 대상 (제안) |
-|---|---|---|
-| `devtools/workflow_runner/dev_orchestrator.py` | `api.workflows.registry.discover_workflows` | `devtools/workflow_runner/registry.py` (자체 발견 로직 복제) |
-| `devtools/workflows/_template/lg_state.py` | `api.workflows.lg_state.ChatState` | `devtools/workflows/lg_state.py` (mirror `ChatState`) |
-| `devtools/workflows/travel_planner_example/lg_state.py` | 동일 | 위 mirror 사용 |
-| `devtools/workflows/richinotification_test/lg_state.py` | 동일 | 위 mirror 사용 |
-| `devtools/workflows/travel_planner_example/llm_decision.py` | `api.workflows.intent_utils.is_stop_conversation_message` | `devtools/workflows/intent_utils.py` (mirror) |
-| `devtools/workflows/richinotification_test/lg_graph.py` | `api.cube.client.{CubeClientError, send_richnotification_blocks}` | `devtools/cube_message/client_stub.py` (또는 dev mock) |
-| `devtools/workflows/richinotification_test/block_builder.py` | `api.cube.rich_blocks`, `api.cube.payload.build_richnotification_payload` | `devtools/cube_message/{rich_blocks, payload}.py` (mirror) |
-| `devtools/cube_message/samples.py` | `api.cube.rich_blocks` | 위 mirror 사용 |
+**진행 현황 (2026-04-28)**
 
-**마이그레이션 단계 (제안)**
+| 단계 | 대상 | 처리 방식 | 상태 |
+|---|---|---|---|
+| 1 | `ChatState` (3 import) | mirror → `devtools/workflows/lg_state.py` | ✅ 완료 (`88d64ad`) |
+| 2 | `richinotification_test/` 워크플로 (3 import: `api.cube.client/rich_blocks/payload`) | **삭제** (devtools는 Cube에 보내지 않음) | ✅ 완료 (이번 커밋) |
+| 3 | `is_stop_conversation_message` (1 import) | mirror → `devtools/workflows/intent_utils.py` | ⏳ 미진행 |
+| 4 | `dev_orchestrator.py`의 `discover_workflows` / `start_chat.lg_graph` (2 import) | dev 측 등가 로직 복제 | ⏳ 미진행 |
+| 5 | `devtools/cube_message/samples.py`의 `api.cube.rich_blocks` (1 import) | 별도 검토 — `cube_message`는 사무실 환경에서 Cube 외형을 점검하는 매뉴얼 도구라 워크플로 격리 정책의 직접 대상이 아님 | ⏳ 보류 |
+| 6 | CI/ruff 가드 추가 (`from api.`가 `devtools/workflows/` 트리 안에 등장하면 실패) | 정책 강제 | ⏳ 미진행 |
 
-1. `devtools/workflows/lg_state.py`에 `ChatState`를 mirror로 정의하고 dev 워크플로 3종을 거기로 갈아끼웁니다.
-2. `devtools/workflows/intent_utils.py`에 `is_stop_conversation_message`를 mirror하고 `llm_decision.py`를 갈아끼웁니다.
-3. `devtools/cube_message/`에 `rich_blocks`, `payload`, (필요 시) `client_stub`을 mirror하고 `richinotification_test/`와 `samples.py`를 갈아끼웁니다.
-4. `devtools/workflow_runner/registry.py`에 발견 로직을 mirror하고 `dev_orchestrator.py`를 갈아끼웁니다.
-5. CI 또는 ruff 규칙으로 `from api.` / `import api.`가 `devtools/` 트리 안에 등장하면 실패하도록 가드를 추가합니다.
-6. 이후 `api/`와 `devtools/`의 mirror 파일이 변경될 때마다 양쪽 사본을 같은 PR로 업데이트하는 워크플로를 정착시킵니다.
+**원칙 정리**
 
-각 단계는 독립적으로 PR 가능하며, 하나가 머지되면 그만큼 cross-import가 줄어듭니다.
+- mirror가 답인 경우: 양쪽이 동일 의미의 타입·로직을 공유하는 경우 (예: `ChatState`, `intent_utils`).
+- 삭제가 답인 경우: dev가 그 기능을 담당하지 않는 경우 (예: Cube 송신 — 운영 책임).
+- 보류가 답인 경우: 워크플로 런타임 바깥의 매뉴얼 도구 (예: `cube_message/`) — 별도 정책 결정 필요.
 
 ---
 

@@ -158,8 +158,17 @@ api/ 와 devtools/ 사이의 import는 양방향 모두 금지한다. 새 코드
 
 - 운영(`api/`)이 dev 코드(`devtools/`)에 우연히 의존해 배포 사고가 나는 것을 막습니다.
 - dev 영역이 운영 인프라 변경마다 깨지지 않도록 합니다.
+- **devtools가 Cube/Redis/Mongo 같은 외부 의존 없이 집(개발자 PC)에서 부팅·실행되어야 합니다.** 이게 격리 정책의 핵심 동기입니다. `api.cube.*` 같은 모듈을 dev에서 import하면 import 자체는 통과해도, 누군가가 그 모듈에 모듈 레벨 네트워크 초기화를 추가하는 순간 dev runner가 집에서 깨지기 시작합니다.
 - 두 영역의 결합을 풀어 두면 운영 코드를 외부 컨테이너로 분리하거나 dev 도구를 별도 저장소로 이전하기도 쉬워집니다.
 - mirror 방식을 택하는 이유는, 완전히 분기(divergence)를 허용하면 promote 시 의미 차이가 디버그하기 어려운 사고로 돌아오기 때문입니다. 코드는 별도지만 의미는 일치한다는 약속을 명시적으로 둡니다.
+
+### devtools 워크플로의 책임 범위
+
+devtools 워크플로는 **Cube에 메시지를 보내지 않습니다.** Cube 송신은 운영(`api/`)의 책임입니다.
+
+- `devtools/workflows/` 안의 워크플로는 LLM 평문 응답까지만 만듭니다.
+- multimessage 분할, richnotification 페이로드 조립, rich block 빌더는 devtools 워크플로의 책임이 아닙니다 — 이 로직들은 `api/cube/`에 있고 promote 후 운영 경로에서 실행됩니다.
+- Cube 페이로드 외형을 직접 점검하고 싶을 때는 `devtools/cube_message/` 같은 별도 도구를 사용합니다 (이쪽은 Cube가 연결된 사무실 환경에서 사용하는 매뉴얼 테스트 도구이며, 워크플로 런타임이 아닙니다).
 
 ## 작업 규칙
 
@@ -192,7 +201,6 @@ AI가 작업을 끝냈다고 말하면, 아래 항목을 사람이 직접 확인
 
 - 최소 구조 예제: `devtools/workflows/_template/`
 - 멀티턴 interrupt/resume 예제: `devtools/workflows/travel_planner_example/`
-- Richnotification payload 예제: `devtools/workflows/richinotification_test/`
 - 파일 분리 컨벤션: `__init__.py`, `lg_graph.py`, `lg_state.py`, 필요 시 `tools.py`, `prompts.py`, `llm_decision.py`, `constants.py` 등 보조 파일 추가.
 - `devtools/workflows/`에서는 승격이 쉽도록 패키지 내부 상대 임포트를 우선하고, 공유 타입은 `from api.workflows.lg_state import ChatState`로 가져옵니다.
 - `api/workflows/`에서는 진입점과 핸드오프 중심을 `start_chat`에 둡니다.
@@ -212,7 +220,7 @@ AI가 작업을 끝냈다고 말하면, 아래 항목을 사람이 직접 확인
 
 새 워크플로우를 만들 때는 다음 순서를 따릅니다.
 
-1. 기본 구조는 `devtools/workflows/_template/`, 멀티턴 흐름은 `devtools/workflows/travel_planner_example/`, payload 조립은 `devtools/workflows/richinotification_test/`를 출발점으로 사용합니다.
+1. 기본 구조는 `devtools/workflows/_template/`, 멀티턴 흐름은 `devtools/workflows/travel_planner_example/`를 출발점으로 사용합니다. devtools 워크플로는 Cube에 보내지 않으므로 richnotification·multimessage·rich block은 다루지 않고 평문 LLM 응답만 만듭니다.
 2. 구현은 먼저 해당 워크플로 폴더 내부에 유지합니다.
 3. 상태는 `lg_state.py`에 `ChatState`를 상속해 정의합니다.
 4. 노드 함수와 `StateGraph` 빌더(`build_lg_graph`)는 `lg_graph.py`에서 구성합니다.

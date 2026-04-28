@@ -26,7 +26,7 @@
 - 승격 전 워크플로 패키지를 두는 위치입니다.
 - `_template/`는 새 워크플로의 기본 구조를 제공합니다.
 - `travel_planner_example/`는 멀티턴 interrupt/resume 참고 예제입니다.
-- `richinotification_test/`는 richnotification payload 조립과 devtools 응답 규칙 참고 예제입니다.
+- devtools 워크플로는 Cube에 직접 송신하지 않고 평문 LLM 응답까지만 만듭니다. richnotification·multimessage·rich block 조립은 운영(`api/cube/`)의 책임이며, Cube 외형을 직접 보고 싶을 때는 별도 도구 `devtools/cube_message/`를 사용합니다.
 
 ### `devtools/mcp_runtime/`
 

@@ -13,7 +13,6 @@ python -m devtools.scripts.new_workflow my_workflow
 # 2. 예제 참고 후 코드 작성
 #    - devtools/workflows/_template/
 #    - devtools/workflows/travel_planner_example/
-#    - devtools/workflows/richinotification_test/
 #    - devtools/mcp_runtime/<workflow_id>.py
 
 # 3. dev runner 실행
@@ -81,9 +80,8 @@ devtools/workflows/my_workflow/
 
 - `devtools/workflows/_template/`
 - `devtools/workflows/travel_planner_example/`
-- `devtools/workflows/richinotification_test/`
 
-위 예제는 기본 패키지 구조, 멀티턴 interrupt/resume, richnotification payload 조립을 각각 보여주는 샘플입니다.
+위 예제는 기본 패키지 구조와 멀티턴 interrupt/resume를 보여주는 샘플입니다. devtools 워크플로는 Cube에 직접 보내지 않고 평문 LLM 응답까지만 만드는 것이 원칙입니다 (richnotification·multimessage·rich block은 운영 `api/cube/`의 책임).
 scaffold로 생성한 기본 `lg_graph.py`는 같은 이름의 `devtools.mcp_runtime/<workflow_id>.py`
 의 `register_tools()`를 바로 호출합니다.
 
@@ -122,7 +120,7 @@ def get_workflow_definition() -> dict[str, object]:
 
 ## 추천 작성 순서
 
-1. 기본 구조는 `_template`, 멀티턴 흐름은 `travel_planner_example`, payload 조립은 `richinotification_test` 중 가까운 예제를 고릅니다.
+1. 기본 구조는 `_template`, 멀티턴 흐름은 `travel_planner_example` 중 가까운 예제를 고릅니다. (Cube 페이로드 외형 점검은 워크플로가 아니라 `devtools/cube_message/` 도구로 합니다.)
 2. 새 폴더를 만든 뒤 예제의 파일 분리 방식을 그대로 가져갑니다.
 3. 패키지 내부 import는 상대 import로 유지합니다.
 4. dev MCP helper가 필요하면 `devtools/mcp_runtime/<workflow_id>.py`에서 함께 정리합니다.
