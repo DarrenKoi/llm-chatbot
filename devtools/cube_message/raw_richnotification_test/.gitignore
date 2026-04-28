@@ -1,0 +1,2 @@
+# 로컬 자격증명/대상 ID는 추적하지 않는다. 템플릿은 config.py.example 참고.
+config.py

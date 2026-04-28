@@ -1,6 +1,11 @@
 """Local defaults for raw richnotification test payloads.
 
-Edit these values for quick local runs. Do not commit real tokens.
+이 파일은 ``config.py``의 템플릿이다. 처음 실행 전에:
+
+    cp config.py.example config.py
+
+으로 복사한 뒤 본인 값으로 채운다. ``config.py``는 ``.gitignore``로 추적되지 않으니
+실제 토큰/계정 정보는 자유롭게 적어 두어도 커밋되지 않는다.
 """
 
 TIMEOUT_SECONDS = 10.0
