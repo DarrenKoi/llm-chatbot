@@ -12,9 +12,9 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 DEV_WORKFLOWS_DIR = PROJECT_ROOT / "devtools" / "workflows"
-DEV_MCP_DIR = PROJECT_ROOT / "devtools" / "mcp_runtime"
+DEV_MCP_DIR = PROJECT_ROOT / "devtools" / "mcp_client"
 PROD_WORKFLOWS_DIR = PROJECT_ROOT / "api" / "workflows"
-PROD_MCP_DIR = PROJECT_ROOT / "api" / "mcp_runtime"
+PROD_MCP_DIR = PROJECT_ROOT / "api" / "mcp_client"
 
 WORKFLOW_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
 
@@ -69,9 +69,9 @@ def promote(workflow_id: str) -> None:
         _copy_path(mcp_source, mcp_target)
         print(f"MCP 복사 완료: {mcp_source} -> {mcp_target}")
 
-    _rewrite_import_prefix(target, old_prefix="devtools.mcp_runtime.", new_prefix="api.mcp_runtime.")
+    _rewrite_import_prefix(target, old_prefix="devtools.mcp_client.", new_prefix="api.mcp_client.")
     if mcp_target:
-        _rewrite_import_prefix(mcp_target, old_prefix="devtools.mcp_runtime.", new_prefix="api.mcp_runtime.")
+        _rewrite_import_prefix(mcp_target, old_prefix="devtools.mcp_client.", new_prefix="api.mcp_client.")
 
     # mirror 인프라 모듈은 promote 시 api 측 사본을 가리키도록 치환한다.
     # (HARNESS.md "api/ ↔ devtools/ 격리 정책" 참조)
@@ -106,7 +106,7 @@ def promote(workflow_id: str) -> None:
     print()
     print("다음 단계:")
     print("  1. pytest tests/ -v 로 전체 테스트를 실행하세요.")
-    print(f"  2. git add api/workflows/{workflow_id}/ api/mcp_runtime/{workflow_id}* 로 변경사항을 스테이징하세요.")
+    print(f"  2. git add api/workflows/{workflow_id}/ api/mcp_client/{workflow_id}* 로 변경사항을 스테이징하세요.")
     print("  3. 코드 리뷰 후 배포하세요.")
 
 
@@ -164,7 +164,7 @@ def _validate_promoted_workflow(workflow_id: str) -> dict[str, object]:
         sys.path.insert(0, str(PROJECT_ROOT))
 
     workflow_module_path = f"api.workflows.{workflow_id}"
-    mcp_module_path = f"api.mcp_runtime.{workflow_id}"
+    mcp_module_path = f"api.mcp_client.{workflow_id}"
     _invalidate_import_cache(workflow_module_path)
     _invalidate_import_cache(mcp_module_path)
 

@@ -5,7 +5,7 @@
 이 문서는 `shared_docs/`에서 팀원이 공통으로 참고할 수 있도록, 현재 저장소의 워크플로 관련 문서를 하나로 정리한 통합 안내서입니다.
 대상 원문은 `doc/code_explain/workflows.md`, `doc/guideline/workflow_등록_가이드.md`, `doc/guideline/workflow_추가_가이드.md`, `doc/guideline/workflow_상태_관리_가이드.md`이며, 실제 코드 구조에 맞게 중복과 오래된 설명을 정리했습니다.
 
-> ⚠️ **최근 변경 (2026-04-28)** — MCP 패키지가 `api/mcp/` → `api/mcp_runtime/`, `devtools/mcp/` → `devtools/mcp_runtime/` 로 정리되었고 호환성 shim은 제거되었습니다. 본 문서의 모든 예시와 promote 동작 설명은 새 경로 기준입니다. 이전 경로(`api.mcp`, `devtools.mcp`)는 더 이상 존재하지 않습니다.
+> ⚠️ **최근 변경 (2026-04-28)** — MCP 패키지가 `api/mcp/` → `api/mcp_client/`, `devtools/mcp/` → `devtools/mcp_client/` 로 정리되었고 호환성 shim은 제거되었습니다. 본 문서의 모든 예시와 promote 동작 설명은 새 경로 기준입니다. 이전 경로(`api.mcp`, `devtools.mcp`)는 더 이상 존재하지 않습니다.
 
 ## 1. 현재 런타임 구조
 
@@ -244,7 +244,7 @@ devtools/workflows/sample_flow/
 ├── lg_graph.py
 └── lg_state.py
 
-devtools/mcp_runtime/sample_flow.py
+devtools/mcp_client/sample_flow.py
 ```
 
 ### 3. 그래프 구현 패턴
@@ -322,7 +322,7 @@ def build_lg_graph():
     return builder()
 ```
 
-dev 단계에서는 `devtools/mcp_runtime/<workflow_id>.py`를 사용하고, promotion 시 `api/mcp_runtime/`로 옮깁니다.
+dev 단계에서는 `devtools/mcp_client/<workflow_id>.py`를 사용하고, promotion 시 `api/mcp_client/`로 옮깁니다.
 
 도구 연동 시 기억할 점:
 
@@ -347,8 +347,8 @@ python -m devtools.scripts.promote sample_flow
 `promote` 스크립트는 아래 작업을 수행합니다.
 
 1. dev 워크플로 패키지를 `api/workflows/`로 복사합니다.
-2. 대응하는 dev MCP 모듈을 `api/mcp_runtime/`로 복사합니다.
-3. `devtools.mcp_runtime.` import를 `api.mcp_runtime.`로 치환합니다.
+2. 대응하는 dev MCP 모듈을 `api/mcp_client/`로 복사합니다.
+3. `devtools.mcp_client.` import를 `api.mcp_client.`로 치환합니다.
 4. import 검증을 수행합니다.
 5. 검증이 통과하면 dev 원본을 삭제합니다.
 

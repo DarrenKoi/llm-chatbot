@@ -4,7 +4,7 @@
 > 대상 독자: 챗봇을 사용하거나 새 워크플로를 호출하려는 팀원
 > 함께 보면 좋은 문서: [`workflow_build_with_langgraph.md`](./workflow_build_with_langgraph.md) (개발자용 핸드북)
 
-> ⚠️ **최근 변경 (2026-04-28)** — MCP 패키지명이 `api/mcp/` → `api/mcp_runtime/`, `devtools/mcp/` → `devtools/mcp_runtime/` 로 바뀌었고 호환성 shim은 제거되었습니다. 이전 경로 import는 즉시 깨집니다. 워크플로/MCP 인프라 변경은 아래 "인프라 파일 소유권 정책" 섹션을 먼저 확인해 주십시오.
+> ⚠️ **최근 변경 (2026-04-28)** — MCP 패키지명이 `api/mcp/` → `api/mcp_client/`, `devtools/mcp/` → `devtools/mcp_client/` 로 바뀌었고 호환성 shim은 제거되었습니다. 이전 경로 import는 즉시 깨집니다. 워크플로/MCP 인프라 변경은 아래 "인프라 파일 소유권 정책" 섹션을 먼저 확인해 주십시오.
 
 이 문서는 `api/workflows/` 안에서 **단독으로 동작 가능한 워크플로**가 무엇이고, 사용자가 어떤 발화를 보내야 각 워크플로가 트리거되는지를 정리합니다. 새 코드를 작성할 필요 없이 “어떤 메시지를 보내면 어떤 흐름이 도는가”만 알면 되는 사람을 위한 빠른 안내서입니다.
 
@@ -134,8 +134,8 @@ devtools/workflows/
 `devtools/scripts/promote.py`는 leaf 패키지만 옮기면 끝납니다.
 
 1. `devtools/workflows/<id>/` → `api/workflows/<id>/` 복사
-2. `devtools/mcp_runtime/<id>.py` → `api/mcp_runtime/<id>.py` 복사
-3. `devtools.mcp_runtime.` import를 `api.mcp_runtime.`로 치환 (인프라 import는 이미 `api.workflows.*`라 그대로 동작)
+2. `devtools/mcp_client/<id>.py` → `api/mcp_client/<id>.py` 복사
+3. `devtools.mcp_client.` import를 `api.mcp_client.`로 치환 (인프라 import는 이미 `api.workflows.*`라 그대로 동작)
 4. import 검증 후 dev 원본 삭제
 
 운영 인프라는 처음부터 `api/`에 있고 dev에서도 같은 import 경로로 사용했기 때문에, promote 시 “인프라 파일을 옮긴다”는 단계가 아예 없습니다.

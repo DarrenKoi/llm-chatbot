@@ -1,5 +1,5 @@
 def test_mcp_package_exports_public_api():
-    from api.mcp_runtime import (
+    from api.mcp_client import (
         MCPError,
         MCPExecutionError,
         MCPRegistryError,
@@ -41,8 +41,8 @@ def test_mcp_package_exports_public_api():
 
 
 def test_mcp_package_still_allows_submodule_imports():
-    from api.mcp_runtime import local_tools
-    from api.mcp_runtime import registry as mcp_registry
+    from api.mcp_client import local_tools
+    from api.mcp_client import registry as mcp_registry
 
     assert local_tools.clear_handlers
     assert mcp_registry.list_tools

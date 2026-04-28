@@ -5,7 +5,7 @@
 이 문서는 `shared_docs/`에서 프로젝트 구조를 빠르게 공유하기 위한 요약본입니다.
 팀원이 실제로 볼 수 있는 경로 기준으로 정리했으며, top-level에서는 `api/`, `devtools/`, `shared_docs/`와 실행 파일만 설명합니다.
 
-> ⚠️ **최근 변경 (2026-04-28)** — `api/mcp/` → `api/mcp_runtime/`, `devtools/mcp/` → `devtools/mcp_runtime/` 로 패키지명이 바뀌었고, 호환성 shim도 제거되었습니다. 이전 경로로 import하던 코드는 즉시 깨지므로 새 경로로 갱신해 주십시오. 워크플로/MCP 영역은 직접 정비 중이니 변경 전 [`workflow_catalog.md`](./workflow_catalog.md)의 인프라 소유권 정책을 먼저 확인해 주십시오.
+> ⚠️ **최근 변경 (2026-04-28)** — `api/mcp/` → `api/mcp_client/`, `devtools/mcp/` → `devtools/mcp_client/` 로 패키지명이 바뀌었고, 호환성 shim도 제거되었습니다. 이전 경로로 import하던 코드는 즉시 깨지므로 새 경로로 갱신해 주십시오. 워크플로/MCP 영역은 직접 정비 중이니 변경 전 [`workflow_catalog.md`](./workflow_catalog.md)의 인프라 소유권 정책을 먼저 확인해 주십시오.
 
 ## 1. 한눈에 보는 구조
 
@@ -88,7 +88,7 @@ llm_chatbot/
   APScheduler 작업 등록, 분산 락, 점검 스냅샷, 실제 task 구현을 담습니다.
 - `api/monitoring_service.py`
   모니터링 화면에 보여줄 런타임 스냅샷을 만듭니다.
-- `api/mcp_runtime/`
+- `api/mcp_client/`
   MCP 클라이언트, 레지스트리, 로컬 툴 실행기, 툴 선택 로직을 담습니다.
 - `api/mongo.py`
   MongoDB 연결 유틸리티입니다.
@@ -107,7 +107,7 @@ llm_chatbot/
   새 워크플로 템플릿과 예제 구현이 있습니다.
 - `devtools/scripts/`
   워크플로 생성, 승격 등 반복 작업을 줄이는 스크립트가 있습니다.
-- `devtools/mcp_runtime/`
+- `devtools/mcp_client/`
   개발 중 사용하는 MCP 템플릿과 보조 코드가 있습니다.
 - `devtools/var/`
   dev runner가 사용하는 대화 이력과 상태 저장 경로입니다.

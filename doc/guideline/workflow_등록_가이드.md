@@ -7,8 +7,8 @@
 - 현재 설정에서는 중앙 목록 파일에 워크플로를 수동으로 추가하지 않습니다.
 - `api/workflows/<workflow_id>/` 아래에 패키지를 만들고 계약을 맞추면 `registry.py`가 자동으로 발견합니다.
 - `handoff_keywords`가 비어 있지 않으면 `start_chat`이 그 워크플로를 handoff 대상으로 인식합니다.
-- 외부 도구가 필요하면 `api/mcp_runtime/`와 연결하고, 그래프 빌드 경로에서 등록 함수를 호출해야 런타임에 사용할 수 있습니다.
-- dev 단계에서는 같은 메커니즘을 `devtools/workflows/`와 `devtools/mcp_runtime/`에 대해 그대로 사용합니다.
+- 외부 도구가 필요하면 `api/mcp_client/`와 연결하고, 그래프 빌드 경로에서 등록 함수를 호출해야 런타임에 사용할 수 있습니다.
+- dev 단계에서는 같은 메커니즘을 `devtools/workflows/`와 `devtools/mcp_client/`에 대해 그대로 사용합니다.
 
 ## 1. 현재 등록 구조의 큰 그림
 
@@ -189,7 +189,7 @@ def build_lg_graph():
 
 1. `devtools/workflows/<workflow_id>/`를 만듭니다.
 2. `__init__.py`에서 `get_workflow_definition()`을 제공합니다.
-3. 필요하면 `devtools/mcp_runtime/<workflow_id>.py`를 만듭니다.
+3. 필요하면 `devtools/mcp_client/<workflow_id>.py`를 만듭니다.
 4. dev runner가 목록을 다시 읽으면 자동으로 보입니다.
 
 이 구조 덕분에 dev 단계에서 등록 방식을 따로 외울 필요가 없습니다.
@@ -205,8 +205,8 @@ python -m devtools.scripts.promote sample_flow
 이 스크립트는 아래 작업을 자동으로 수행합니다.
 
 - dev 워크플로 패키지를 `api/workflows/`로 복사합니다.
-- 대응하는 dev MCP 모듈을 `api/mcp_runtime/`로 복사합니다.
-- `devtools.mcp_runtime.` import를 `api.mcp_runtime.`로 치환합니다.
+- 대응하는 dev MCP 모듈을 `api/mcp_client/`로 복사합니다.
+- `devtools.mcp_client.` import를 `api.mcp_client.`로 치환합니다.
 - import 검증을 수행합니다.
 - 성공하면 dev 원본을 삭제합니다.
 

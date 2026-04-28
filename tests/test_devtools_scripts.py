@@ -6,7 +6,7 @@ from devtools.scripts import new_workflow, promote
 def test_new_workflow_scaffold_creates_matching_dev_mcp_module(tmp_path, monkeypatch):
     workflows_dir = tmp_path / "devtools" / "workflows"
     template_dir = workflows_dir / "_template"
-    mcp_dir = tmp_path / "devtools" / "mcp_runtime"
+    mcp_dir = tmp_path / "devtools" / "mcp_client"
     mcp_template_file = mcp_dir / "_template.py"
 
     template_dir.mkdir(parents=True)
@@ -21,7 +21,7 @@ def test_new_workflow_scaffold_creates_matching_dev_mcp_module(tmp_path, monkeyp
         encoding="utf-8",
     )
     (template_dir / "lg_graph.py").write_text(
-        "from devtools.mcp_runtime.__WORKFLOW_ID__ import register_tools\n"
+        "from devtools.mcp_client.__WORKFLOW_ID__ import register_tools\n"
         "def build_lg_graph():\n"
         "    register_tools()\n"
         "    return {'workflow_id': '__WORKFLOW_ID__'}\n",
@@ -46,7 +46,7 @@ def test_new_workflow_scaffold_creates_matching_dev_mcp_module(tmp_path, monkeyp
     assert scaffolded_mcp.exists()
     assert 'WORKFLOW_ID = "sample_flow"' in (scaffolded_dir / "__init__.py").read_text(encoding="utf-8")
     assert 'STATE = "SampleFlowState"' in (scaffolded_dir / "__init__.py").read_text(encoding="utf-8")
-    assert "from devtools.mcp_runtime.sample_flow import register_tools" in (scaffolded_dir / "lg_graph.py").read_text(
+    assert "from devtools.mcp_client.sample_flow import register_tools" in (scaffolded_dir / "lg_graph.py").read_text(
         encoding="utf-8"
     )
     assert 'WORKFLOW_ID = "sample_flow"' in scaffolded_mcp.read_text(encoding="utf-8")
@@ -55,20 +55,20 @@ def test_new_workflow_scaffold_creates_matching_dev_mcp_module(tmp_path, monkeyp
 def test_promote_moves_matching_dev_mcp_module_and_rewrites_imports(tmp_path, monkeypatch):
     project_root = tmp_path
     dev_workflows_dir = project_root / "devtools" / "workflows"
-    dev_mcp_dir = project_root / "devtools" / "mcp_runtime"
+    dev_mcp_dir = project_root / "devtools" / "mcp_client"
     prod_workflows_dir = project_root / "api" / "workflows"
-    prod_mcp_dir = project_root / "api" / "mcp_runtime"
+    prod_mcp_dir = project_root / "api" / "mcp_client"
     workflow_source = dev_workflows_dir / "sample_flow"
     workflow_source.mkdir(parents=True)
     dev_mcp_dir.mkdir(parents=True)
 
     (workflow_source / "__init__.py").write_text(
-        "from devtools.mcp_runtime.sample_flow import register_tools\n",
+        "from devtools.mcp_client.sample_flow import register_tools\n",
         encoding="utf-8",
     )
     (workflow_source / "lg_graph.py").write_text("def build_lg_graph():\n    return {}\n", encoding="utf-8")
     (dev_mcp_dir / "sample_flow.py").write_text(
-        'IMPORT_PATH = "devtools.mcp_runtime.sample_flow"\n',
+        'IMPORT_PATH = "devtools.mcp_client.sample_flow"\n',
         encoding="utf-8",
     )
 
@@ -92,25 +92,25 @@ def test_promote_moves_matching_dev_mcp_module_and_rewrites_imports(tmp_path, mo
     assert mcp_target.exists()
     assert not workflow_source.exists()
     assert not (dev_mcp_dir / "sample_flow.py").exists()
-    assert "from api.mcp_runtime.sample_flow import register_tools" in (workflow_target / "__init__.py").read_text(
+    assert "from api.mcp_client.sample_flow import register_tools" in (workflow_target / "__init__.py").read_text(
         encoding="utf-8"
     )
-    assert 'IMPORT_PATH = "api.mcp_runtime.sample_flow"' in mcp_target.read_text(encoding="utf-8")
+    assert 'IMPORT_PATH = "api.mcp_client.sample_flow"' in mcp_target.read_text(encoding="utf-8")
 
 
 def test_promote_rolls_back_targets_when_validation_fails(tmp_path, monkeypatch):
     project_root = tmp_path
     dev_workflows_dir = project_root / "devtools" / "workflows"
-    dev_mcp_dir = project_root / "devtools" / "mcp_runtime"
+    dev_mcp_dir = project_root / "devtools" / "mcp_client"
     prod_workflows_dir = project_root / "api" / "workflows"
-    prod_mcp_dir = project_root / "api" / "mcp_runtime"
+    prod_mcp_dir = project_root / "api" / "mcp_client"
 
     workflow_source = dev_workflows_dir / "sample_flow"
     workflow_source.mkdir(parents=True)
     dev_mcp_dir.mkdir(parents=True)
 
     (workflow_source / "__init__.py").write_text(
-        "from devtools.mcp_runtime.sample_flow import register_tools\n",
+        "from devtools.mcp_client.sample_flow import register_tools\n",
         encoding="utf-8",
     )
     (dev_mcp_dir / "sample_flow.py").write_text("def register_tools():\n    return None\n", encoding="utf-8")
@@ -137,7 +137,7 @@ def test_promote_rolls_back_targets_when_validation_fails(tmp_path, monkeypatch)
 
 
 def test_validate_promoted_workflow_imports_matching_mcp_module(tmp_path, monkeypatch):
-    prod_mcp_dir = tmp_path / "api" / "mcp_runtime"
+    prod_mcp_dir = tmp_path / "api" / "mcp_client"
     prod_mcp_dir.mkdir(parents=True)
     (prod_mcp_dir / "sample_flow.py").write_text("REGISTERED = True\n", encoding="utf-8")
 
@@ -155,7 +155,7 @@ def test_validate_promoted_workflow_imports_matching_mcp_module(tmp_path, monkey
         imported_modules.append(module_path)
         if module_path == "api.workflows.sample_flow":
             return _WorkflowModule()
-        if module_path == "api.mcp_runtime.sample_flow":
+        if module_path == "api.mcp_client.sample_flow":
             return object()
         raise AssertionError(module_path)
 
@@ -164,4 +164,4 @@ def test_validate_promoted_workflow_imports_matching_mcp_module(tmp_path, monkey
     definition = promote._validate_promoted_workflow("sample_flow")
 
     assert definition["workflow_id"] == "sample_flow"
-    assert imported_modules == ["api.mcp_runtime.sample_flow", "api.workflows.sample_flow"]
+    assert imported_modules == ["api.mcp_client.sample_flow", "api.workflows.sample_flow"]

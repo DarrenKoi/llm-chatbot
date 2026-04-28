@@ -31,7 +31,7 @@ banned-module-level-imports = ["api"]
 "cube_worker.py" = ["TID253"]
 "scheduler_worker.py" = ["TID253"]
 "devtools/cube_message/**" = ["TID253"]
-"devtools/mcp_runtime/**" = ["TID253"]
+"devtools/mcp_client/**" = ["TID253"]
 "devtools/scripts/**" = ["TID253"]
 
 [tool.ruff.format]

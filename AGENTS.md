@@ -8,7 +8,7 @@
 - `api/cube/`: Cube webhook, queue worker, rich-notification blocks, chunker, intent renderer.
 - `api/llm/`: LLM service and prompt assembly (OpenAI-compatible client).
 - `api/workflows/`: LangGraph orchestrator and registered graphs (`start_chat`, `translator`).
-- `api/mcp_runtime/`: MCP client, tool selector, executor, local tool registry.
+- `api/mcp_client/`: MCP client, tool selector, executor, local tool registry.
 - `api/file_delivery/`: uploaded-file serving and cleanup routes/service.
 - `api/profile/`, `api/monitoring_service.py`, `api/mongo.py`: profile, monitoring, and MongoDB client.
 - `api/html_templates/`: server-rendered pages (landing, monitor, conversation, file delivery, scheduled tasks).

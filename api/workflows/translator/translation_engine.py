@@ -216,8 +216,8 @@ class TranslationResult:
 def execute_translation(source_text: str, target_language: str, *, tool_id: str = "translate") -> TranslationResult:
     """MCP translate 도구를 호출하고 정규화된 결과를 반환한다."""
 
-    from api.mcp_runtime.executor import execute_tool_call
-    from api.mcp_runtime.models import MCPToolCall
+    from api.mcp_client.executor import execute_tool_call
+    from api.mcp_client.models import MCPToolCall
 
     log.info("[translator] %s 도구 호출: text=%s target_language=%s", tool_id, source_text, target_language)
     result = execute_tool_call(

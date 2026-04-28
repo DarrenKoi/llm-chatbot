@@ -6,8 +6,8 @@ from unittest.mock import patch
 import pytest
 
 from api.cube.models import CubeIncomingMessage
-from api.mcp_runtime import local_tools
-from api.mcp_runtime import registry as mcp_registry
+from api.mcp_client import local_tools
+from api.mcp_client import registry as mcp_registry
 from api.workflows.translator.tools import register_translator_tools
 
 

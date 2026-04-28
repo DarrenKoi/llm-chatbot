@@ -62,8 +62,8 @@
 
 ## MCP 도구 선택 규칙
 - `WorkflowDefinition`은 선택적 `tool_tags` 필드를 가질 수 있고, 값은 소문자 태그 tuple로 정규화한다.
-- `api/mcp_runtime/models.py`의 `MCPTool.tags`도 소문자 태그 tuple로 정규화한다.
-- `api/mcp_runtime/tool_selector.py`는 workflow의 `tool_tags`와 MCP 도구의 `tags`를 매칭해 도구 후보를 필터링한다.
+- `api/mcp_client/models.py`의 `MCPTool.tags`도 소문자 태그 tuple로 정규화한다.
+- `api/mcp_client/tool_selector.py`는 workflow의 `tool_tags`와 MCP 도구의 `tags`를 매칭해 도구 후보를 필터링한다.
 - `tool_tags`가 비어 있는 workflow는 기존처럼 전체 도구를 그대로 노출한다.
 
 ## LangGraph 저장 규칙

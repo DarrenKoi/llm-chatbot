@@ -5,7 +5,7 @@
 이 문서는 `shared_docs/`에서 팀원이 공통으로 참고할 수 있도록, 현재 `devtools/`의 역할과 워크플로 개발 절차를 요약한 문서입니다.
 원문 기준은 `doc/guideline/workflow_추가_가이드.md`, `doc/guideline/workflow_등록_가이드.md`, `doc/project_structure.md`입니다.
 
-> ⚠️ **최근 변경 (2026-04-28)** — dev MCP 경로가 `devtools/mcp/` → `devtools/mcp_runtime/` 로, 운영 MCP 경로가 `api/mcp/` → `api/mcp_runtime/` 로 변경되었습니다. 호환성 shim은 제거되었으므로 `devtools.mcp.*` / `api.mcp.*` import는 더 이상 동작하지 않습니다. 본 문서의 모든 명령과 경로 예시는 새 패키지명 기준입니다.
+> ⚠️ **최근 변경 (2026-04-28)** — dev MCP 경로가 `devtools/mcp/` → `devtools/mcp_client/` 로, 운영 MCP 경로가 `api/mcp/` → `api/mcp_client/` 로 변경되었습니다. 호환성 shim은 제거되었으므로 `devtools.mcp.*` / `api.mcp.*` import는 더 이상 동작하지 않습니다. 본 문서의 모든 명령과 경로 예시는 새 패키지명 기준입니다.
 
 ## 1. devtools의 목적
 
@@ -28,11 +28,11 @@
 - `travel_planner_example/`는 멀티턴 interrupt/resume 참고 예제입니다.
 - devtools 워크플로는 Cube에 직접 송신하지 않고 평문 LLM 응답까지만 만듭니다. richnotification·multimessage·rich block 조립은 운영(`api/cube/`)의 책임이며, Cube 외형을 직접 보고 싶을 때는 별도 도구 `devtools/cube_message/`를 사용합니다.
 
-### `devtools/mcp_runtime/`
+### `devtools/mcp_client/`
 
 - dev 워크플로에서 사용하는 MCP 등록 코드를 둡니다.
 - 템플릿 파일 `_template.py`를 기준으로 새 dev MCP 모듈을 생성합니다.
-- promotion 시 같은 이름으로 `api/mcp_runtime/` 아래로 이동할 수 있습니다.
+- promotion 시 같은 이름으로 `api/mcp_client/` 아래로 이동할 수 있습니다.
 
 ### `devtools/workflow_runner/`
 
@@ -51,8 +51,8 @@
 ### `devtools/scripts/promote.py`
 
 - 검증이 끝난 dev 워크플로를 `api/workflows/`로 승격합니다.
-- 관련 dev MCP 파일도 함께 `api/mcp_runtime/`로 복사합니다.
-- `devtools.mcp_runtime.*` import를 `api.mcp_runtime.*`로 자동 치환합니다.
+- 관련 dev MCP 파일도 함께 `api/mcp_client/`로 복사합니다.
+- `devtools.mcp_client.*` import를 `api.mcp_client.*`로 자동 치환합니다.
 - import 검증이 실패하면 롤백합니다.
 - 검증 통과 후 dev 원본을 삭제합니다.
 
@@ -81,7 +81,7 @@ python -m devtools.scripts.new_workflow my_workflow
 - `devtools/workflows/my_workflow/__init__.py`
 - `devtools/workflows/my_workflow/lg_state.py`
 - `devtools/workflows/my_workflow/lg_graph.py`
-- `devtools/mcp_runtime/my_workflow.py`
+- `devtools/mcp_client/my_workflow.py`
 
 현재 템플릿은 `lg_state.py`를 기본 상태 파일로 사용합니다.
 오래된 문서처럼 `state.py`를 만드는 구조가 아닙니다.
@@ -109,7 +109,7 @@ from .lg_state import MyWorkflowState
 from .lg_graph import build_lg_graph
 ```
 
-반면 MCP 모듈은 promotion에서 `devtools.mcp_runtime.`를 `api.mcp_runtime.`로 치환하므로, 템플릿처럼 `devtools.mcp_runtime.<workflow_id>` 형태를 사용할 수 있습니다.
+반면 MCP 모듈은 promotion에서 `devtools.mcp_client.`를 `api.mcp_client.`로 치환하므로, 템플릿처럼 `devtools.mcp_client.<workflow_id>` 형태를 사용할 수 있습니다.
 
 주의할 점:
 
@@ -118,10 +118,10 @@ from .lg_graph import build_lg_graph
 
 ### 5. dev MCP 도구를 연결합니다
 
-외부 도구나 로컬 핸들러가 필요하면 `devtools/mcp_runtime/my_workflow.py`에 등록합니다.
+외부 도구나 로컬 핸들러가 필요하면 `devtools/mcp_client/my_workflow.py`에 등록합니다.
 
-- dev 단계에서는 `devtools.mcp_runtime.*`를 사용합니다.
-- promotion 시 이 prefix는 `api.mcp_runtime.*`로 바뀝니다.
+- dev 단계에서는 `devtools.mcp_client.*`를 사용합니다.
+- promotion 시 이 prefix는 `api.mcp_client.*`로 바뀝니다.
 - 도구가 필요한 워크플로는 `build_lg_graph()` 경로에서 등록 함수를 호출해야 합니다.
 
 ### 6. dev runner에서 직접 검증합니다
@@ -162,8 +162,8 @@ python -m devtools.scripts.promote my_workflow
 이 단계에서 스크립트는 아래 작업을 수행합니다.
 
 1. `devtools/workflows/my_workflow/`를 `api/workflows/my_workflow/`로 복사합니다.
-2. 관련 `devtools/mcp_runtime/my_workflow.py`를 `api/mcp_runtime/`로 복사합니다.
-3. `devtools.mcp_runtime.*` import를 `api.mcp_runtime.*`로 바꿉니다.
+2. 관련 `devtools/mcp_client/my_workflow.py`를 `api/mcp_client/`로 복사합니다.
+3. `devtools.mcp_client.*` import를 `api.mcp_client.*`로 바꿉니다.
 4. import 검증을 수행합니다.
 5. 검증이 통과하면 dev 원본을 삭제합니다.
 

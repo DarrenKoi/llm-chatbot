@@ -9,8 +9,8 @@ import pytest
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.types import Command
 
-from api.mcp_runtime import local_tools
-from api.mcp_runtime import registry as mcp_registry
+from api.mcp_client import local_tools
+from api.mcp_client import registry as mcp_registry
 from api.workflows.start_chat.lg_graph import _get_handoff_subgraph_builders, build_lg_graph
 from api.workflows.translator.tools import register_translator_tools
 

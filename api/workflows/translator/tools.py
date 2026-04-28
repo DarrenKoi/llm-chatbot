@@ -1,9 +1,9 @@
 # ruff: noqa: E501
 """번역 서비스 워크플로에서 사용하는 MCP 도구를 등록한다."""
 
-from api.mcp_runtime.local_tools import register_handler
-from api.mcp_runtime.models import MCPServerConfig, MCPTool
-from api.mcp_runtime.registry import register_server, register_tool
+from api.mcp_client.local_tools import register_handler
+from api.mcp_client.models import MCPServerConfig, MCPTool
+from api.mcp_client.registry import register_server, register_tool
 from api.workflows.translator import TRANSLATOR_TOOL_TAGS
 from api.workflows.translator.translation_engine import translate_text
 

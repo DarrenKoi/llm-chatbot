@@ -1,6 +1,6 @@
 """워크플로 컨텍스트에 맞는 MCP 도구 선택 스텁을 제공한다."""
 
-from api.mcp_runtime.models import MCPTool
+from api.mcp_client.models import MCPTool
 from api.workflows.registry import get_workflow
 
 
