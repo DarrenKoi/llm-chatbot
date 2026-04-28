@@ -122,7 +122,7 @@ def get_workflow_definition() -> dict[str, object]:
 공유 기본 상태는 `ChatState` 하나입니다.
 
 ```python
-from api.workflows.lg_state import ChatState
+from api.workflows.lg_state import ChatState  # legacy: devtools에서는 mirror 사본 사용 예정
 
 
 class MyWorkflowState(ChatState, total=False):
@@ -133,9 +133,10 @@ class MyWorkflowState(ChatState, total=False):
 
 현재 상태 설계 규칙은 아래와 같습니다.
 
-- 공유 기본 상태 `ChatState`는 `api/workflows/lg_state.py`에만 둡니다.
+- 공유 기본 상태 `ChatState`는 `api/workflows/lg_state.py`에 둡니다.
+- `devtools/`에서 사용할 때는 격리 정책에 따라 별도 mirror 사본(`devtools/workflows/lg_state.py`, 도입 예정)을 사용해야 합니다 — 자세한 내용은 [`workflow_catalog.md`](./workflow_catalog.md) §3.5 참조.
 - 워크플로 전용 상태는 각 패키지 안의 `lg_state.py`에 둡니다.
-- 특정 워크플로에만 필요한 필드를 `ChatState`에 직접 추가하지 않습니다.
+- 특정 워크플로에만 필요한 필드를 `ChatState`에 직접 추가하지 않습니다 — 추가가 필요하면 `api/`와 `devtools/` 양쪽 사본을 함께 업데이트해 mirror를 깨지 않습니다.
 - 상태 필드는 여러 턴에 걸쳐 다시 참조할 값만 남깁니다.
 - `TypedDict(total=False)`를 유지해 초기 상태에서 선택 필드를 비워 둘 수 있게 합니다.
 

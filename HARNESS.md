@@ -56,7 +56,7 @@ api/config.py, api/__init__.py, index.py, wsgi.ini, requirements.txt, .env, .env
 새 라우팅이나 핸드오프는 기존 workflow registry/orchestrator 규약을 따라라.
 api/workflows/ 루트의 인프라 파일(registry.py, lg_orchestrator.py, lg_state.py, models.py, langgraph_checkpoint.py, intent_utils.py, graph_visualizer.py, __init__.py)과 devtools/workflow_runner/dev_orchestrator.py 는 Daeyoung 사전 승인 없이 수정하지 마라. 수정이 필요해 보이면 먼저 사유를 제시하고 승인을 요청해라.
 api/mcp/, devtools/mcp/ 경로는 더 이상 존재하지 않는다. 코드나 import에서 이 경로가 등장하면 즉시 멈추고 보고해라. 새 경로는 api/mcp_runtime/, devtools/mcp_runtime/ 이다.
-api/ 와 devtools/ 사이의 import는 양방향 모두 금지한다. 새 코드에서 from api.* 를 devtools/ 안에 추가하거나 from devtools.* 를 api/ 안에 추가하지 마라. 기존 cross-import를 발견하면 단독으로 고치지 말고 먼저 보고해라.
+api/ 와 devtools/ 사이의 import는 양방향 모두 금지한다. 새 코드에서 from api.* 를 devtools/ 안에 추가하거나 from devtools.* 를 api/ 안에 추가하지 마라. 두 영역은 standalone이지만 공유 개념은 양쪽에 mirror된 사본으로 유지하므로, 한쪽 mirror 파일(예: lg_state.py, intent_utils.py 등)을 수정하면 다른 쪽 mirror 파일도 같은 PR에서 함께 업데이트해야 한다. 기존 cross-import를 발견하면 단독으로 고치지 말고 먼저 보고해라.
 워크플로/MCP 영역은 최근에 정비된 코드이므로, 학습 데이터나 캐시된 구조 대신 현재 저장소의 shared_docs/ 와 코드를 직접 읽고 작업해라.
 먼저 요청이 start_chat을 통해 어떻게 흐르는지 추적하고, 수정하려는 파일 목록과 이유를 짧게 제시한 뒤 작업해라.
 ```
@@ -132,17 +132,34 @@ api/ 와 devtools/ 사이의 import는 양방향 모두 금지한다. 새 코드
 
 **왜 이 정책이 있나:** 이 인프라 레이어는 멀티턴 지속성, 체크포인터 호환성, 자동 발견 계약 등 한눈에 보이지 않는 invariant를 다수 포함합니다. 부분 수정이 다른 워크플로의 가정을 깨면 디버깅 비용이 큽니다. 자세한 배경과 영향 범위는 [`shared_docs/workflow_catalog.md`](./shared_docs/workflow_catalog.md)의 "인프라 파일 소유권 정책" 섹션을 참조하십시오.
 
-## `api/` ↔ `devtools/` 격리 정책
+## `api/` ↔ `devtools/` 격리 정책 (standalone but mirrored)
 
-`api/`와 `devtools/`는 서로 독립적으로 동작해야 합니다. 두 패키지 사이의 import는 양방향 모두 금지합니다.
+`api/`와 `devtools/`는 서로 import하지 않고 각자 독립적으로 동작해야 합니다. 다만 **공유 개념은 양쪽에 동일한 정의를 복제(mirror)** 해 두고, 한쪽이 바뀌면 반드시 다른 쪽도 함께 업데이트합니다.
+
+### 핵심 규칙
 
 - `api/*` 모듈은 `devtools.*`를 import하지 않습니다.
-- `devtools/*` 모듈은 `api.*`를 import하지 않습니다 (예: `from api.workflows.lg_state import ChatState` 같은 형태도 금지).
-- 두 영역에서 공통으로 필요한 타입·유틸리티는 한쪽에 두고 다른 쪽에서 import하는 방식 대신, 각 영역이 자체적으로 정의하거나 명시적으로 동기화 가능한 정의를 둡니다.
-- promote 스크립트가 `devtools.mcp_runtime.*` → `api.mcp_runtime.*`로 치환할 때도, dev 전용 보조 import가 함께 운영으로 끌려 들어가지 않도록 검토합니다.
-- **기존 cross-import는 점진 정리 대상**입니다. 새로 작성하는 코드에서는 이 규칙을 위반하지 마십시오. 기존 cross-import를 발견하면 즉시 고치지 말고, 먼저 owner(Daeyoung)에게 보고한 뒤 정리 계획을 세우십시오.
+- `devtools/*` 모듈은 `api.*`를 import하지 않습니다 (예: `from api.workflows.lg_state import ChatState` 형태 전부 금지).
+- 두 영역이 공통으로 쓰는 타입·유틸리티(`ChatState`, `intent_utils`, `discover_workflows` 동작 등)는 각 영역이 자체 사본을 보유하고, **변경 시 두 사본을 같은 PR에서 함께 업데이트**합니다.
+- 한쪽만 수정하고 다른 쪽을 두고 가지 마십시오. mirror가 깨지면 promote 시 의미 차이가 생겨 런타임 사고로 이어집니다.
+- promote 스크립트는 leaf 패키지를 옮기는 역할이며, mirror 인프라(`lg_state`, `registry` 등)는 옮기지 않습니다 — 두 곳 모두에 이미 같은 정의가 존재해야 합니다.
+- **기존 cross-import는 점진 정리 대상**입니다. 새 코드에서는 이 규칙을 위반하지 마십시오. 기존 cross-import를 발견하면 단독으로 고치지 말고 먼저 owner(Daeyoung)에게 보고하고 mirror 정의를 만든 뒤 import만 바꾸는 식으로 정리합니다.
 
-**왜 이 정책이 있나:** 운영(`api/`)이 dev 코드(`devtools/`)에 우연히 의존해 배포 사고가 나는 것을 막고, dev 영역이 운영 인프라 변경마다 깨지지 않도록 하기 위함입니다. 두 영역의 결합을 풀어 두면 운영 코드를 외부 컨테이너로 분리하거나 dev 도구를 별도 저장소로 이전하기도 쉬워집니다.
+### 변경 시 체크리스트
+
+`api/`나 `devtools/`의 mirror 대상 파일을 수정한다면 매번 아래를 확인하십시오.
+
+1. 같은 개념이 다른 쪽에도 있는가? (예: `api/workflows/lg_state.py` ↔ `devtools/workflows/lg_state.py`)
+2. 변경 내용이 다른 쪽에도 적용되었는가?
+3. 두 정의가 의미적으로 동일한가? (필드 이름, 타입, default 동작)
+4. 변경 PR에 양쪽 파일이 모두 포함되었는가?
+
+### 왜 이 정책이 있나
+
+- 운영(`api/`)이 dev 코드(`devtools/`)에 우연히 의존해 배포 사고가 나는 것을 막습니다.
+- dev 영역이 운영 인프라 변경마다 깨지지 않도록 합니다.
+- 두 영역의 결합을 풀어 두면 운영 코드를 외부 컨테이너로 분리하거나 dev 도구를 별도 저장소로 이전하기도 쉬워집니다.
+- mirror 방식을 택하는 이유는, 완전히 분기(divergence)를 허용하면 promote 시 의미 차이가 디버그하기 어려운 사고로 돌아오기 때문입니다. 코드는 별도지만 의미는 일치한다는 약속을 명시적으로 둡니다.
 
 ## 작업 규칙
 

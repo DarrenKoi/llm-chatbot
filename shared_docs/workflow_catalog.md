@@ -81,10 +81,12 @@ resolve
 
 운영(`api/workflows/`)과 개발(`devtools/workflows/`)은 같은 “워크플로 패키지 계약”을 공유하지만, **루트에 들어가는 파일 종류가 다릅니다**. 새 워크플로를 dev에서 만들고 promote할 때 이 구분을 알고 있으면 import 에러나 “왜 dev에는 이 파일이 없지?”라는 혼란을 피할 수 있습니다.
 
+> 🚧 **이 섹션은 현재 상태를 설명합니다 (legacy 패턴).** `HARNESS.md`의 "`api/` ↔ `devtools/` 격리 정책"에 따라 이 cross-import 의존 관계는 점진 정리 대상입니다. 새 코드에서는 dev가 `api.*`를 직접 import하지 않도록 하고, 마이그레이션 계획은 아래 §3.5를 참고하십시오.
+
 ### 핵심: dev 디렉터리는 “워크플로 패키지 컨테이너”일 뿐, 런타임 인프라가 아닙니다
 
 - **`api/workflows/`** — 운영 런타임 인프라 + 운영 워크플로 패키지가 함께 들어 있습니다.
-- **`devtools/workflows/`** — 개발 중인 워크플로 패키지만 들어 있습니다. 런타임 인프라는 옆 디렉터리(`devtools/workflow_runner/`)에 있고, 공유 코드는 `api.workflows.*`에서 직접 import해 재사용합니다.
+- **`devtools/workflows/`** — 개발 중인 워크플로 패키지만 들어 있습니다. 런타임 인프라는 옆 디렉터리(`devtools/workflow_runner/`)에 있고, 공유 코드는 (현재까지는) `api.workflows.*`에서 직접 import해 재사용해 왔습니다 — 이 부분이 위 격리 정책에서 정리 대상입니다.
 
 ### 역할 매핑표
 
@@ -138,13 +140,41 @@ devtools/workflows/
 
 운영 인프라는 처음부터 `api/`에 있고 dev에서도 같은 import 경로로 사용했기 때문에, promote 시 “인프라 파일을 옮긴다”는 단계가 아예 없습니다.
 
-### 체크리스트
+### 체크리스트 (legacy — 위 §3 도입부의 마이그레이션 안내 참조)
 
-새 dev 워크플로를 만들 때 “루트에 `registry.py`가 없다, `lg_state.py`가 없다”는 이유로 인프라 파일을 dev 쪽에 새로 만들지 마세요. 항상 아래를 따릅니다.
+새 dev 워크플로를 만들 때 “루트에 `registry.py`가 없다, `lg_state.py`가 없다”는 이유로 인프라 파일을 dev 쪽에 새로 만들지 마세요. 항상 아래를 따릅니다 — 단, 아래 항목 중 `api.*` import 부분은 격리 정책에 따라 점진 폐기 대상입니다.
 
-- 공유 상태가 필요하면 `from api.workflows.lg_state import ChatState`
+- 공유 상태가 필요하면 `from api.workflows.lg_state import ChatState` (격리 후에는 `devtools/` 자체 mirror 사본을 사용)
 - 운영 워크플로의 불안정한 내부 helper를 dev 예제에서 직접 가져오지 말고, `ChatState`처럼 안정적인 공유 타입만 재사용합니다.
 - 새 인프라 코드(라우팅 규칙, 새 체크포인터 등)는 `api/workflows/` 또는 `devtools/workflow_runner/` 중 적절한 곳에 두고, **`devtools/workflows/` 루트는 손대지 않음**
+
+### 3.5 `api/` ↔ `devtools/` 격리 마이그레이션 (standalone but mirrored)
+
+`HARNESS.md`의 격리 정책에 따라 두 영역을 `import`로 묶지 않고, **공유 개념을 양쪽에 mirror된 사본으로** 유지합니다. 변경 시에는 두 사본을 같은 PR에서 함께 업데이트합니다.
+
+**현재 잔존 cross-import (`devtools/` → `api/`, 2026-04-28 기준)**
+
+| dev 측 파일 | 의존하는 `api.*` 심볼 | mirror 대상 (제안) |
+|---|---|---|
+| `devtools/workflow_runner/dev_orchestrator.py` | `api.workflows.registry.discover_workflows` | `devtools/workflow_runner/registry.py` (자체 발견 로직 복제) |
+| `devtools/workflows/_template/lg_state.py` | `api.workflows.lg_state.ChatState` | `devtools/workflows/lg_state.py` (mirror `ChatState`) |
+| `devtools/workflows/travel_planner_example/lg_state.py` | 동일 | 위 mirror 사용 |
+| `devtools/workflows/richinotification_test/lg_state.py` | 동일 | 위 mirror 사용 |
+| `devtools/workflows/travel_planner_example/llm_decision.py` | `api.workflows.intent_utils.is_stop_conversation_message` | `devtools/workflows/intent_utils.py` (mirror) |
+| `devtools/workflows/richinotification_test/lg_graph.py` | `api.cube.client.{CubeClientError, send_richnotification_blocks}` | `devtools/cube_message/client_stub.py` (또는 dev mock) |
+| `devtools/workflows/richinotification_test/block_builder.py` | `api.cube.rich_blocks`, `api.cube.payload.build_richnotification_payload` | `devtools/cube_message/{rich_blocks, payload}.py` (mirror) |
+| `devtools/cube_message/samples.py` | `api.cube.rich_blocks` | 위 mirror 사용 |
+
+**마이그레이션 단계 (제안)**
+
+1. `devtools/workflows/lg_state.py`에 `ChatState`를 mirror로 정의하고 dev 워크플로 3종을 거기로 갈아끼웁니다.
+2. `devtools/workflows/intent_utils.py`에 `is_stop_conversation_message`를 mirror하고 `llm_decision.py`를 갈아끼웁니다.
+3. `devtools/cube_message/`에 `rich_blocks`, `payload`, (필요 시) `client_stub`을 mirror하고 `richinotification_test/`와 `samples.py`를 갈아끼웁니다.
+4. `devtools/workflow_runner/registry.py`에 발견 로직을 mirror하고 `dev_orchestrator.py`를 갈아끼웁니다.
+5. CI 또는 ruff 규칙으로 `from api.` / `import api.`가 `devtools/` 트리 안에 등장하면 실패하도록 가드를 추가합니다.
+6. 이후 `api/`와 `devtools/`의 mirror 파일이 변경될 때마다 양쪽 사본을 같은 PR로 업데이트하는 워크플로를 정착시킵니다.
+
+각 단계는 독립적으로 PR 가능하며, 하나가 머지되면 그만큼 cross-import가 줄어듭니다.
 
 ---
 

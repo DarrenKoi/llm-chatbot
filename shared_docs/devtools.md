@@ -94,7 +94,7 @@ python -m devtools.scripts.new_workflow my_workflow
 
 상태 설계 원칙:
 
-- 공통 기본 상태는 `api/workflows/lg_state.py`의 `ChatState`를 상속합니다.
+- 공통 기본 상태는 `api/workflows/lg_state.py`의 `ChatState`를 상속합니다 (legacy — 격리 정책에 따라 `devtools/` 자체 mirror로 이전 예정, 자세한 내용은 [`workflow_catalog.md`](./workflow_catalog.md) §3.5 참조).
 - 워크플로 전용 슬롯만 각 패키지의 `lg_state.py`에 둡니다.
 - `total=False`를 유지해 선택 필드를 자연스럽게 비울 수 있게 합니다.
 
