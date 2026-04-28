@@ -536,7 +536,7 @@ def test_handle_cube_message_sends_thinking_message_when_slow_reply_then_fails(
     mock_send_multimessage,
 ):
     def slow_failure(*args, **kwargs):
-        time.sleep(0.05)
+        time.sleep(0.2)
         raise RuntimeError("workflow failed")
 
     with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 0.01):
