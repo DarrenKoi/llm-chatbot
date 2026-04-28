@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
@@ -65,6 +67,13 @@ def test_get_system_prompt_appends_profile_context(monkeypatch):
         "- 이름: 홍길동\n\n"
         "이 사용자의 소속과 근무 맥락을 고려해 적절한 workflow와 답변 방식을 선택하세요."
     )
+
+
+def test_default_system_prompt_avoids_invalid_json_shorthand():
+    assert "TextIntent" not in DEFAULT_SYSTEM_PROMPT
+    assert "blocks=" not in DEFAULT_SYSTEM_PROMPT
+    assert "..." not in DEFAULT_SYSTEM_PROMPT
+    assert '"kind":"text"' in DEFAULT_SYSTEM_PROMPT
 
 
 def test_build_time_context_uses_korean_local_time(monkeypatch):
@@ -238,8 +247,9 @@ def test_generate_reply_intent_repairs_loose_blocks_assignment_keys(mocker, monk
     assert intent.blocks[0].rows == [["값"]]
 
 
-def test_generate_reply_intent_falls_back_to_json_in_text(mocker, monkeypatch):
+def test_generate_reply_intent_falls_back_to_json_in_text(mocker, monkeypatch, caplog):
     _stub_llm_env(monkeypatch)
+    caplog.set_level(logging.WARNING, logger="api.llm.service")
 
     structured_llm = mocker.Mock()
     structured_llm.invoke.side_effect = RuntimeError("tool calling not supported")
@@ -251,6 +261,8 @@ def test_generate_reply_intent_falls_back_to_json_in_text(mocker, monkeypatch):
     intent = generate_reply_intent(history=[], user_message="안녕")
 
     assert intent.blocks == [TextIntent(text="안녕하세요")]
+    assert "llm_reply_intent_fallback path=json_in_text model=gpt-test" in caplog.text
+    assert '"안녕하세요"' in caplog.text
 
 
 def test_generate_reply_intent_wraps_unparseable_text_as_text_intent(mocker, monkeypatch):
@@ -268,8 +280,9 @@ def test_generate_reply_intent_wraps_unparseable_text_as_text_intent(mocker, mon
     assert intent.blocks == [TextIntent(text="평문 답변, JSON 아님")]
 
 
-def test_generate_reply_intent_does_not_show_unparseable_blocks_payload(mocker, monkeypatch):
+def test_generate_reply_intent_does_not_show_unparseable_blocks_payload(mocker, monkeypatch, caplog):
     _stub_llm_env(monkeypatch)
+    caplog.set_level(logging.WARNING, logger="api.llm.service")
 
     structured_llm = mocker.Mock()
     structured_llm.invoke.side_effect = RuntimeError("nope")
@@ -281,6 +294,8 @@ def test_generate_reply_intent_does_not_show_unparseable_blocks_payload(mocker, 
     intent = generate_reply_intent(history=[], user_message="표 보여줘")
 
     assert intent.blocks == [TextIntent(text=_UNPARSEABLE_REPLY_INTENT_FALLBACK_TEXT)]
+    assert "llm_reply_intent_fallback path=invalid_json_in_text model=gpt-test" in caplog.text
+    assert 'blocks=[{\\"kind:\\"table\\", \\"tilte\\", ..}]' in caplog.text
 
 
 def test_generate_reply_intent_raises_on_total_llm_failure(mocker, monkeypatch):

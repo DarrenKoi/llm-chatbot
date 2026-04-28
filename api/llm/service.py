@@ -106,6 +106,12 @@ def generate_reply_intent(
 
     parsed = _parse_reply_intent_from_text(raw_text)
     if parsed is not None and _has_usable_content(parsed):
+        logger.warning(
+            "llm_reply_intent_fallback path=json_in_text model=%s raw_text=%s intent=%s",
+            config.LLM_MODEL,
+            json.dumps(raw_text, ensure_ascii=False),
+            json.dumps(parsed.model_dump(), ensure_ascii=False, default=str),
+        )
         logger.info(
             "llm_reply_intent path=parsed_json model=%s intent=%s",
             config.LLM_MODEL,
@@ -149,7 +155,12 @@ def _parse_reply_intent_from_text(raw_text: str) -> ReplyIntent | None:
             return parsed
 
     if candidates:
-        logger.warning("JSON-in-text ReplyIntent 검증 실패, 텍스트 fallback")
+        logger.warning(
+            "llm_reply_intent_fallback path=invalid_json_in_text model=%s candidate_count=%d raw_text=%s",
+            config.LLM_MODEL,
+            len(candidates),
+            json.dumps(raw_text, ensure_ascii=False),
+        )
     return None
 
 
