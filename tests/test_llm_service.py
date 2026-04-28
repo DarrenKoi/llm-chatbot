@@ -2,9 +2,10 @@ import pytest
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from api import config
-from api.cube.intents import ChoiceIntent, ReplyIntent, TextIntent
+from api.cube.intents import ChoiceIntent, ReplyIntent, TableIntent, TextIntent
 from api.llm.prompt import DEFAULT_SYSTEM_PROMPT, get_system_prompt
 from api.llm.service import (
+    _UNPARSEABLE_REPLY_INTENT_FALLBACK_TEXT,
     LLMServiceError,
     _build_messages,
     _extract_content,
@@ -182,6 +183,61 @@ def test_generate_reply_intent_parses_bare_json_without_fences(mocker, monkeypat
     assert [block.kind for block in intent.blocks] == ["text", "table"]
 
 
+def test_generate_reply_intent_parses_blocks_assignment_as_structured_intent(mocker, monkeypatch):
+    _stub_llm_env(monkeypatch)
+
+    structured_llm = mocker.Mock()
+    structured_llm.invoke.side_effect = RuntimeError("structured output failed")
+    mock_llm = mocker.Mock()
+    mock_llm.with_structured_output.return_value = structured_llm
+    mock_llm.invoke.return_value = mocker.Mock(
+        content='blocks=[{"kind":"table","tilte":"오타는 무시","headers":["항목"],"rows":[["값"]]}]'
+    )
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    intent = generate_reply_intent(history=[], user_message="표 보여줘")
+
+    assert len(intent.blocks) == 1
+    assert isinstance(intent.blocks[0], TableIntent)
+    assert intent.blocks[0].headers == ["항목"]
+    assert intent.blocks[0].rows == [["값"]]
+
+
+def test_generate_reply_intent_parses_text_only_blocks_assignment_as_text_intent(mocker, monkeypatch):
+    _stub_llm_env(monkeypatch)
+
+    structured_llm = mocker.Mock()
+    structured_llm.invoke.side_effect = RuntimeError("structured output failed")
+    mock_llm = mocker.Mock()
+    mock_llm.with_structured_output.return_value = structured_llm
+    mock_llm.invoke.return_value = mocker.Mock(content='blocks=[{"kind":"text","text":"multiMessage로 보낼 답변"}]')
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    intent = generate_reply_intent(history=[], user_message="간단히 답해줘")
+
+    assert intent.blocks == [TextIntent(text="multiMessage로 보낼 답변")]
+
+
+def test_generate_reply_intent_repairs_loose_blocks_assignment_keys(mocker, monkeypatch):
+    _stub_llm_env(monkeypatch)
+
+    structured_llm = mocker.Mock()
+    structured_llm.invoke.side_effect = RuntimeError("structured output failed")
+    mock_llm = mocker.Mock()
+    mock_llm.with_structured_output.return_value = structured_llm
+    mock_llm.invoke.return_value = mocker.Mock(
+        content='blocks=[{kind:"table", tilte:"오타는 무시", headers:["항목"], rows:[["값"]]}]'
+    )
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    intent = generate_reply_intent(history=[], user_message="표 보여줘")
+
+    assert len(intent.blocks) == 1
+    assert isinstance(intent.blocks[0], TableIntent)
+    assert intent.blocks[0].headers == ["항목"]
+    assert intent.blocks[0].rows == [["값"]]
+
+
 def test_generate_reply_intent_falls_back_to_json_in_text(mocker, monkeypatch):
     _stub_llm_env(monkeypatch)
 
@@ -210,6 +266,21 @@ def test_generate_reply_intent_wraps_unparseable_text_as_text_intent(mocker, mon
     intent = generate_reply_intent(history=[], user_message="아무거나")
 
     assert intent.blocks == [TextIntent(text="평문 답변, JSON 아님")]
+
+
+def test_generate_reply_intent_does_not_show_unparseable_blocks_payload(mocker, monkeypatch):
+    _stub_llm_env(monkeypatch)
+
+    structured_llm = mocker.Mock()
+    structured_llm.invoke.side_effect = RuntimeError("nope")
+    mock_llm = mocker.Mock()
+    mock_llm.with_structured_output.return_value = structured_llm
+    mock_llm.invoke.return_value = mocker.Mock(content='blocks=[{"kind:"table", "tilte", ..}]')
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    intent = generate_reply_intent(history=[], user_message="표 보여줘")
+
+    assert intent.blocks == [TextIntent(text=_UNPARSEABLE_REPLY_INTENT_FALLBACK_TEXT)]
 
 
 def test_generate_reply_intent_raises_on_total_llm_failure(mocker, monkeypatch):

@@ -26,6 +26,7 @@ CUBE_BOT_USERNAMES = tuple(
 CUBE_TIMEOUT_SECONDS = int(os.environ.get("CUBE_TIMEOUT_SECONDS", 10))
 CUBE_MESSAGE_MAX_LINES = int(os.environ.get("CUBE_MESSAGE_MAX_LINES", 40))
 CUBE_RICH_ROUTING_ENABLED = os.environ.get("CUBE_RICH_ROUTING_ENABLED", "false").lower() in ("true", "1", "yes")
+CUBE_DELIVERY_DELAY_SECONDS = float(os.environ.get("CUBE_DELIVERY_DELAY_SECONDS", "1"))
 
 # LLM
 LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "")

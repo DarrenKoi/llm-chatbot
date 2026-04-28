@@ -1,5 +1,7 @@
 import json
 import logging
+import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from typing import Any
@@ -9,8 +11,8 @@ from api.conversation_service import ConversationStoreError, append_message
 from api.cube import rich_blocks
 from api.cube.chunker import plan_delivery
 from api.cube.client import CubeClientError, send_multimessage, send_richnotification, send_richnotification_blocks
-from api.cube.intent_renderer import intents_to_blocks, intents_to_history_text
-from api.cube.intents import TextIntent
+from api.cube.intent_renderer import intent_to_block, intents_to_history_text
+from api.cube.intents import BlockIntent, TextIntent
 from api.cube.models import CubeAcceptedMessage, CubeHandledMessage, CubeIncomingMessage, CubeQueuedMessage
 from api.cube.payload import extract_cube_request_fields
 from api.cube.queue import CubeQueueError, enqueue_incoming_message
@@ -276,6 +278,108 @@ def _send_rich_delivery_item(*, user_id: str, channel_id: str, kind: str, conten
     )
 
 
+def _sleep_between_cube_messages() -> None:
+    delay_seconds = max(0.0, config.CUBE_DELIVERY_DELAY_SECONDS)
+    if delay_seconds > 0:
+        time.sleep(delay_seconds)
+
+
+def _send_with_delivery_delay(sent_count: int, send: Callable[[], None]) -> int:
+    if sent_count > 0:
+        _sleep_between_cube_messages()
+    send()
+    return sent_count + 1
+
+
+def _send_plain_text_reply(*, user_id: str, channel_id: str, reply: str, sent_count: int = 0) -> int:
+    for item in plan_delivery(reply):
+        if item.method == "rich":
+            sent_count = _send_with_delivery_delay(
+                sent_count,
+                lambda item=item: _send_rich_delivery_item(
+                    user_id=user_id,
+                    channel_id=channel_id,
+                    kind=item.kind,
+                    content=item.content,
+                ),
+            )
+        else:
+            sent_count = _send_with_delivery_delay(
+                sent_count,
+                lambda item=item: send_multimessage(
+                    user_id=user_id,
+                    reply_message=item.content,
+                ),
+            )
+    return sent_count
+
+
+def _send_text_intent_group(*, user_id: str, texts: list[str], sent_count: int) -> int:
+    reply = "\n\n".join(text.strip() for text in texts if text.strip())
+    if not reply:
+        return sent_count
+
+    for item in plan_delivery(reply):
+        sent_count = _send_with_delivery_delay(
+            sent_count,
+            lambda item=item: send_multimessage(
+                user_id=user_id,
+                reply_message=item.content,
+            ),
+        )
+    return sent_count
+
+
+def _send_structured_intent_group(
+    *,
+    user_id: str,
+    channel_id: str,
+    blocks: list[rich_blocks.Block],
+    sent_count: int,
+) -> int:
+    if not blocks:
+        return sent_count
+
+    return _send_with_delivery_delay(
+        sent_count,
+        lambda: send_richnotification_blocks(
+            *blocks,
+            user_id=user_id,
+            channel_id=channel_id,
+        ),
+    )
+
+
+def _send_intent_reply(*, user_id: str, channel_id: str, intents: list[BlockIntent]) -> int:
+    sent_count = 0
+    pending_texts: list[str] = []
+    pending_blocks: list[rich_blocks.Block] = []
+
+    for intent in intents:
+        if isinstance(intent, TextIntent):
+            sent_count = _send_structured_intent_group(
+                user_id=user_id,
+                channel_id=channel_id,
+                blocks=pending_blocks,
+                sent_count=sent_count,
+            )
+            pending_blocks = []
+            pending_texts.append(intent.text)
+            continue
+
+        sent_count = _send_text_intent_group(user_id=user_id, texts=pending_texts, sent_count=sent_count)
+        pending_texts = []
+        pending_blocks.append(intent_to_block(intent))
+
+    sent_count = _send_text_intent_group(user_id=user_id, texts=pending_texts, sent_count=sent_count)
+    return _send_structured_intent_group(
+        user_id=user_id,
+        channel_id=channel_id,
+        blocks=pending_blocks,
+        sent_count=sent_count,
+    )
+
+
 def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0) -> CubeHandledMessage:
     """CubeIncomingMessage를 받아 대화 저장 → LLM 호출 → Cube 전송의 전체 파이프라인을 실행한다.
 
@@ -373,27 +477,24 @@ def process_incoming_message(incoming: CubeIncomingMessage, *, attempt: int = 0)
     has_structured_intent = bool(intents) and any(not isinstance(i, TextIntent) for i in intents)
 
     try:
-        if has_structured_intent:
-            blocks = intents_to_blocks(intents)
-            send_richnotification_blocks(
-                *blocks,
+        if intents:
+            sent_count = _send_intent_reply(
                 user_id=incoming.user_id,
                 channel_id=incoming.channel_id,
+                intents=intents,
             )
+            if sent_count == 0:
+                _send_plain_text_reply(
+                    user_id=incoming.user_id,
+                    channel_id=incoming.channel_id,
+                    reply=llm_reply,
+                )
         else:
-            for item in plan_delivery(llm_reply):
-                if item.method == "rich":
-                    _send_rich_delivery_item(
-                        user_id=incoming.user_id,
-                        channel_id=incoming.channel_id,
-                        kind=item.kind,
-                        content=item.content,
-                    )
-                else:
-                    send_multimessage(
-                        user_id=incoming.user_id,
-                        reply_message=item.content,
-                    )
+            _send_plain_text_reply(
+                user_id=incoming.user_id,
+                channel_id=incoming.channel_id,
+                reply=llm_reply,
+            )
     except CubeClientError as exc:
         log_activity(
             "cube_reply_failed",

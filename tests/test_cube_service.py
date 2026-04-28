@@ -6,7 +6,7 @@ import pytest
 
 from api import config
 from api.cube import service as cube_service
-from api.cube.intents import ChoiceIntent, ChoiceOption, TextIntent
+from api.cube.intents import ChoiceIntent, ChoiceOption, TableIntent, TextIntent
 from api.cube.queue import CubeQueueError
 from api.cube.service import (
     CubePayloadError,
@@ -607,30 +607,149 @@ def test_handle_cube_message_routes_structured_intents_to_blocks(
     mock_send_multimessage,
     mock_log_request,
 ):
-    with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 1.0):
-        handle_cube_message(
-            {
-                "richnotificationmessage": {
-                    "header": {
-                        "from": {
-                            "uniquename": "u1",
-                            "messageid": "m1",
-                            "channelid": "c1",
-                            "username": "tester",
-                        }
-                    },
-                    "process": {"processdata": "PDF로 받을까요 엑셀로 받을까요?"},
-                }
-            }
-        )
+    delivery_order = []
+    mock_send_multimessage.side_effect = lambda **kwargs: delivery_order.append(("multi", kwargs["reply_message"]))
+    mock_send_richnotification_blocks.side_effect = lambda *args, **kwargs: delivery_order.append(("rich", len(args)))
 
-    mock_send_multimessage.assert_not_called()
+    with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 1.0):
+        with patch.object(config, "CUBE_DELIVERY_DELAY_SECONDS", 1.0):
+            with patch(
+                "api.cube.service.time.sleep",
+                side_effect=lambda delay: delivery_order.append(("sleep", delay)),
+            ):
+                handle_cube_message(
+                    {
+                        "richnotificationmessage": {
+                            "header": {
+                                "from": {
+                                    "uniquename": "u1",
+                                    "messageid": "m1",
+                                    "channelid": "c1",
+                                    "username": "tester",
+                                }
+                            },
+                            "process": {"processdata": "PDF로 받을까요 엑셀로 받을까요?"},
+                        }
+                    }
+                )
+
+    assert delivery_order == [("multi", "형식을 골라주세요."), ("sleep", 1.0), ("rich", 1)]
+    mock_send_multimessage.assert_called_once_with(user_id="u1", reply_message="형식을 골라주세요.")
     mock_send_richnotification.assert_not_called()
     mock_send_richnotification_blocks.assert_called_once()
     sent_blocks = mock_send_richnotification_blocks.call_args.args
-    assert len(sent_blocks) == 2
-    radio_cell_types = {col["type"] for row in sent_blocks[1].rows for col in row["column"]}
+    assert len(sent_blocks) == 1
+    radio_cell_types = {col["type"] for row in sent_blocks[0].rows for col in row["column"]}
     assert "radio" in radio_cell_types
+
+
+@patch("api.cube.service.log_request")
+@patch("api.cube.service.send_multimessage")
+@patch("api.cube.service.send_richnotification")
+@patch("api.cube.service.send_richnotification_blocks")
+@patch(
+    "api.cube.service.handle_workflow_message",
+    return_value=WorkflowReply(
+        reply="요약\n\n[표] 헤더: 이름 (1행)\n\n마무리",
+        workflow_id="start_chat",
+        intents=[
+            TextIntent(text="요약"),
+            TableIntent(headers=["이름"], rows=[["A"]]),
+            TextIntent(text="마무리"),
+        ],
+    ),
+)
+@patch("api.cube.service.append_message")
+def test_handle_cube_message_preserves_mixed_intent_delivery_order(
+    mock_append_message,
+    mock_handle_workflow_message,
+    mock_send_richnotification_blocks,
+    mock_send_richnotification,
+    mock_send_multimessage,
+    mock_log_request,
+):
+    delivery_order = []
+    mock_send_multimessage.side_effect = lambda **kwargs: delivery_order.append(("multi", kwargs["reply_message"]))
+    mock_send_richnotification_blocks.side_effect = lambda *args, **kwargs: delivery_order.append(("rich", len(args)))
+
+    with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 1.0):
+        with patch.object(config, "CUBE_DELIVERY_DELAY_SECONDS", 1.0):
+            with patch(
+                "api.cube.service.time.sleep",
+                side_effect=lambda delay: delivery_order.append(("sleep", delay)),
+            ):
+                handle_cube_message(
+                    {
+                        "richnotificationmessage": {
+                            "header": {
+                                "from": {
+                                    "uniquename": "u1",
+                                    "messageid": "m1",
+                                    "channelid": "c1",
+                                    "username": "tester",
+                                }
+                            },
+                            "process": {"processdata": "순서 확인"},
+                        }
+                    }
+                )
+
+    assert delivery_order == [
+        ("multi", "요약"),
+        ("sleep", 1.0),
+        ("rich", 1),
+        ("sleep", 1.0),
+        ("multi", "마무리"),
+    ]
+    assert mock_send_multimessage.call_args_list == [
+        call(user_id="u1", reply_message="요약"),
+        call(user_id="u1", reply_message="마무리"),
+    ]
+    mock_send_richnotification.assert_not_called()
+    mock_send_richnotification_blocks.assert_called_once()
+    table_block = mock_send_richnotification_blocks.call_args.args[0]
+    assert table_block.bodystyle == "grid"
+
+
+@patch("api.cube.service.log_request")
+@patch("api.cube.service.send_multimessage")
+@patch("api.cube.service.send_richnotification_blocks")
+@patch(
+    "api.cube.service.handle_workflow_message",
+    return_value=WorkflowReply(
+        reply="| 이름 | 값 |\n|---|---|\n| A | 1 |",
+        workflow_id="start_chat",
+        intents=[TextIntent(text="| 이름 | 값 |\n|---|---|\n| A | 1 |")],
+    ),
+)
+@patch("api.cube.service.append_message")
+def test_handle_cube_message_text_intent_stays_multimessage_even_when_rich_routing_enabled(
+    mock_append_message,
+    mock_handle_workflow_message,
+    mock_send_richnotification_blocks,
+    mock_send_multimessage,
+    mock_log_request,
+):
+    with patch.object(config, "LLM_THINKING_MESSAGE_DELAY_SECONDS", 1.0):
+        with patch.object(config, "CUBE_RICH_ROUTING_ENABLED", True):
+            handle_cube_message(
+                {
+                    "richnotificationmessage": {
+                        "header": {
+                            "from": {
+                                "uniquename": "u1",
+                                "messageid": "m1",
+                                "channelid": "c1",
+                                "username": "tester",
+                            }
+                        },
+                        "process": {"processdata": "표를 텍스트로 보여줘"},
+                    }
+                }
+            )
+
+    mock_send_richnotification_blocks.assert_not_called()
+    mock_send_multimessage.assert_called_once_with(user_id="u1", reply_message="| 이름 | 값 |\n|---|---|\n| A | 1 |")
 
 
 @patch("api.cube.service.log_request")
