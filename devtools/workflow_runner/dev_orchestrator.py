@@ -138,22 +138,34 @@ def handle_dev_message(
     started_at = time.perf_counter()
 
     if before_state.tasks:
-        graph.invoke(Command(resume=user_message), config)
+        stream_input: Any = Command(resume=user_message)
         mode = "resume"
     else:
-        graph.invoke(
-            {
-                "user_message": user_message,
-                "user_id": resolved_user_id,
-                "channel_id": workflow_id,
-            },
-            config,
-        )
+        stream_input = {
+            "user_message": user_message,
+            "user_id": resolved_user_id,
+            "channel_id": workflow_id,
+        }
         mode = "invoke"
+
+    trace = _stream_and_trace(graph, stream_input, config)
 
     elapsed_ms = int((time.perf_counter() - started_at) * 1000)
     after_state = graph.get_state(config)
     final_reply = _extract_reply(after_state, fallback=f"[{workflow_id}] 처리 완료.")
+
+    _finalize_trace(trace, after_state=after_state, mode=mode, final_reply=final_reply)
+    if not trace:
+        # stream이 비어있는 극히 드문 경우(예: 그래프가 즉시 종료) — 단일 fallback step
+        trace.append(
+            {
+                "step": 0,
+                "node_id": _detect_node_id(after_state, workflow_id),
+                "action": _detect_action(before_state=before_state, after_state=after_state, mode=mode),
+                "reply_preview": final_reply[:100],
+                "elapsed_ms": elapsed_ms,
+            }
+        )
 
     conversation_history.append_message(
         resolved_user_id,
@@ -169,16 +181,60 @@ def handle_dev_message(
     return {
         "reply": final_reply,
         "state": _serialize_snapshot(after_state, workflow_id=workflow_id, user_id=resolved_user_id),
-        "trace": [
-            {
-                "step": 0,
-                "node_id": _detect_node_id(after_state, workflow_id),
-                "action": _detect_action(before_state=before_state, after_state=after_state, mode=mode),
-                "reply_preview": final_reply[:100],
-                "elapsed_ms": elapsed_ms,
-            }
-        ],
+        "trace": trace,
     }
+
+
+def _stream_and_trace(graph: Any, stream_input: Any, config: dict[str, Any]) -> list[dict[str, object]]:
+    """그래프 실행을 스트리밍하면서 실제 거친 노드 시퀀스를 trace에 누적한다.
+
+    stream_mode="updates"는 각 노드 실행 후 `{node_name: updates_dict}` 형태의 청크를 내보낸다.
+    인터럽트는 `__interrupt__` 라는 특수 키로 들어온다.
+    """
+
+    trace: list[dict[str, object]] = []
+    step_started_at = time.perf_counter()
+
+    for chunk in graph.stream(stream_input, config, stream_mode="updates"):
+        chunk_elapsed_ms = int((time.perf_counter() - step_started_at) * 1000)
+        if not isinstance(chunk, Mapping):
+            continue
+        for node_name, _updates in chunk.items():
+            if node_name == "__interrupt__":
+                continue
+            trace.append(
+                {
+                    "step": len(trace),
+                    "node_id": str(node_name),
+                    "action": "complete",
+                    "elapsed_ms": chunk_elapsed_ms,
+                }
+            )
+        step_started_at = time.perf_counter()
+
+    return trace
+
+
+def _finalize_trace(
+    trace: list[dict[str, object]],
+    *,
+    after_state: Any,
+    mode: str,
+    final_reply: str,
+) -> None:
+    """마지막 step에 최종 액션(인터럽트/완료/재개) 및 응답 프리뷰를 부착한다."""
+
+    if not trace:
+        return
+    last = trace[-1]
+    if getattr(after_state, "tasks", ()):
+        last["action"] = "interrupt"
+    elif mode == "resume":
+        last["action"] = "resume_complete"
+    else:
+        last["action"] = "complete"
+    if final_reply:
+        last["reply_preview"] = final_reply[:100]
 
 
 def get_dev_state(*, workflow_id: str, user_id: str | None = None) -> dict[str, object] | None:

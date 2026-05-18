@@ -17,6 +17,12 @@ _project_root = Path(__file__).resolve().parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
+# 운영 start_chat 그래프가 import될 때 api.conversation_service.get_history가 호출되는데,
+# .env에 AFM_MONGO_URI가 남아있으면 도달 불가능한 MongoDB로 붙으려다 실패한다.
+# dev runner는 자체 conversation_history 모듈을 쓰므로 운영 백엔드는 메모리로 강제한다.
+# api.config가 import되기 전에 설정해야 효과가 있다.
+os.environ.setdefault("CONVERSATION_BACKEND", "memory")
+
 from flask import Flask  # noqa: E402
 
 from devtools.workflow_runner import conversation_history as _dev_history  # noqa: E402
