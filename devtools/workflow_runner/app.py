@@ -17,12 +17,6 @@ _project_root = Path(__file__).resolve().parent.parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-# 운영 start_chat 그래프가 import될 때 api.conversation_service.get_history가 호출되는데,
-# .env에 AFM_MONGO_URI가 남아있으면 도달 불가능한 MongoDB로 붙으려다 실패한다.
-# dev runner는 자체 conversation_history 모듈을 쓰므로 운영 백엔드는 메모리로 강제한다.
-# api.config가 import되기 전에 설정해야 효과가 있다.
-os.environ.setdefault("CONVERSATION_BACKEND", "memory")
-
 from flask import Flask  # noqa: E402
 
 from devtools.workflow_runner import conversation_history as _dev_history  # noqa: E402
@@ -47,6 +41,12 @@ def create_dev_app() -> Flask:
 
 def main() -> None:
     """Dev runner 서버를 시작한다."""
+
+    # 운영 start_chat 그래프가 import될 때 api.conversation_service.get_history가 호출되는데,
+    # .env에 AFM_MONGO_URI가 남아있으면 도달 불가능한 MongoDB로 붙으려다 실패한다.
+    # dev runner는 자체 conversation_history 모듈을 쓰므로 운영 백엔드는 메모리로 강제한다.
+    # pytest에서 create_dev_app만 호출하는 테스트로 env가 전역 누수되지 않도록 main에서만 설정한다.
+    os.environ.setdefault("CONVERSATION_BACKEND", "memory")
 
     port = int(os.environ.get("DEV_RUNNER_PORT", "5001"))
     app = create_dev_app()
