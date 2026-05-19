@@ -260,6 +260,47 @@ def test_generate_reply_intent_parses_double_encoded_json_string(mocker, monkeyp
     assert intent.blocks[0].rows == [["1"]]
 
 
+def test_generate_reply_intent_repairs_python_hex_escape_in_weather_reply(mocker, monkeypatch):
+    _stub_llm_env(monkeypatch)
+
+    raw = (
+        '{"blocks":[{"kind":"table","headers":["도시","기온"],'
+        '"rows":[["서울","25\\xb0C"],["도쿄","30\\xb0C"]]}],"needs_callback":false}'
+    )
+
+    structured_llm = mocker.Mock()
+    structured_llm.invoke.side_effect = RuntimeError("structured output failed")
+    mock_llm = mocker.Mock()
+    mock_llm.with_structured_output.return_value = structured_llm
+    mock_llm.invoke.return_value = mocker.Mock(content=raw)
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    intent = generate_reply_intent(history=[], user_message="도시별 기온 알려줘")
+
+    assert len(intent.blocks) == 1
+    assert isinstance(intent.blocks[0], TableIntent)
+    assert intent.blocks[0].rows == [["서울", "25°C"], ["도쿄", "30°C"]]
+
+
+def test_generate_reply_intent_tolerates_unescaped_newlines_in_weather_reply(mocker, monkeypatch):
+    _stub_llm_env(monkeypatch)
+
+    raw = '{"blocks":[{"kind":"text","text":"서울 25°C\n도쿄 30°C"}],"needs_callback":false}'
+
+    structured_llm = mocker.Mock()
+    structured_llm.invoke.side_effect = RuntimeError("structured output failed")
+    mock_llm = mocker.Mock()
+    mock_llm.with_structured_output.return_value = structured_llm
+    mock_llm.invoke.return_value = mocker.Mock(content=raw)
+    mocker.patch("api.llm.service._get_llm", return_value=mock_llm)
+
+    intent = generate_reply_intent(history=[], user_message="도시별 기온 알려줘")
+
+    assert len(intent.blocks) == 1
+    assert intent.blocks[0].kind == "text"
+    assert intent.blocks[0].text == "서울 25°C\n도쿄 30°C"
+
+
 def test_generate_reply_intent_parses_blocks_assignment_as_structured_intent(mocker, monkeypatch):
     _stub_llm_env(monkeypatch)
 

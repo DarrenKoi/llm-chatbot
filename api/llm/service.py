@@ -26,6 +26,7 @@ _BLOCKS_ASSIGNMENT_PATTERN = re.compile(r"\bblocks\s*=\s*", re.IGNORECASE)
 _BARE_OBJECT_KEY_PATTERN = re.compile(r"([{\[,]\s*)([A-Za-z_][A-Za-z0-9_-]*)\s*:")
 _MISQUOTED_OBJECT_KEY_PATTERN = re.compile(r'([{\[,]\s*)"([A-Za-z_][A-Za-z0-9_-]*):"')
 _TRAILING_COMMA_PATTERN = re.compile(r",(\s*[}\]])")
+_PYTHON_HEX_ESCAPE_PATTERN = re.compile(r"\\x([0-9A-Fa-f]{2})")
 _INTENT_SHAPED_TEXT_PATTERN = re.compile(r"""(?ix)(["']?blocks["']?\s*[:=]|["']?kind["']?\s*:)""")
 _UNPARSEABLE_REPLY_INTENT_FALLBACK_TEXT = "응답 형식이 올바르지 않아 내용을 표시하지 못했습니다. 다시 요청해 주세요."
 _LLM_LOG_RAW_TEXT_MAX_CHARS = 12000
@@ -82,8 +83,14 @@ def generate_reply_intent(
 
     try:
         structured = llm.with_structured_output(ReplyIntent, method="function_calling").invoke(messages)
-    except Exception:
+    except Exception as exc:
         logger.warning("structured output 실패, 평문 fallback으로 전환", exc_info=True)
+        _log_llm_reply_intent_diagnostic(
+            "llm_reply_intent_structured_output_failed",
+            path="structured_output_call",
+            exception_type=type(exc).__name__,
+            exception_message=str(exc),
+        )
     else:
         if isinstance(structured, ReplyIntent) and _has_usable_content(structured):
             logger.info(
@@ -197,17 +204,20 @@ def _parse_reply_intent_from_text(raw_text: str) -> ReplyIntent | None:
     return None
 
 
-def _log_llm_reply_intent_diagnostic(event: str, *, path: str, raw_text: str, **data: Any) -> None:
-    raw_text_value, raw_text_truncated = _truncate_for_log(raw_text, _LLM_LOG_RAW_TEXT_MAX_CHARS)
-    payload = {
+def _log_llm_reply_intent_diagnostic(event: str, *, path: str, raw_text: str = "", **data: Any) -> None:
+    payload: dict[str, Any] = {
         "event": event,
         "path": path,
         "model": config.LLM_MODEL,
-        "raw_text": raw_text_value,
-        "raw_text_length": len(raw_text),
-        "raw_text_truncated": raw_text_truncated,
         **data,
     }
+    if raw_text:
+        raw_text_value, raw_text_truncated = _truncate_for_log(raw_text, _LLM_LOG_RAW_TEXT_MAX_CHARS)
+        payload.update(
+            raw_text=raw_text_value,
+            raw_text_length=len(raw_text),
+            raw_text_truncated=raw_text_truncated,
+        )
     try:
         get_topic_logger("llm", json_output=True).warning(event, extra={"activity_data": payload})
     except Exception:
@@ -369,7 +379,10 @@ def _normalize_reply_intent_payload(payload: Any) -> dict[str, Any] | None:
 
 def _load_jsonish(text: str, *, _depth: int = 0) -> Any | None:
     for variant in _jsonish_variants(text):
-        for loader in (json.loads, ast.literal_eval):
+        # 정상 JSON을 먼저 시도하고, 실패할 때만 strict=False로 fallback한다.
+        # strict=False는 문자열 안의 이스케이프되지 않은 제어 문자(예: 멀티행 날씨 응답의 raw \n)를
+        # 허용하지만 기본 파서보다 2배 이상 느려서 핫 패스에서 매번 쓰지 않는다.
+        for loader in (json.loads, _json_loads_lenient, ast.literal_eval):
             try:
                 payload = loader(variant)
             except (json.JSONDecodeError, SyntaxError, ValueError):
@@ -398,6 +411,7 @@ def _jsonish_variants(text: str) -> list[str]:
     current = text.strip()
     add(current)
     for transform in (
+        _repair_python_hex_escapes,
         _remove_trailing_commas,
         _repair_misquoted_object_keys,
         _quote_bare_object_keys,
@@ -409,8 +423,18 @@ def _jsonish_variants(text: str) -> list[str]:
     return variants
 
 
+def _json_loads_lenient(value: str) -> Any:
+    return json.loads(value, strict=False)
+
+
 def _remove_trailing_commas(text: str) -> str:
     return _TRAILING_COMMA_PATTERN.sub(r"\1", text)
+
+
+def _repair_python_hex_escapes(text: str) -> str:
+    # 일부 로컬 LLM이 날씨/기온 응답에서 ° 대신 Python 스타일 \xb0를 흘려보낸다.
+    # JSON은 \x 이스케이프를 허용하지 않으므로 \u00HH 형태로 다시 써서 복구한다.
+    return _PYTHON_HEX_ESCAPE_PATTERN.sub(lambda m: f"\\u00{m.group(1).lower()}", text)
 
 
 def _repair_misquoted_object_keys(text: str) -> str:
