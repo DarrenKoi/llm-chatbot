@@ -25,6 +25,11 @@ def promote(workflow_id: str) -> None:
         print(f"오류: workflow_id는 소문자, 숫자, 밑줄만 허용됩니다: {workflow_id}")
         sys.exit(1)
 
+    # devtools/workflows/start_chat은 dev runner의 진입점 인프라이며 promote 대상이 아니다.
+    if workflow_id == "start_chat":
+        print("오류: devtools/workflows/start_chat은 dev 전용 인프라이므로 promote 대상이 아닙니다.")
+        sys.exit(1)
+
     source = DEV_WORKFLOWS_DIR / workflow_id
     target = PROD_WORKFLOWS_DIR / workflow_id
     mcp_source = _resolve_dev_mcp_source(workflow_id)

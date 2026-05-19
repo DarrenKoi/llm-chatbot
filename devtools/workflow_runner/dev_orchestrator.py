@@ -70,10 +70,12 @@ def _invalidate_dev_workflow_modules() -> None:
 def list_dev_workflow_ids() -> list[str]:
     """등록된 dev workflow ID 목록을 반환한다.
 
-    프로덕션 라우팅 테스트를 위해 start_chat을 맨 앞에 포함한다.
+    start_chat은 라우팅 검증을 위해 dev runner의 기본 진입점이므로 맨 앞에 배치한다.
     """
 
     ids = sorted(load_dev_workflows().keys())
+    if START_CHAT_ID in ids:
+        ids.remove(START_CHAT_ID)
     ids.insert(0, START_CHAT_ID)
     return ids
 
@@ -95,18 +97,8 @@ def _get_compiled_graph(workflow_id: str):
 
     checkpointer = _checkpointers.setdefault(workflow_id, MemorySaver())
 
-    if workflow_id == START_CHAT_ID:
-        # 의도적인 cross-import 예외: dev runner UI에서 운영 start_chat 진입 라우팅을
-        # 직접 검증하기 위해 운영 그래프를 lazy import한다. HARNESS.md "api/ ↔ devtools/
-        # 격리 정책"의 일반 원칙에는 어긋나지만, "워크플로 entry 점검"이라는 이 단일
-        # 용도가 dev 작업 자체의 일부라 유지한다. start_chat을 사용하지 않는 환경에서는
-        # 이 import가 실행되지 않으므로 import-time 부작용은 없다.
-        from api.workflows.start_chat.lg_graph import build_lg_graph
-
-        graph = build_lg_graph().compile(checkpointer=checkpointer)
-    else:
-        workflow_def = get_dev_workflow(workflow_id)
-        graph = workflow_def["build_lg_graph"]().compile(checkpointer=checkpointer)
+    workflow_def = get_dev_workflow(workflow_id)
+    graph = workflow_def["build_lg_graph"]().compile(checkpointer=checkpointer)
 
     _compiled_graphs[workflow_id] = graph
     return graph
@@ -128,8 +120,7 @@ def handle_dev_message(
 ) -> dict[str, object]:
     """dev runner의 메시지 처리 진입점."""
 
-    if workflow_id != START_CHAT_ID:
-        get_dev_workflow(workflow_id)
+    get_dev_workflow(workflow_id)
     resolved_user_id = user_id or get_default_dev_user_id()
 
     graph = _get_compiled_graph(workflow_id)

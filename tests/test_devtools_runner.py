@@ -162,6 +162,99 @@ def test_handle_dev_message_trace_marks_interrupt(monkeypatch):
     assert result["trace"][-1]["action"] == "interrupt"
 
 
+def test_dev_start_chat_compiles_without_cross_import(monkeypatch):
+    """devtools start_chat 그래프가 운영 그래프 cross-import 없이 컴파일된다."""
+
+    dev_orchestrator._compiled_graphs.clear()
+    dev_orchestrator._checkpointers.clear()
+
+    graph = dev_orchestrator._get_compiled_graph(START_CHAT_ID)
+
+    assert graph is not None
+    assert graph is dev_orchestrator._compiled_graphs[START_CHAT_ID]
+
+
+def test_dev_start_chat_routes_to_handoff_workflow_on_keyword_match(monkeypatch):
+    """classify가 devtools handoff_keywords를 매칭하면 그 워크플로로 라우팅된다."""
+
+    monkeypatch.setenv("DEV_RUNNER_PC_ID", "Test PC")
+    dev_orchestrator._compiled_graphs.clear()
+    dev_orchestrator._checkpointers.clear()
+    dev_orchestrator._thread_generations.clear()
+
+    from langgraph.graph import END, StateGraph
+
+    from devtools.workflows.start_chat import build_lg_graph as build_dev_start_chat
+    from devtools.workflows.start_chat.lg_state import DevStartChatState
+
+    def build_fake_handoff() -> StateGraph:
+        s = StateGraph(DevStartChatState)
+        s.add_node("fake_step", lambda state: {"pending_reply": "handoff received"})
+        s.set_entry_point("fake_step")
+        s.add_edge("fake_step", END)
+        return s
+
+    fake_workflows = {
+        "start_chat": {
+            "workflow_id": "start_chat",
+            "build_lg_graph": build_dev_start_chat,
+            "handoff_keywords": (),
+        },
+        "travel_planner_example": {
+            "workflow_id": "travel_planner_example",
+            "build_lg_graph": build_fake_handoff,
+            "handoff_keywords": ("여행", "trip"),
+        },
+    }
+    monkeypatch.setattr(dev_orchestrator, "_dev_workflows", fake_workflows)
+    monkeypatch.setattr(
+        dev_orchestrator.conversation_history,
+        "append_message",
+        lambda *a, **k: None,
+    )
+
+    result = dev_orchestrator.handle_dev_message(
+        workflow_id=START_CHAT_ID,
+        user_message="여행 계획 짜줘",
+        user_id="dev_test_match",
+    )
+
+    node_ids = [step["node_id"] for step in result["trace"]]
+    assert "classify" in node_ids
+    assert "travel_planner_example" in node_ids
+    assert "noop_reply" not in node_ids
+    state_values = result["state"]["values"]
+    assert state_values.get("active_workflow") == "travel_planner_example"
+    assert state_values.get("handoff_match_reason") == "여행"
+
+
+def test_dev_start_chat_falls_through_to_noop_reply_on_no_match(monkeypatch):
+    """매칭 실패 시 noop_reply가 호출되고 active_workflow는 start_chat 그대로다."""
+
+    monkeypatch.setenv("DEV_RUNNER_PC_ID", "Test PC")
+    dev_orchestrator._compiled_graphs.clear()
+    dev_orchestrator._checkpointers.clear()
+    dev_orchestrator._thread_generations.clear()
+
+    monkeypatch.setattr(
+        dev_orchestrator.conversation_history,
+        "append_message",
+        lambda *a, **k: None,
+    )
+
+    result = dev_orchestrator.handle_dev_message(
+        workflow_id=START_CHAT_ID,
+        user_message="일반 잡담",
+        user_id="dev_test_nomatch",
+    )
+
+    node_ids = [step["node_id"] for step in result["trace"]]
+    assert node_ids[-1] == "noop_reply"
+    state_values = result["state"]["values"]
+    assert state_values.get("active_workflow") == "start_chat"
+    assert state_values.get("handoff_match_reason") == ""
+
+
 def test_dev_runner_send_start_chat(monkeypatch):
     """start_chat 워크플로로 메시지 전송 시 handle_dev_message가 호출된다."""
 

@@ -7,8 +7,10 @@ PR에서 함께 업데이트해야 한다.
 api 측과의 차이:
 - ``log_workflow_activity`` 호출 제거 (dev runner는 워크플로 등록 로깅이 필요 없음).
 - ``tool_tags`` 정규화는 단순 ``tuple()``로 처리 (dev에서는 prod 구조 검증이 불필요).
-- ``load_workflows`` / ``list_handoff_workflows`` / ``get_workflow``는 mirror하지 않음
+- ``load_workflows`` / ``get_workflow``는 mirror하지 않음
   (dev runner는 ``discover_workflows`` 결과만 직접 캐싱한다).
+- ``list_handoff_workflows``는 dev 측 dict 입력에 적용되는 헬퍼 형태로 제공한다
+  (devtools 전용 start_chat 그래프가 핸드오프 서브그래프를 모을 때 사용).
 """
 
 import logging
@@ -56,6 +58,14 @@ def discover_workflows(
         workflows[workflow_id] = definition
 
     return workflows
+
+
+def list_handoff_workflows(
+    workflows: dict[str, WorkflowDefinition],
+) -> list[WorkflowDefinition]:
+    """discover_workflows 결과에서 handoff_keywords가 비어있지 않은 정의만 반환한다."""
+
+    return [definition for definition in workflows.values() if definition.get("handoff_keywords")]
 
 
 def _resolve_package_paths(package: ModuleType, package_path: Path | None) -> list[str]:
