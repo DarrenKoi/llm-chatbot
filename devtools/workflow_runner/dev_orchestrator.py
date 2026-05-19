@@ -71,12 +71,14 @@ def list_dev_workflow_ids() -> list[str]:
     """등록된 dev workflow ID 목록을 반환한다.
 
     start_chat은 라우팅 검증을 위해 dev runner의 기본 진입점이므로 맨 앞에 배치한다.
+    단, discovery에 실제로 등록된 경우에만 노출한다 — 등록 실패 시 드롭다운에 표시하면
+    UI는 정상이지만 실행은 KeyError로 실패하는 함정이 생긴다.
     """
 
-    ids = sorted(load_dev_workflows().keys())
-    if START_CHAT_ID in ids:
-        ids.remove(START_CHAT_ID)
-    ids.insert(0, START_CHAT_ID)
+    workflow_ids = set(load_dev_workflows().keys())
+    ids = sorted(workflow_ids - {START_CHAT_ID})
+    if START_CHAT_ID in workflow_ids:
+        ids.insert(0, START_CHAT_ID)
     return ids
 
 

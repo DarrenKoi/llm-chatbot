@@ -49,10 +49,14 @@ def test_dev_runner_send_uses_default_user_id_when_not_provided(monkeypatch):
     }
 
 
-def test_list_dev_workflow_ids_includes_start_chat(monkeypatch):
-    """start_chat이 워크플로 목록 맨 앞에 포함된다."""
+def test_list_dev_workflow_ids_puts_start_chat_first_when_registered(monkeypatch):
+    """start_chat이 discovery에 등록되어 있으면 목록 맨 앞에 위치한다."""
 
-    monkeypatch.setattr(dev_orchestrator, "_dev_workflows", {"example_a": {}, "example_b": {}})
+    monkeypatch.setattr(
+        dev_orchestrator,
+        "_dev_workflows",
+        {"example_a": {}, "example_b": {}, START_CHAT_ID: {}},
+    )
 
     ids = dev_orchestrator.list_dev_workflow_ids()
 
@@ -61,11 +65,25 @@ def test_list_dev_workflow_ids_includes_start_chat(monkeypatch):
     assert "example_b" in ids
 
 
-def test_api_workflows_includes_start_chat(monkeypatch):
-    """GET /api/workflows 응답에 start_chat이 포함된다."""
+def test_list_dev_workflow_ids_omits_start_chat_when_not_registered(monkeypatch):
+    """discovery 실패 등으로 start_chat이 등록되지 않으면 드롭다운에서도 제외한다.
+
+    UI에는 보이는데 실행은 KeyError로 실패하는 함정을 차단한다.
+    """
+
+    monkeypatch.setattr(dev_orchestrator, "_dev_workflows", {"example_a": {}, "example_b": {}})
+
+    ids = dev_orchestrator.list_dev_workflow_ids()
+
+    assert START_CHAT_ID not in ids
+    assert ids == ["example_a", "example_b"]
+
+
+def test_api_workflows_includes_start_chat_when_registered(monkeypatch):
+    """GET /api/workflows 응답에 등록된 start_chat이 포함된다."""
 
     monkeypatch.setenv("DEV_RUNNER_PC_ID", "Test PC")
-    monkeypatch.setattr(dev_orchestrator, "_dev_workflows", {"demo": {}})
+    monkeypatch.setattr(dev_orchestrator, "_dev_workflows", {"demo": {}, START_CHAT_ID: {}})
     app = create_dev_app()
 
     response = app.test_client().get("/api/workflows")
