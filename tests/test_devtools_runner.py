@@ -104,6 +104,22 @@ def test_get_dev_workflow_self_heals_stale_cache(monkeypatch):
     assert reload_calls, "force_reload 재탐색이 호출되어야 한다"
 
 
+def test_load_dev_workflows_repairs_missing_start_chat(monkeypatch):
+    """discovery가 start_chat을 놓쳐도 실행 가능한 실제 정의로 보강한다."""
+
+    monkeypatch.setattr(dev_orchestrator, "_dev_workflows", None)
+    monkeypatch.setattr(
+        dev_orchestrator,
+        "discover_workflows",
+        lambda package_name="devtools.workflows": {"other": {"workflow_id": "other"}},
+    )
+
+    workflows = dev_orchestrator.load_dev_workflows(force_reload=True)
+
+    assert START_CHAT_ID in workflows
+    assert callable(workflows[START_CHAT_ID]["build_lg_graph"])
+
+
 def test_get_dev_workflow_raises_when_still_missing_after_reload(monkeypatch):
     """재탐색 후에도 없으면 명확한 KeyError로 실패한다."""
 
@@ -269,6 +285,36 @@ def test_dev_start_chat_routes_to_handoff_workflow_on_keyword_match(monkeypatch)
     state_values = result["state"]["values"]
     assert state_values.get("active_workflow") == "travel_planner_example"
     assert state_values.get("handoff_match_reason") == "여행"
+
+
+def test_dev_start_chat_routes_to_travel_planner_on_real_registry(monkeypatch):
+    """실제 dev registry에서 start_chat이 여행 요청을 travel_planner로 보낸다."""
+
+    monkeypatch.setenv("DEV_RUNNER_PC_ID", "Test PC")
+    dev_orchestrator.load_dev_workflows(force_reload=True)
+    dev_orchestrator._compiled_graphs.clear()
+    dev_orchestrator._checkpointers.clear()
+    dev_orchestrator._thread_generations.clear()
+    monkeypatch.setattr(
+        dev_orchestrator.conversation_history,
+        "append_message",
+        lambda *a, **k: None,
+    )
+
+    result = dev_orchestrator.handle_dev_message(
+        workflow_id=START_CHAT_ID,
+        user_message="오사카 2박 3일 여행 플랜 짜줘",
+        user_id="dev_test_travel",
+    )
+
+    node_ids = [step["node_id"] for step in result["trace"]]
+    assert "classify" in node_ids
+    assert "travel_planner" in node_ids
+    assert "noop_reply" not in node_ids
+    state_values = result["state"]["values"]
+    assert state_values.get("active_workflow") == "travel_planner"
+    assert state_values.get("handoff_match_reason") in {"여행", "여행 플랜"}
+    assert "오사카" in result["reply"]
 
 
 def test_dev_start_chat_falls_through_to_noop_reply_on_no_match(monkeypatch):

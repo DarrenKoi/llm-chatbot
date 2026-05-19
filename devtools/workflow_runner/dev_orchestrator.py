@@ -39,9 +39,23 @@ def load_dev_workflows(*, force_reload: bool = False) -> dict[str, dict[str, obj
         _dev_workflows = None
 
     if _dev_workflows is None:
-        _dev_workflows = discover_workflows(package_name="devtools.workflows")
+        _dev_workflows = _ensure_start_chat_workflow(discover_workflows(package_name="devtools.workflows"))
 
     return _dev_workflows
+
+
+def _ensure_start_chat_workflow(workflows: dict[str, dict[str, object]]) -> dict[str, dict[str, object]]:
+    """start_chat dev entrypoint가 실제 등록 정의로 존재하도록 보장한다."""
+
+    if START_CHAT_ID in workflows:
+        return workflows
+
+    from devtools.workflows.start_chat import get_workflow_definition
+
+    repaired = dict(workflows)
+    repaired[START_CHAT_ID] = get_workflow_definition()
+    log.warning("dev workflow discovery에서 start_chat이 빠져 내장 정의로 보강했습니다.")
+    return repaired
 
 
 def _invalidate_dev_workflow_modules() -> None:
@@ -70,10 +84,9 @@ def _invalidate_dev_workflow_modules() -> None:
 def list_dev_workflow_ids() -> list[str]:
     """등록된 dev workflow ID 목록을 반환한다.
 
-    start_chat은 라우팅 검증(다른 handoff workflow로의 진입 테스트)을 위해
-    dev runner의 기본 진입점이므로 항상 맨 앞에 노출한다. 만약 discovery 결과에
-    빠져 있다면 그건 등록 누락 상황이므로 ``handle_dev_message`` 쪽에서 캐시를
-    무효화하고 한 번 재시도한다.
+    start_chat은 라우팅 검증(다른 handoff workflow로의 진입 테스트)을 위한
+    dev runner의 기본 진입점이므로 항상 맨 앞에 노출한다. ``load_dev_workflows``가
+    실제 등록 정의를 보장하므로 UI 목록과 실행 가능 workflow가 어긋나지 않는다.
     """
 
     ids = sorted(load_dev_workflows().keys())
