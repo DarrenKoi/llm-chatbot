@@ -23,6 +23,8 @@ def test_dev_runner_index_renders_default_user_id(monkeypatch):
 
     assert response.status_code == 200
     assert b"dev_team_runner" in response.data
+    assert "start_chat은 메시지가 등록된 workflow로 진입하는지 확인하는 용도입니다.".encode() in response.data
+    assert "본인 workflow 자체를 테스트하려면 드롭다운에서 해당 workflow를 직접 선택하세요.".encode() in response.data
 
 
 def test_dev_runner_send_uses_default_user_id_when_not_provided(monkeypatch):
@@ -342,6 +344,7 @@ def test_dev_start_chat_falls_through_to_noop_reply_on_no_match(monkeypatch):
     state_values = result["state"]["values"]
     assert state_values.get("active_workflow") == "start_chat"
     assert state_values.get("handoff_match_reason") == ""
+    assert result["reply"] == "해당 메시지로 원하시는 workflow로 들어가지 못했습니다."
 
 
 def test_dev_runner_send_start_chat(monkeypatch):

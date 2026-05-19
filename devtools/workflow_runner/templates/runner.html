@@ -10,9 +10,15 @@
     <header class="top-bar">
         <h1>Dev Workflow Runner</h1>
         <div class="controls">
-            <select id="workflow-select">
-                <option value="">워크플로 선택...</option>
-            </select>
+            <div class="workflow-control">
+                <select id="workflow-select">
+                    <option value="">워크플로 선택...</option>
+                </select>
+                <p class="workflow-help">
+                    start_chat은 메시지가 등록된 workflow로 진입하는지 확인하는 용도입니다.
+                    본인 workflow 자체를 테스트하려면 드롭다운에서 해당 workflow를 직접 선택하세요.
+                </p>
+            </div>
             <input
                 type="text"
                 id="user-id-input"

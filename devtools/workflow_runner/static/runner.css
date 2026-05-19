@@ -38,6 +38,20 @@ body {
   gap: 8px;
 }
 
+.workflow-control {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 360px;
+}
+
+.workflow-help {
+  max-width: 560px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #cbd5e1;
+}
+
 .controls select,
 .controls button {
   padding: 4px 10px;

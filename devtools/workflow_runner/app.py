@@ -42,9 +42,9 @@ def create_dev_app() -> Flask:
 def main() -> None:
     """Dev runner 서버를 시작한다."""
 
-    # 운영 start_chat 그래프가 import될 때 api.conversation_service.get_history가 호출되는데,
-    # .env에 AFM_MONGO_URI가 남아있으면 도달 불가능한 MongoDB로 붙으려다 실패한다.
-    # dev runner는 자체 conversation_history 모듈을 쓰므로 운영 백엔드는 메모리로 강제한다.
+    # 일부 dev workflow가 운영 대화 이력 헬퍼를 import하더라도 로컬 실행 중
+    # .env의 AFM_MONGO_URI 때문에 도달 불가능한 MongoDB로 붙지 않게 한다.
+    # dev runner 자체 대화 이력은 별도 conversation_history 모듈에 저장된다.
     # pytest에서 create_dev_app만 호출하는 테스트로 env가 전역 누수되지 않도록 main에서만 설정한다.
     os.environ.setdefault("CONVERSATION_BACKEND", "memory")
 

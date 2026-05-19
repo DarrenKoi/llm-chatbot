@@ -14,7 +14,7 @@ from devtools.workflows.start_chat.lg_state import DevStartChatState
 
 log = logging.getLogger(__name__)
 
-_NOOP_REPLY_TEXT = "[dev] 핸드오프 매칭 실패 — 운영에서는 RAG/LLM generate_reply로 갔을 자리입니다."
+_NOOP_REPLY_TEXT = "해당 메시지로 원하시는 workflow로 들어가지 못했습니다."
 
 
 def _get_handoff_subgraph_builders() -> dict[str, object]:
