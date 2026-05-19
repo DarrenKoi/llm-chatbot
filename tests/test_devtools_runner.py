@@ -259,8 +259,8 @@ def test_dev_start_chat_routes_to_handoff_workflow_on_keyword_match(monkeypatch)
             "build_lg_graph": build_dev_start_chat,
             "handoff_keywords": (),
         },
-        "travel_planner_example": {
-            "workflow_id": "travel_planner_example",
+        "travel_planner": {
+            "workflow_id": "travel_planner",
             "build_lg_graph": build_fake_handoff,
             "handoff_keywords": ("여행", "trip"),
         },
@@ -280,10 +280,10 @@ def test_dev_start_chat_routes_to_handoff_workflow_on_keyword_match(monkeypatch)
 
     node_ids = [step["node_id"] for step in result["trace"]]
     assert "classify" in node_ids
-    assert "travel_planner_example" in node_ids
+    assert "travel_planner" in node_ids
     assert "noop_reply" not in node_ids
     state_values = result["state"]["values"]
-    assert state_values.get("active_workflow") == "travel_planner_example"
+    assert state_values.get("active_workflow") == "travel_planner"
     assert state_values.get("handoff_match_reason") == "여행"
 
 

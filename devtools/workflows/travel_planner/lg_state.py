@@ -1,9 +1,9 @@
-"""여행 계획 예제 워크플로 전용 LangGraph 상태를 정의한다."""
+"""여행 계획 dev 워크플로 전용 LangGraph 상태를 정의한다."""
 
 from devtools.workflows.lg_state import ChatState
 
 
-class TravelPlannerExampleState(ChatState, total=False):
+class TravelPlannerState(ChatState, total=False):
     """여행 목적지, 선호도, 일정 정보를 유지한다."""
 
     destination: str

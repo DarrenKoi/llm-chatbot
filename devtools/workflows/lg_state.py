@@ -9,7 +9,7 @@ api 측과의 차이:
   현재 단계에서는 dev 워크플로가 이 필드를 직접 사용하지 않으므로 ``Any``로 충분하다.
 
 워크플로별 전용 상태는 각 워크플로 패키지 안의 lg_state.py에 정의한다.
-예: devtools/workflows/travel_planner_example/lg_state.py → TravelPlannerExampleState
+예: devtools/workflows/travel_planner/lg_state.py → TravelPlannerState
 """
 
 from typing import Annotated, Any, TypedDict

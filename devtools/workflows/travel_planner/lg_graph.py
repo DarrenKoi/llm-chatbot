@@ -1,4 +1,4 @@
-"""여행 계획 예제 LangGraph 워크플로."""
+"""여행 계획 dev LangGraph 워크플로."""
 
 import logging
 from typing import Literal
@@ -13,13 +13,13 @@ from .constants import (
     build_companion_note,
     recommend_destinations,
 )
-from .lg_state import TravelPlannerExampleState
+from .lg_state import TravelPlannerState
 from .llm_decision import CANCEL_GUIDE_REPLY, decide_travel_planner_turn
 
 log = logging.getLogger(__name__)
 
 
-def resolve_node(state: TravelPlannerExampleState) -> dict:
+def resolve_node(state: TravelPlannerState) -> dict:
     """사용자 메시지에서 여행 정보를 추출해 상태를 갱신한다."""
 
     decision = decide_travel_planner_turn(
@@ -46,7 +46,7 @@ def resolve_node(state: TravelPlannerExampleState) -> dict:
         }
 
     log.info(
-        "[travel_planner_example] 규칙 판단: action=%s destination=%s style=%s duration=%s companion=%s",
+        "[travel_planner] 규칙 판단: action=%s destination=%s style=%s duration=%s companion=%s",
         decision.action,
         decision.destination,
         decision.travel_style,
@@ -65,14 +65,14 @@ def resolve_node(state: TravelPlannerExampleState) -> dict:
     }
 
 
-def collect_preference_node(state: TravelPlannerExampleState) -> dict:
+def collect_preference_node(state: TravelPlannerState) -> dict:
     """여행 스타일을 사용자에게 요청하고 응답을 수집한다."""
 
     user_input = interrupt({"reply": state.get("pending_reply", "")})
     return {"user_message": user_input, "last_asked_slot": "travel_style"}
 
 
-def recommend_destination_node(state: TravelPlannerExampleState) -> dict:
+def recommend_destination_node(state: TravelPlannerState) -> dict:
     """여행 스타일 기반 목적지 후보를 추천하고 선택을 기다린다."""
 
     style = state.get("travel_style", "")
@@ -80,7 +80,7 @@ def recommend_destination_node(state: TravelPlannerExampleState) -> dict:
     suggestions = recommend_destinations(style=style)
 
     log.info(
-        "[travel_planner_example] 목적지 후보 추천: style=%s companion=%s suggestions=%s",
+        "[travel_planner] 목적지 후보 추천: style=%s companion=%s suggestions=%s",
         style,
         companion,
         suggestions,
@@ -101,14 +101,14 @@ def recommend_destination_node(state: TravelPlannerExampleState) -> dict:
     }
 
 
-def collect_trip_context_node(state: TravelPlannerExampleState) -> dict:
+def collect_trip_context_node(state: TravelPlannerState) -> dict:
     """일정(기간)을 사용자에게 요청하고 응답을 수집한다."""
 
     user_input = interrupt({"reply": state.get("pending_reply", "")})
     return {"user_message": user_input, "last_asked_slot": "duration_text"}
 
 
-def build_plan_node(state: TravelPlannerExampleState) -> dict:
+def build_plan_node(state: TravelPlannerState) -> dict:
     """선택된 목적지 기준으로 여행 계획안을 생성한다."""
 
     destination = state.get("destination", "")
@@ -133,7 +133,7 @@ def build_plan_node(state: TravelPlannerExampleState) -> dict:
     reply = "\n".join(reply_lines)
 
     log.info(
-        "[travel_planner_example] 계획 생성 완료: destination=%s duration=%s style=%s companion=%s",
+        "[travel_planner] 계획 생성 완료: destination=%s duration=%s style=%s companion=%s",
         destination,
         duration_text,
         travel_style,
@@ -149,7 +149,7 @@ def build_plan_node(state: TravelPlannerExampleState) -> dict:
 
 
 def _route_after_resolve(
-    state: TravelPlannerExampleState,
+    state: TravelPlannerState,
 ) -> Literal["collect_preference", "recommend_destination", "collect_trip_context", "build_plan", "__end__"]:
     if state.get("conversation_ended"):
         return END
@@ -167,9 +167,9 @@ def _route_after_resolve(
 
 
 def build_lg_graph() -> StateGraph:
-    """여행 계획 예제 LangGraph StateGraph 빌더를 반환한다."""
+    """여행 계획 dev LangGraph StateGraph 빌더를 반환한다."""
 
-    builder = StateGraph(TravelPlannerExampleState)
+    builder = StateGraph(TravelPlannerState)
 
     builder.add_node("resolve", resolve_node)
     builder.add_node("collect_preference", collect_preference_node)
