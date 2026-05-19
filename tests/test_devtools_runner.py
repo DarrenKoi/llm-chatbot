@@ -1,3 +1,5 @@
+import pytest
+
 from devtools.workflow_runner import dev_orchestrator
 from devtools.workflow_runner import routes as runner_routes
 from devtools.workflow_runner.app import create_dev_app
@@ -49,14 +51,10 @@ def test_dev_runner_send_uses_default_user_id_when_not_provided(monkeypatch):
     }
 
 
-def test_list_dev_workflow_ids_puts_start_chat_first_when_registered(monkeypatch):
-    """start_chat이 discovery에 등록되어 있으면 목록 맨 앞에 위치한다."""
+def test_list_dev_workflow_ids_includes_start_chat(monkeypatch):
+    """start_chat은 라우팅 검증을 위해 항상 목록 맨 앞에 포함된다."""
 
-    monkeypatch.setattr(
-        dev_orchestrator,
-        "_dev_workflows",
-        {"example_a": {}, "example_b": {}, START_CHAT_ID: {}},
-    )
+    monkeypatch.setattr(dev_orchestrator, "_dev_workflows", {"example_a": {}, "example_b": {}})
 
     ids = dev_orchestrator.list_dev_workflow_ids()
 
@@ -65,25 +63,11 @@ def test_list_dev_workflow_ids_puts_start_chat_first_when_registered(monkeypatch
     assert "example_b" in ids
 
 
-def test_list_dev_workflow_ids_omits_start_chat_when_not_registered(monkeypatch):
-    """discovery 실패 등으로 start_chat이 등록되지 않으면 드롭다운에서도 제외한다.
-
-    UI에는 보이는데 실행은 KeyError로 실패하는 함정을 차단한다.
-    """
-
-    monkeypatch.setattr(dev_orchestrator, "_dev_workflows", {"example_a": {}, "example_b": {}})
-
-    ids = dev_orchestrator.list_dev_workflow_ids()
-
-    assert START_CHAT_ID not in ids
-    assert ids == ["example_a", "example_b"]
-
-
-def test_api_workflows_includes_start_chat_when_registered(monkeypatch):
-    """GET /api/workflows 응답에 등록된 start_chat이 포함된다."""
+def test_api_workflows_includes_start_chat(monkeypatch):
+    """GET /api/workflows 응답에 start_chat이 포함된다."""
 
     monkeypatch.setenv("DEV_RUNNER_PC_ID", "Test PC")
-    monkeypatch.setattr(dev_orchestrator, "_dev_workflows", {"demo": {}, START_CHAT_ID: {}})
+    monkeypatch.setattr(dev_orchestrator, "_dev_workflows", {"demo": {}})
     app = create_dev_app()
 
     response = app.test_client().get("/api/workflows")
@@ -91,6 +75,47 @@ def test_api_workflows_includes_start_chat_when_registered(monkeypatch):
     assert response.status_code == 200
     workflows = response.get_json()["workflows"]
     assert START_CHAT_ID in workflows
+
+
+def test_get_dev_workflow_self_heals_stale_cache(monkeypatch):
+    """캐시가 stale일 때 force_reload로 재탐색해서 자가 복구한다.
+
+    서버 기동 후 새 워크플로 패키지가 추가된 시나리오 (예: 사용자가 본
+    'start_chat 등록 안 됨' 함정)를 재현한다.
+    """
+
+    monkeypatch.setattr(dev_orchestrator, "_dev_workflows", {"other": {"workflow_id": "other"}})
+
+    reload_calls: list[bool] = []
+    discovered = {
+        "other": {"workflow_id": "other"},
+        START_CHAT_ID: {"workflow_id": START_CHAT_ID, "build_lg_graph": lambda: None},
+    }
+
+    def _fake_discover(package_name="devtools.workflows"):
+        reload_calls.append(True)
+        return discovered
+
+    monkeypatch.setattr(dev_orchestrator, "discover_workflows", _fake_discover)
+
+    workflow = dev_orchestrator.get_dev_workflow(START_CHAT_ID)
+
+    assert workflow["workflow_id"] == START_CHAT_ID
+    assert reload_calls, "force_reload 재탐색이 호출되어야 한다"
+
+
+def test_get_dev_workflow_raises_when_still_missing_after_reload(monkeypatch):
+    """재탐색 후에도 없으면 명확한 KeyError로 실패한다."""
+
+    monkeypatch.setattr(dev_orchestrator, "_dev_workflows", {})
+    monkeypatch.setattr(
+        dev_orchestrator,
+        "discover_workflows",
+        lambda package_name="devtools.workflows": {},
+    )
+
+    with pytest.raises(KeyError, match="ghost_workflow"):
+        dev_orchestrator.get_dev_workflow("ghost_workflow")
 
 
 def test_handle_dev_message_trace_expands_node_sequence(monkeypatch):

@@ -70,22 +70,35 @@ def _invalidate_dev_workflow_modules() -> None:
 def list_dev_workflow_ids() -> list[str]:
     """등록된 dev workflow ID 목록을 반환한다.
 
-    start_chat은 라우팅 검증을 위해 dev runner의 기본 진입점이므로 맨 앞에 배치한다.
-    단, discovery에 실제로 등록된 경우에만 노출한다 — 등록 실패 시 드롭다운에 표시하면
-    UI는 정상이지만 실행은 KeyError로 실패하는 함정이 생긴다.
+    start_chat은 라우팅 검증(다른 handoff workflow로의 진입 테스트)을 위해
+    dev runner의 기본 진입점이므로 항상 맨 앞에 노출한다. 만약 discovery 결과에
+    빠져 있다면 그건 등록 누락 상황이므로 ``handle_dev_message`` 쪽에서 캐시를
+    무효화하고 한 번 재시도한다.
     """
 
-    workflow_ids = set(load_dev_workflows().keys())
-    ids = sorted(workflow_ids - {START_CHAT_ID})
-    if START_CHAT_ID in workflow_ids:
-        ids.insert(0, START_CHAT_ID)
+    ids = sorted(load_dev_workflows().keys())
+    if START_CHAT_ID in ids:
+        ids.remove(START_CHAT_ID)
+    ids.insert(0, START_CHAT_ID)
     return ids
 
 
 def get_dev_workflow(workflow_id: str) -> dict[str, object]:
-    """dev workflow 정의를 반환한다."""
+    """dev workflow 정의를 반환한다.
+
+    캐시에 없으면 한 번 force_reload로 재탐색을 시도한다. dev runner는 모듈 레벨
+    캐시(``_dev_workflows``)를 쓰는데, 서버가 새 워크플로 패키지(예: 새로 추가된
+    ``devtools/workflows/start_chat/``)보다 먼저 기동되면 Werkzeug 리로더가 새
+    디렉토리를 못 잡아 캐시가 stale 상태로 남는 경우가 있다. start_chat이 항상
+    드롭다운에 노출되는 정책과 맞물려 사용자에게 "등록되지 않음" 에러로 보이므로,
+    여기서 1회 재탐색해서 자가 복구한다.
+    """
 
     workflows = load_dev_workflows()
+    if workflow_id not in workflows:
+        log.warning("dev workflow '%s'가 캐시에 없어 force_reload로 재탐색합니다.", workflow_id)
+        workflows = load_dev_workflows(force_reload=True)
+
     try:
         return workflows[workflow_id]
     except KeyError as exc:
