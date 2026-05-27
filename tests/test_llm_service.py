@@ -455,3 +455,61 @@ def test_generate_reply_intent_raises_on_total_llm_failure(mocker, monkeypatch):
 
     with pytest.raises(LLMServiceError, match="LLM request failed"):
         generate_reply_intent(history=[], user_message="x")
+
+
+def test_check_llm_health_not_configured(monkeypatch):
+    from api.llm.service import check_llm_health
+
+    monkeypatch.setattr("api.config.LLM_BASE_URL", "")
+    monkeypatch.setattr("api.config.LLM_MODEL", "")
+
+    result = check_llm_health()
+
+    assert result.ok is False
+    assert result.status == "not configured"
+    assert result.latency_ms is None
+
+
+def test_check_llm_health_alive(mocker, monkeypatch):
+    from api.llm.service import check_llm_health
+
+    _stub_llm_env(monkeypatch)
+    mock_llm = mocker.Mock()
+    mock_llm.invoke.return_value = mocker.Mock(content="pong")
+    mocker.patch("api.llm.service.ChatOpenAI", return_value=mock_llm)
+
+    result = check_llm_health()
+
+    assert result.ok is True
+    assert result.status == "alive"
+    assert result.latency_ms is not None
+    mock_llm.invoke.assert_called_once()
+
+
+def test_check_llm_health_failed_on_exception(mocker, monkeypatch):
+    from api.llm.service import check_llm_health
+
+    _stub_llm_env(monkeypatch)
+    mock_llm = mocker.Mock()
+    mock_llm.invoke.side_effect = RuntimeError("connection refused")
+    mocker.patch("api.llm.service.ChatOpenAI", return_value=mock_llm)
+
+    result = check_llm_health()
+
+    assert result.ok is False
+    assert result.status == "failed"
+    assert "connection refused" in result.detail
+
+
+def test_check_llm_health_failed_on_empty_reply(mocker, monkeypatch):
+    from api.llm.service import check_llm_health
+
+    _stub_llm_env(monkeypatch)
+    mock_llm = mocker.Mock()
+    mock_llm.invoke.return_value = mocker.Mock(content="   ")
+    mocker.patch("api.llm.service.ChatOpenAI", return_value=mock_llm)
+
+    result = check_llm_health()
+
+    assert result.ok is False
+    assert result.status == "failed"

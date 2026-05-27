@@ -269,3 +269,60 @@ def test_check_langgraph_checkpoint_store_reports_config_error(monkeypatch):
     assert entry.tone == "error"
     assert entry.status == "config error"
     assert "different MongoDB collections" in entry.detail
+
+
+def test_check_llm_api_reports_ok_when_alive():
+    from api.llm import LLMHealthResult
+
+    result = LLMHealthResult(
+        ok=True,
+        status="alive",
+        detail="LLM API가 12ms 만에 정상 응답했습니다.",
+        model="gpt-test",
+        base_url="https://llm.example.com/v1",
+        latency_ms=12,
+    )
+    with patch("api.llm.check_llm_health", return_value=result):
+        entry = monitoring_service._check_llm_api()
+
+    assert entry.name == "LLM API"
+    assert entry.tone == "ok"
+    assert entry.status == "alive"
+    assert "gpt-test" in entry.target
+
+
+def test_check_llm_api_reports_error_when_failed():
+    from api.llm import LLMHealthResult
+
+    result = LLMHealthResult(
+        ok=False,
+        status="failed",
+        detail="LLM 응답 점검 실패: connection refused",
+        model="gpt-test",
+        base_url="https://llm.example.com/v1",
+        latency_ms=8,
+    )
+    with patch("api.llm.check_llm_health", return_value=result):
+        entry = monitoring_service._check_llm_api()
+
+    assert entry.tone == "error"
+    assert entry.status == "failed"
+
+
+def test_check_llm_api_reports_warning_when_not_configured():
+    from api.llm import LLMHealthResult
+
+    result = LLMHealthResult(
+        ok=False,
+        status="not configured",
+        detail="LLM_BASE_URL 또는 LLM_MODEL이 설정되지 않았습니다.",
+        model="",
+        base_url="",
+        latency_ms=None,
+    )
+    with patch("api.llm.check_llm_health", return_value=result):
+        entry = monitoring_service._check_llm_api()
+
+    assert entry.tone == "warning"
+    assert entry.status == "not configured"
+    assert entry.target == "미설정"

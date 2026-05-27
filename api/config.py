@@ -6,10 +6,15 @@ from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 ENV_PATH = BASE_DIR / ".env"
+# 기본적으로 .env를 환경변수보다 우선시킨다(override=True) — 프로덕션(uWSGI)에서는
+# 셸/배포 설정이 LLM_* 같은 변수를 이미 export해 두는 경우가 많아, override 없이는
+# .env 수정이 무시된다(기존 환경변수가 우선). .env가 항상 최종 권위를 갖도록 보장한다.
+# 테스트는 DOTENV_OVERRIDE=false로 끄고 monkeypatch한 환경변수를 사용한다.
+_DOTENV_OVERRIDE = os.environ.get("DOTENV_OVERRIDE", "true").lower() in ("true", "1", "yes")
 if ENV_PATH.exists():
-    load_dotenv(ENV_PATH)
+    load_dotenv(ENV_PATH, override=_DOTENV_OVERRIDE)
 else:
-    load_dotenv(BASE_DIR / ".env.example")
+    load_dotenv(BASE_DIR / ".env.example", override=_DOTENV_OVERRIDE)
 
 # Cube
 CUBE_API_ID = os.environ.get("CUBE_API_ID", "")
@@ -35,6 +40,8 @@ LLM_MODEL = os.environ.get("LLM_MODEL", "")
 LLM_SYSTEM_PROMPT_OVERRIDE = os.environ.get("LLM_SYSTEM_PROMPT_OVERRIDE", "")
 LLM_TIMEZONE = os.environ.get("LLM_TIMEZONE", "Asia/Seoul")
 LLM_TIMEOUT_SECONDS = int(os.environ.get("LLM_TIMEOUT_SECONDS", 30))
+LLM_HEALTHCHECK_TIMEOUT_SECONDS = int(os.environ.get("LLM_HEALTHCHECK_TIMEOUT_SECONDS", 10))
+LLM_HEALTHCHECK_ON_STARTUP = os.environ.get("LLM_HEALTHCHECK_ON_STARTUP", "true").lower() in ("true", "1", "yes")
 LLM_THINKING_MESSAGE = os.environ.get("LLM_THINKING_MESSAGE", "잠시만요, 답변을 준비하고 있어요... 🤔")
 LLM_THINKING_MESSAGE_DELAY_SECONDS = float(os.environ.get("LLM_THINKING_MESSAGE_DELAY_SECONDS", "5"))
 

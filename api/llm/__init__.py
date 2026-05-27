@@ -1,3 +1,15 @@
-from api.llm.service import LLMServiceError, generate_json_reply, generate_reply
+from api.llm.service import (
+    LLMHealthResult,
+    LLMServiceError,
+    check_llm_health,
+    generate_json_reply,
+    generate_reply,
+)
 
-__all__ = ["LLMServiceError", "generate_reply", "generate_json_reply"]
+__all__ = [
+    "LLMHealthResult",
+    "LLMServiceError",
+    "check_llm_health",
+    "generate_reply",
+    "generate_json_reply",
+]

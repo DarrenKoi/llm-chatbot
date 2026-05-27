@@ -2,6 +2,8 @@ import ast
 import json
 import logging
 import re
+import time
+from dataclasses import dataclass
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
@@ -31,6 +33,81 @@ _INTENT_SHAPED_TEXT_PATTERN = re.compile(r"""(?ix)(["']?blocks["']?\s*[:=]|["']?
 _UNPARSEABLE_REPLY_INTENT_FALLBACK_TEXT = "응답 형식이 올바르지 않아 내용을 표시하지 못했습니다. 다시 요청해 주세요."
 _LLM_LOG_RAW_TEXT_MAX_CHARS = 12000
 _LLM_LOG_CANDIDATE_MAX_CHARS = 1200
+
+
+@dataclass(slots=True)
+class LLMHealthResult:
+    """LLM API 헬스체크 결과."""
+
+    ok: bool
+    status: str  # "alive" | "not configured" | "failed"
+    detail: str
+    model: str
+    base_url: str
+    latency_ms: int | None
+
+
+def check_llm_health(*, timeout_seconds: int | None = None) -> LLMHealthResult:
+    """LLM API가 실제로 응답하는지 가벼운 호출로 점검한다.
+
+    설정 누락이면 즉시 ``not configured``를 반환하고, 그 외에는 짧은 프롬프트를
+    한 번 호출해 응답 여부와 왕복 지연(latency)을 측정한다. 예외는 잡아서
+    ``failed`` 결과로 변환하므로 호출 측에서 별도 try/except가 필요 없다.
+    """
+    base_url = config.LLM_BASE_URL.rstrip("/")
+    if not base_url or not config.LLM_MODEL:
+        return LLMHealthResult(
+            ok=False,
+            status="not configured",
+            detail="LLM_BASE_URL 또는 LLM_MODEL이 설정되지 않았습니다.",
+            model=config.LLM_MODEL,
+            base_url=base_url,
+            latency_ms=None,
+        )
+
+    probe_timeout = timeout_seconds if timeout_seconds is not None else config.LLM_HEALTHCHECK_TIMEOUT_SECONDS
+    llm = ChatOpenAI(
+        base_url=base_url,
+        model=config.LLM_MODEL,
+        api_key=config.LLM_API_KEY or "not-needed",
+        timeout=probe_timeout,
+        max_retries=0,
+    )
+
+    started_at = time.monotonic()
+    try:
+        response = llm.invoke([HumanMessage(content="ping")])
+    except Exception as exc:
+        latency_ms = int((time.monotonic() - started_at) * 1000)
+        return LLMHealthResult(
+            ok=False,
+            status="failed",
+            detail=f"LLM 응답 점검 실패: {exc}",
+            model=config.LLM_MODEL,
+            base_url=base_url,
+            latency_ms=latency_ms,
+        )
+
+    latency_ms = int((time.monotonic() - started_at) * 1000)
+    reply = _extract_content(response.content)
+    if not reply:
+        return LLMHealthResult(
+            ok=False,
+            status="failed",
+            detail="LLM이 빈 응답을 반환했습니다.",
+            model=config.LLM_MODEL,
+            base_url=base_url,
+            latency_ms=latency_ms,
+        )
+
+    return LLMHealthResult(
+        ok=True,
+        status="alive",
+        detail=f"LLM API가 {latency_ms}ms 만에 정상 응답했습니다.",
+        model=config.LLM_MODEL,
+        base_url=base_url,
+        latency_ms=latency_ms,
+    )
 
 
 def generate_reply(

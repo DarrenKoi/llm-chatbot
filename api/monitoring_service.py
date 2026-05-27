@@ -33,6 +33,7 @@ def get_monitoring_snapshot() -> dict[str, object]:
     파일 전송 메타데이터)를 개별 점검한 뒤 tone(ok/warning/error/disabled)으로 분류한다.
     """
     entries = [
+        _check_llm_api(),
         _check_langgraph_checkpoint_store(),
         _check_mongo_conversation_store(),
         _check_cube_queue(),
@@ -51,6 +52,30 @@ def get_monitoring_snapshot() -> dict[str, object]:
             "disabled": sum(entry.tone == "disabled" for entry in entries),
         },
     }
+
+
+def _check_llm_api() -> MonitorEntry:
+    """LLM API가 실제로 응답하는지 가벼운 호출로 점검한다."""
+    from api.llm import check_llm_health
+
+    result = check_llm_health()
+    target = f"{_mask_url(result.base_url)} / {result.model}" if result.base_url else result.model or "미설정"
+
+    if result.status == "not configured":
+        tone: MonitorTone = "warning"
+    elif result.ok:
+        tone = "ok"
+    else:
+        tone = "error"
+
+    return MonitorEntry(
+        name="LLM API",
+        backend="OpenAI-compatible",
+        tone=tone,
+        status=result.status,
+        target=target,
+        detail=result.detail,
+    )
 
 
 def _check_mongo_conversation_store() -> MonitorEntry:

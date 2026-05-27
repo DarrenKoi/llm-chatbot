@@ -8,10 +8,34 @@ from api import config as config
 from api.blueprint_loader import discover_blueprints
 from api.conversation_service import get_recent_messages
 from api.cube.payload import extract_user_id
+from api.llm import check_llm_health
 from api.logging_service import log_activity, setup_logging
 from api.monitoring_service import get_monitoring_snapshot
 from api.scheduled_tasks.inspection import get_scheduled_tasks_snapshot
 from api.workflows.graph_visualizer import build_workflow_html, list_workflow_ids
+
+
+def _run_llm_startup_healthcheck() -> None:
+    """기동 시 LLM API 응답 여부를 점검하고 결과를 activity log에 남긴다.
+
+    실패해도 앱 기동은 막지 않는다 — uWSGI 다중 워커 환경에서 LLM 일시 장애로
+    워커가 crash-loop에 빠지는 것을 피하기 위함이다. 대신 ERROR 레벨로 기록해
+    기동 로그와 모니터에서 즉시 확인할 수 있게 한다.
+    """
+    if not config.LLM_HEALTHCHECK_ON_STARTUP:
+        return
+
+    result = check_llm_health()
+    log_activity(
+        "llm_startup_healthcheck",
+        level="INFO" if result.ok else "ERROR",
+        status=result.status,
+        ok=result.ok,
+        model=result.model,
+        base_url=result.base_url,
+        latency_ms=result.latency_ms,
+        detail=result.detail,
+    )
 
 
 def create_application() -> Flask:
@@ -20,6 +44,7 @@ def create_application() -> Flask:
     로깅 초기화 → 라우트 등록 → 블루프린트 자동 탐색 순으로 앱을 구성한다.
     """
     setup_logging()
+    _run_llm_startup_healthcheck()
 
     template_directory = Path(__file__).resolve().parent / "html_templates"
     app = Flask(__name__, template_folder=str(template_directory))
