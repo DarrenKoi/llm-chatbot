@@ -143,6 +143,8 @@ def generate_reply_node(state: StartChatState) -> dict:
         history=history,
         user_message=augmented_message,
         user_profile_text=profile_summary,
+        user_id=user_id,
+        conversation_id=channel_id,
     )
 
     text_fallback = "\n\n".join(

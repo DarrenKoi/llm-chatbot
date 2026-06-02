@@ -33,6 +33,7 @@ _INTENT_SHAPED_TEXT_PATTERN = re.compile(r"""(?ix)(["']?blocks["']?\s*[:=]|["']?
 _UNPARSEABLE_REPLY_INTENT_FALLBACK_TEXT = "응답 형식이 올바르지 않아 내용을 표시하지 못했습니다. 다시 요청해 주세요."
 _LLM_LOG_RAW_TEXT_MAX_CHARS = 12000
 _LLM_LOG_CANDIDATE_MAX_CHARS = 1200
+_LLM_LOG_CONTENT_MAX_CHARS = 500
 
 
 @dataclass(slots=True)
@@ -115,6 +116,8 @@ def generate_reply(
     history: list[dict[str, Any]],
     user_message: str,
     user_profile_text: str = "",
+    user_id: str = "",
+    conversation_id: str = "",
 ) -> str:
     llm = _get_llm()
     messages = _build_messages(
@@ -122,17 +125,54 @@ def generate_reply(
         user_message=user_message,
         user_profile_text=user_profile_text,
     )
+    started_at = time.monotonic()
     try:
         response = llm.invoke(messages)
     except Exception as exc:
+        latency_ms = int((time.monotonic() - started_at) * 1000)
         logger.exception("LLM 응답 생성 실패: model=%s", config.LLM_MODEL)
+        _log_llm_interaction(
+            function="generate_reply",
+            status="error",
+            path="plain",
+            latency_ms=latency_ms,
+            user_id=user_id,
+            conversation_id=conversation_id,
+            user_message=user_message,
+            history_len=len(history),
+            error=str(exc),
+        )
         raise LLMServiceError(f"LLM request failed: {exc}") from exc
 
+    latency_ms = int((time.monotonic() - started_at) * 1000)
     reply = _extract_content(response.content)
     if not reply:
         logger.error("LLM 응답이 비어 있음: model=%s", config.LLM_MODEL)
+        _log_llm_interaction(
+            function="generate_reply",
+            status="empty",
+            path="plain",
+            latency_ms=latency_ms,
+            user_id=user_id,
+            conversation_id=conversation_id,
+            user_message=user_message,
+            history_len=len(history),
+            token_usage=_extract_token_usage(response),
+        )
         raise LLMServiceError("LLM reply is empty.")
     logger.info("llm_reply model=%s text=%s", config.LLM_MODEL, json.dumps(reply, ensure_ascii=False))
+    _log_llm_interaction(
+        function="generate_reply",
+        status="ok",
+        path="plain",
+        latency_ms=latency_ms,
+        user_id=user_id,
+        conversation_id=conversation_id,
+        user_message=user_message,
+        response_text=reply,
+        history_len=len(history),
+        token_usage=_extract_token_usage(response),
+    )
     return reply
 
 
@@ -141,6 +181,8 @@ def generate_reply_intent(
     history: list[dict[str, Any]],
     user_message: str,
     user_profile_text: str = "",
+    user_id: str = "",
+    conversation_id: str = "",
 ) -> ReplyIntent:
     """LLM에게 ``ReplyIntent`` 형태의 응답을 요청한다.
 
@@ -157,6 +199,29 @@ def generate_reply_intent(
         user_message=user_message,
         user_profile_text=user_profile_text,
     )
+    started_at = time.monotonic()
+
+    def _emit(
+        *,
+        status: str,
+        path: str,
+        response_text: str = "",
+        token_usage: dict[str, Any] | None = None,
+        error: str | None = None,
+    ) -> None:
+        _log_llm_interaction(
+            function="generate_reply_intent",
+            status=status,
+            path=path,
+            latency_ms=int((time.monotonic() - started_at) * 1000),
+            user_id=user_id,
+            conversation_id=conversation_id,
+            user_message=user_message,
+            response_text=response_text,
+            history_len=len(history),
+            token_usage=token_usage,
+            error=error,
+        )
 
     try:
         structured = llm.with_structured_output(ReplyIntent, method="function_calling").invoke(messages)
@@ -175,6 +240,11 @@ def generate_reply_intent(
                 config.LLM_MODEL,
                 json.dumps(structured.model_dump(), ensure_ascii=False, default=str),
             )
+            _emit(
+                status="ok",
+                path="structured",
+                response_text=json.dumps(structured.model_dump(), ensure_ascii=False, default=str),
+            )
             return structured
         logger.warning("structured output이 빈 ReplyIntent를 반환, 평문 fallback으로 전환")
 
@@ -182,10 +252,13 @@ def generate_reply_intent(
         response = llm.invoke(messages)
     except Exception as exc:
         logger.exception("LLM 응답 생성 실패: model=%s", config.LLM_MODEL)
+        _emit(status="error", path="raw_text", error=str(exc))
         raise LLMServiceError(f"LLM request failed: {exc}") from exc
 
+    token_usage = _extract_token_usage(response)
     raw_text = _extract_content(response.content)
     if not raw_text:
+        _emit(status="empty", path="raw_text", token_usage=token_usage)
         raise LLMServiceError("LLM reply is empty.")
     logger.info(
         "llm_reply_intent path=raw_text model=%s text=%s", config.LLM_MODEL, json.dumps(raw_text, ensure_ascii=False)
@@ -211,6 +284,12 @@ def generate_reply_intent(
                 "llm_reply_intent path=parsed_json model=%s intent=%s",
                 config.LLM_MODEL,
                 json.dumps(parsed.model_dump(), ensure_ascii=False, default=str),
+            )
+            _emit(
+                status="ok",
+                path="json_in_text",
+                response_text=raw_text,
+                token_usage=token_usage,
             )
             return parsed
 
@@ -240,6 +319,12 @@ def generate_reply_intent(
         "llm_reply_intent path=text_fallback model=%s intent=%s",
         config.LLM_MODEL,
         json.dumps(fallback.model_dump(), ensure_ascii=False, default=str),
+    )
+    _emit(
+        status="ok",
+        path="text_fallback",
+        response_text=fallback_text,
+        token_usage=token_usage,
     )
     return fallback
 
@@ -305,6 +390,75 @@ def _truncate_for_log(text: str, max_chars: int) -> tuple[str, bool]:
     if len(text) <= max_chars:
         return text, False
     return text[:max_chars], True
+
+
+def _extract_token_usage(response: Any) -> dict[str, Any] | None:
+    """LangChain 응답에서 토큰 사용량(input/output/total)을 best-effort로 뽑아낸다.
+
+    ``with_structured_output`` 경로는 순수 Pydantic 객체를 돌려줘 usage가 없으므로
+    그 경우 None을 반환한다.
+    """
+    usage = getattr(response, "usage_metadata", None)
+    if isinstance(usage, dict) and usage:
+        return {
+            "input_tokens": usage.get("input_tokens"),
+            "output_tokens": usage.get("output_tokens"),
+            "total_tokens": usage.get("total_tokens"),
+        }
+    return None
+
+
+def _log_llm_interaction(
+    *,
+    function: str,
+    status: str,
+    path: str,
+    latency_ms: int | None,
+    user_id: str = "",
+    conversation_id: str = "",
+    user_message: str = "",
+    response_text: str = "",
+    history_len: int | None = None,
+    token_usage: dict[str, Any] | None = None,
+    error: str | None = None,
+) -> None:
+    """사용자↔LLM 상호작용 1건을 구조화된 JSONL 레코드로 ``logs/llm/llm.jsonl``에 남긴다.
+
+    내용(user_message/response_text)은 ``_LLM_LOG_CONTENT_MAX_CHARS`` 기준으로 잘라
+    저장하고, 원래 길이와 절단 여부를 함께 기록한다.
+    """
+    payload: dict[str, Any] = {
+        "event": "llm_interaction",
+        "function": function,
+        "model": config.LLM_MODEL,
+        "status": status,
+        "path": path,
+        "latency_ms": latency_ms,
+    }
+    if user_id:
+        payload["user_id"] = user_id
+    if conversation_id:
+        payload["conversation_id"] = conversation_id
+    if history_len is not None:
+        payload["history_len"] = history_len
+    if token_usage:
+        payload["token_usage"] = token_usage
+    if user_message:
+        text, truncated = _truncate_for_log(user_message, _LLM_LOG_CONTENT_MAX_CHARS)
+        payload["user_message"] = text
+        payload["user_message_len"] = len(user_message)
+        payload["user_message_truncated"] = truncated
+    if response_text:
+        text, truncated = _truncate_for_log(response_text, _LLM_LOG_CONTENT_MAX_CHARS)
+        payload["response_text"] = text
+        payload["response_len"] = len(response_text)
+        payload["response_truncated"] = truncated
+    if error:
+        payload["error"] = error
+    try:
+        get_topic_logger("llm", json_output=True).info("llm_interaction", extra={"activity_data": payload})
+    except Exception:
+        logger.exception("LLM interaction 로그 기록 실패: function=%s status=%s", function, status)
 
 
 def _reply_intent_candidate_diagnostics(candidates: list[str]) -> list[dict[str, Any]]:
@@ -572,6 +726,8 @@ def generate_json_reply(
     *,
     system_prompt: str,
     user_prompt: str,
+    user_id: str = "",
+    conversation_id: str = "",
 ) -> dict[str, Any]:
     """Call the configured LLM and parse a single JSON object reply."""
 
@@ -580,27 +736,73 @@ def generate_json_reply(
         SystemMessage(content=system_prompt.strip()),
         HumanMessage(content=user_prompt.strip()),
     ]
+    started_at = time.monotonic()
     try:
         response = llm.invoke(messages)
     except Exception as exc:
         logger.exception("LLM JSON 응답 생성 실패: model=%s", config.LLM_MODEL)
+        _log_llm_interaction(
+            function="generate_json_reply",
+            status="error",
+            path="json",
+            latency_ms=int((time.monotonic() - started_at) * 1000),
+            user_id=user_id,
+            conversation_id=conversation_id,
+            user_message=user_prompt,
+            error=str(exc),
+        )
         raise LLMServiceError(f"LLM request failed: {exc}") from exc
 
+    latency_ms = int((time.monotonic() - started_at) * 1000)
+    token_usage = _extract_token_usage(response)
     raw_reply = _extract_content(response.content)
     if not raw_reply:
         logger.error("LLM JSON 응답이 비어 있음: model=%s", config.LLM_MODEL)
+        _log_llm_interaction(
+            function="generate_json_reply",
+            status="empty",
+            path="json",
+            latency_ms=latency_ms,
+            user_id=user_id,
+            conversation_id=conversation_id,
+            user_message=user_prompt,
+            token_usage=token_usage,
+        )
         raise LLMServiceError("LLM JSON reply is empty.")
 
     try:
         parsed = _extract_json_object(raw_reply)
     except ValueError as exc:
         logger.exception("LLM JSON 파싱 실패: model=%s", config.LLM_MODEL)
+        _log_llm_interaction(
+            function="generate_json_reply",
+            status="invalid_json",
+            path="json",
+            latency_ms=latency_ms,
+            user_id=user_id,
+            conversation_id=conversation_id,
+            user_message=user_prompt,
+            response_text=raw_reply,
+            token_usage=token_usage,
+            error=str(exc),
+        )
         raise LLMServiceError(f"LLM JSON reply is invalid: {exc}") from exc
 
     logger.info(
         "llm_json_reply model=%s payload=%s",
         config.LLM_MODEL,
         json.dumps(parsed, ensure_ascii=False, default=str),
+    )
+    _log_llm_interaction(
+        function="generate_json_reply",
+        status="ok",
+        path="json",
+        latency_ms=latency_ms,
+        user_id=user_id,
+        conversation_id=conversation_id,
+        user_message=user_prompt,
+        response_text=raw_reply,
+        token_usage=token_usage,
     )
     return parsed
 

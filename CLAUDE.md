@@ -34,6 +34,8 @@ Flask-based Cube integration server with conversation persistence and CDN suppor
 
 - Code at home (no Cube access), test at office
 - Use `.env` file for local overrides; never commit it
+- **`.env` overrides exported env vars** — `api/config.py` loads `.env` with `override=True` by default, so editing `.env` always takes effect (production shells often pre-export `LLM_*` etc.). Set `DOTENV_OVERRIDE=false` to invert this — the test suite does so via `conftest.py` to keep `monkeypatch.setenv` authoritative.
+- **File delivery uses `FILE_DELIVERY_*` env vars** — not `CDN_*` (legacy name). `FILE_DELIVERY_BASE_URL` defaults to `${WEB_APP_URL}/file-delivery/files`; storage dir, size limits, allowed extensions, and thumbnail sizes are all `FILE_DELIVERY_*` (see `api/config.py`).
 - Empty `REDIS_URL` or `AFM_MONGO_URI` falls back to in-memory storage — useful for home dev, not for production.
 - `pip install -r requirements.txt` to set up
 - `python index.py` — run Flask dev server on `0.0.0.0:5000`
