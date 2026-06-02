@@ -79,6 +79,12 @@ CUBE_QUEUE_REDIS_URL = REDIS_URL
 CUBE_QUEUE_NAME = os.environ.get("CUBE_QUEUE_NAME", "cube:incoming")
 CUBE_QUEUE_PROCESSING_NAME = os.environ.get("CUBE_QUEUE_PROCESSING_NAME", f"{CUBE_QUEUE_NAME}:processing")
 CUBE_MESSAGE_DEDUP_TTL_SECONDS = int(os.environ.get("CUBE_MESSAGE_DEDUP_TTL_SECONDS", 3600))
+# 처리 완료한 메시지의 멱등성 마커 보존 시간(초). 워커 재시작 복구(recover) 시 이미 응답을
+# 보낸 메시지를 다시 처리해 중복 답변이 나가는 것을 막는다. message_id 기준으로 기록한다.
+CUBE_MESSAGE_PROCESSED_TTL_SECONDS = int(os.environ.get("CUBE_MESSAGE_PROCESSED_TTL_SECONDS", 3600))
+# 큐에 쌓인 메시지가 이 시간(초)보다 오래되면 워커가 응답하지 않고 폐기한다.
+# LLM/워커 다운 후 재기동 시 오래된 질문에 뒤늦게 답하는 문제를 방지한다. 0(또는 음수)이면 비활성화.
+CUBE_QUEUE_MESSAGE_TTL_SECONDS = int(os.environ.get("CUBE_QUEUE_MESSAGE_TTL_SECONDS", 300))
 CUBE_QUEUE_BLOCK_TIMEOUT_SECONDS = int(os.environ.get("CUBE_QUEUE_BLOCK_TIMEOUT_SECONDS", 5))
 CUBE_QUEUE_MAX_RETRIES = int(os.environ.get("CUBE_QUEUE_MAX_RETRIES", 3))
 CUBE_WORKER_RETRY_DELAY_SECONDS = int(os.environ.get("CUBE_WORKER_RETRY_DELAY_SECONDS", 5))
