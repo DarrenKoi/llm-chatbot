@@ -67,6 +67,24 @@ class DatePickerIntent(BaseModel):
     required: bool = True
 
 
+class ButtonIntent(BaseModel):
+    """제출(콜백 트리거) 버튼.
+
+    Cube는 사용자가 버튼 셀을 눌렀을 때만 callbackaddress 로 결과를 POST 한다.
+    choice/input/date 같은 입력 블록을 emit 한 응답에는 반드시 ButtonIntent 가
+    하나 이상 포함되어야 staged 값이 서버로 돌아온다. 누락된 경우
+    intent_renderer 가 기본 "보내기" 버튼을 자동 보강한다.
+    """
+
+    kind: Literal["button"] = "button"
+    text: str
+    processid: str = "SendButton"
+    value: str = ""
+    confirmmsg: str = ""
+    bgcolor: str = ""
+    textcolor: str = ""
+
+
 class RawBlockIntent(BaseModel):
     """추상 BlockIntent로 표현되지 않는 케이스용 escape hatch.
 
@@ -87,9 +105,29 @@ class RawBlockIntent(BaseModel):
 
 
 BlockIntent = Annotated[
-    TextIntent | TableIntent | ImageIntent | ChoiceIntent | InputIntent | DatePickerIntent | RawBlockIntent,
+    TextIntent
+    | TableIntent
+    | ImageIntent
+    | ChoiceIntent
+    | InputIntent
+    | DatePickerIntent
+    | ButtonIntent
+    | RawBlockIntent,
     Field(discriminator="kind"),
 ]
+
+
+_INTERACTIVE_INTENT_TYPES: tuple[type, ...] = (ChoiceIntent, InputIntent, DatePickerIntent)
+
+
+def is_interactive_intent(intent: BaseModel) -> bool:
+    """사용자 입력을 staged 한 뒤 제출 버튼이 필요한 블록인지 판정.
+
+    RawBlockIntent 는 작성자가 직접 버튼까지 구성하는 escape hatch 이므로
+    제외한다. 새 입력형 intent 가 추가되면 _INTERACTIVE_INTENT_TYPES 한 군데만
+    수정하면 된다.
+    """
+    return isinstance(intent, _INTERACTIVE_INTENT_TYPES)
 
 
 class ReplyIntent(BaseModel):

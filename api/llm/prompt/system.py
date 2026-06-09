@@ -19,7 +19,7 @@ DEFAULT_SYSTEM_PROMPT = (
     '기본은 {"kind":"text","text":"사용자에게 보낼 문장"} 블록입니다. '
     "다음 중 하나에 해당할 때만 구조 블록으로 승격하세요:\n"
     "1) 정확한 레이아웃이 필요할 때 — 표(`table`), 이미지(`image`)\n"
-    "2) 사용자 입력이 필요할 때 — 선택(`choice`), 입력(`input`), 날짜(`date`)\n"
+    "2) 사용자 입력이 필요할 때 — 선택(`choice`), 입력(`input`), 날짜(`date`) + 제출 버튼(`button`)\n"
     "3) 분할 시 의미가 깨질 때 — 한 메시지에 묶어 보내야 할 때\n"
     "\n"
     "[허용 스키마]\n"
@@ -31,12 +31,24 @@ DEFAULT_SYSTEM_PROMPT = (
     '- input: {"kind":"input","label":"입력 라벨","placeholder":"입력 힌트","processid":"Sentence",'
     '"min_length":-1,"max_length":-1,"required":true}\n'
     '- date: {"kind":"date","label":"날짜 라벨","default":"","processid":"SelectDate","required":true}\n'
-    "- kind 값은 text, table, image, choice, input, date 중 하나만 사용하세요. 클래스명이나 다른 이름을 쓰지 마세요.\n"
+    '- button: {"kind":"button","text":"버튼 라벨","processid":"SendButton","value":"","confirmmsg":""}\n'
+    "- kind 값은 text, table, image, choice, input, date, button 중 하나만 사용하세요. "
+    "클래스명이나 다른 이름을 쓰지 마세요.\n"
     "- 필수 필드를 확신할 수 없는 구조 블록은 만들지 말고 text 블록으로 설명하세요.\n"
+    "\n"
+    "[제출 버튼 — 매우 중요]\n"
+    "- choice/input/date 블록을 emit 할 때는 반드시 같은 응답에 button 블록을 하나 포함하세요. "
+    "Cube 는 사용자가 button 셀을 눌렀을 때만 staged 값을 서버로 POST 합니다. button 이 없으면 "
+    "사용자가 값을 채워도 회신 경로가 없습니다.\n"
+    '- 버튼 라벨은 맥락에 맞게 정하세요(예: "보내기", "예약", "다음"). 동일한 워크플로 단계를 '
+    "구분해야 하면 value 필드에 식별자를 넣으세요.\n"
+    "- 안전장치로 시스템이 누락된 버튼을 자동 보강하지만, 라벨/색상이 일반 기본값으로 대체되므로 "
+    "가능한 한 직접 적절한 button 블록을 명시하세요.\n"
     "\n"
     "[콜백 플래그]\n"
     "- choice/input/date 블록을 하나라도 포함하면 needs_callback=true로 설정하세요.\n"
-    "- 그 외(text/table/image만 있는 경우)는 needs_callback=false 입니다.\n"
+    "- 그 외(text/table/image/button만 있는 경우)는 needs_callback=false 입니다. "
+    "단, 보통 button 은 입력 블록과 함께 등장하므로 같이 needs_callback=true 가 됩니다.\n"
     "\n"
     "[JSON 포맷 규칙]\n"
     "- 할당문, 파이썬 객체 표기, 주석, markdown fence를 쓰지 마세요.\n"
@@ -47,12 +59,13 @@ DEFAULT_SYSTEM_PROMPT = (
     '예) 단순 답변: {"blocks":[{"kind":"text","text":"안녕하세요. 어떻게 도와드릴까요?"}],"needs_callback":false}\n'
     "예) 표 응답:\n"
     '{"blocks":[{"kind":"table","headers":["항목","값"],"rows":[["A","1"],["B","2"]]}],"needs_callback":false}\n'
-    "예) 두 가지 옵션 묻기:\n"
+    "예) 두 가지 옵션 묻기 (button 포함):\n"
     '{"blocks":[\n'
     '  {"kind":"text","text":"어떤 형식으로 받으시겠어요?"},\n'
     '  {"kind":"choice","question":"형식","options":[\n'
     '     {"label":"PDF","value":"pdf"},{"label":"엑셀","value":"xlsx"}],\n'
-    '   "processid":"SelectFormat"}\n'
+    '   "processid":"SelectFormat"},\n'
+    '  {"kind":"button","text":"보내기","processid":"SendButton"}\n'
     '],"needs_callback":true}\n'
     "\n"
     "[잘못된 출력 예시]\n"

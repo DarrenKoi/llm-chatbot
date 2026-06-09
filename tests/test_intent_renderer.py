@@ -4,11 +4,13 @@ import pytest
 
 from api.cube import rich_blocks
 from api.cube.intent_renderer import (
+    ensure_submit_button,
     intent_to_block,
     intents_to_blocks,
     intents_to_content_item,
 )
 from api.cube.intents import (
+    ButtonIntent,
     ChoiceIntent,
     ChoiceOption,
     DatePickerIntent,
@@ -104,6 +106,30 @@ class TestIntentToBlock:
         col = block.rows[0]["column"][0]
         assert col["type"] == "datepicker"
         assert col["control"]["value"] == "2026/04/20"
+
+    def test_button_intent_renders_button_cell(self):
+        block = intent_to_block(
+            ButtonIntent(
+                text="예약",
+                processid="ReserveBtn",
+                value="reserve",
+                bgcolor="#0066cc",
+                textcolor="#ffffff",
+            )
+        )
+        col = block.rows[0]["column"][0]
+        assert col["type"] == "button"
+        assert col["control"]["processid"] == "ReserveBtn"
+        assert col["control"]["text"] == ["예약", "", "", "", ""]
+        assert col["control"]["value"] == "reserve"
+        assert col["control"]["bgcolor"] == "#0066cc"
+        assert col["control"]["textcolor"] == "#ffffff"
+        assert block.requestid == ["ReserveBtn"]
+
+    def test_button_intent_uses_send_button_default_processid(self):
+        block = intent_to_block(ButtonIntent(text="보내기"))
+        col = block.rows[0]["column"][0]
+        assert col["control"]["processid"] == "SendButton"
 
     def test_raw_block_intent_passes_rows_through_unchanged(self):
         custom_rows = [
@@ -208,3 +234,101 @@ def test_intent_to_block_rejects_unknown_type():
 
     with pytest.raises(TypeError, match="Unknown intent kind"):
         intent_to_block(FakeIntent())  # type: ignore[arg-type]
+
+
+class TestEnsureSubmitButton:
+    def test_appends_button_when_choice_lacks_one(self):
+        intents = [
+            ChoiceIntent(
+                question="Q",
+                options=[ChoiceOption(label="A", value="a")],
+                processid="P",
+            )
+        ]
+        result = ensure_submit_button(intents)
+        assert len(result) == 2
+        assert isinstance(result[-1], ButtonIntent)
+        assert result[-1].processid == "SendButton"
+        assert result[-1].text == "보내기"
+
+    def test_appends_button_when_input_lacks_one(self):
+        intents = [InputIntent(label="이름")]
+        result = ensure_submit_button(intents)
+        assert isinstance(result[-1], ButtonIntent)
+
+    def test_appends_button_when_date_lacks_one(self):
+        intents = [DatePickerIntent(label="출발일")]
+        result = ensure_submit_button(intents)
+        assert isinstance(result[-1], ButtonIntent)
+
+    def test_does_not_duplicate_existing_button(self):
+        intents = [
+            InputIntent(label="이름"),
+            ButtonIntent(text="확인", processid="ConfirmBtn"),
+        ]
+        result = ensure_submit_button(intents)
+        assert result == intents
+        assert sum(isinstance(i, ButtonIntent) for i in result) == 1
+
+    def test_does_not_append_for_text_only(self):
+        intents = [TextIntent(text="hello")]
+        result = ensure_submit_button(intents)
+        assert result == intents
+
+    def test_does_not_append_for_table_or_image_only(self):
+        intents = [
+            TableIntent(headers=["h"], rows=[["v"]]),
+            ImageIntent(source_url="http://x"),
+        ]
+        result = ensure_submit_button(intents)
+        assert result == intents
+
+    def test_skips_for_raw_block_only(self):
+        # raw_block 은 작성자가 직접 버튼을 포함하는 escape hatch
+        intents = [RawBlockIntent(rows=[])]
+        result = ensure_submit_button(intents)
+        assert result == intents
+
+
+class TestIntentsToContentItemAutoButton:
+    def test_choice_without_button_gets_auto_appended_button_cell(self):
+        item = intents_to_content_item(
+            [
+                ChoiceIntent(
+                    question="Q",
+                    options=[ChoiceOption(label="A", value="a")],
+                    processid="P",
+                )
+            ],
+        )
+        # 마지막 row 의 cell type 이 button 이어야 함 — 자동 보강된 SendButton
+        last_row_cells = item["body"]["row"][-1]["column"]
+        assert last_row_cells[0]["type"] == "button"
+        assert last_row_cells[0]["control"]["processid"] == "SendButton"
+        # SendButton 이 requestid 에 등록되어야 콜백 결과 dispatch 시 정상 매칭됨
+        assert "SendButton" in item["process"]["requestid"]
+
+    def test_choice_with_explicit_button_does_not_duplicate(self):
+        item = intents_to_content_item(
+            [
+                ChoiceIntent(
+                    question="Q",
+                    options=[ChoiceOption(label="A", value="a")],
+                    processid="P",
+                ),
+                ButtonIntent(text="예약", processid="ReserveBtn"),
+            ],
+        )
+        button_cells = [
+            row["column"][0]
+            for row in item["body"]["row"]
+            if row["column"] and row["column"][0]["type"] == "button"
+        ]
+        assert len(button_cells) == 1
+        assert button_cells[0]["control"]["processid"] == "ReserveBtn"
+
+    def test_text_only_response_does_not_get_button(self):
+        item = intents_to_content_item([TextIntent(text="hi")])
+        for row in item["body"]["row"]:
+            for cell in row["column"]:
+                assert cell["type"] != "button"

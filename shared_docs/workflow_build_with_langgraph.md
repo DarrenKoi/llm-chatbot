@@ -1,9 +1,11 @@
 # LangGraph 워크플로 핸드북
 
-> 최종 업데이트: 2026-04-28
+> 최종 업데이트: 2026-05-05
 
 이 문서는 `shared_docs/`에서 팀원이 공통으로 참고할 수 있도록, 현재 저장소의 워크플로 관련 문서를 하나로 정리한 통합 안내서입니다.
 대상 원문은 `doc/code_explain/workflows.md`, `doc/guideline/workflow_등록_가이드.md`, `doc/guideline/workflow_추가_가이드.md`, `doc/guideline/workflow_상태_관리_가이드.md`이며, 실제 코드 구조에 맞게 중복과 오래된 설명을 정리했습니다.
+
+> ⚠️ **최근 변경 (2026-05-05)** — `api/cube/intents.py` 에 `ButtonIntent` 가 추가되고 `intents_to_content_item()` 이 입력형 블록(choice/input/date)에 제출 버튼이 빠진 경우 기본 "보내기" 버튼을 자동 보강합니다. 사용자에게 라디오/체크박스/입력란/날짜 선택을 보내는 워크플로는 회신을 받으려면 같은 응답에 button 블록이 포함되어야 합니다. 자세한 규약과 명시적 사용 예는 [`richnotification_intents.md`](./richnotification_intents.md)를 참고하십시오.
 
 > ⚠️ **최근 변경 (2026-04-28)** — MCP 패키지가 `api/mcp/` → `api/mcp_client/`, `devtools/mcp/` → `devtools/mcp_client/` 로 정리되었고 호환성 shim은 제거되었습니다. 본 문서의 모든 예시와 promote 동작 설명은 새 경로 기준입니다. 이전 경로(`api.mcp`, `devtools.mcp`)는 더 이상 존재하지 않습니다.
 
@@ -296,6 +298,7 @@ builder.add_conditional_edges("resolve", _route_after_resolve)
 
 - 사용자에게 질문해야 할 때 `interrupt({"reply": ...})`
 - 다음 사용자 입력에서 `Command(resume=...)`
+- interrupt 응답이 단순 텍스트가 아니라 선택지/입력 폼이면 `ReplyIntent.blocks` 에 `ChoiceIntent` / `InputIntent` / `DatePickerIntent` 와 함께 **`ButtonIntent` 를 같이** 포함합니다. 버튼이 빠진 경우 렌더러가 기본 "보내기" 버튼을 자동 보강하지만, 라벨이나 `processid` 를 워크플로 단계와 맞춰야 한다면 명시적으로 emit 하십시오. 자세한 내용은 [`richnotification_intents.md`](./richnotification_intents.md) 참조.
 
 규모가 커지면 interrupt payload를 아래처럼 조금 더 구조화해 두는 편이 좋습니다.
 

@@ -10,6 +10,7 @@ LLM 측 의도 객체(api.cube.intents)를 받아 Cube 규격 Block(api.cube.ric
 from api.cube import rich_blocks
 from api.cube.intents import (
     BlockIntent,
+    ButtonIntent,
     ChoiceIntent,
     DatePickerIntent,
     ImageIntent,
@@ -17,7 +18,11 @@ from api.cube.intents import (
     RawBlockIntent,
     TableIntent,
     TextIntent,
+    is_interactive_intent,
 )
+
+_FALLBACK_SUBMIT_TEXT = "보내기"
+_FALLBACK_SUBMIT_PROCESSID = "SendButton"
 
 
 def intent_to_block(intent: BlockIntent) -> rich_blocks.Block:
@@ -51,6 +56,15 @@ def intent_to_block(intent: BlockIntent) -> rich_blocks.Block:
             processid=intent.processid,
             default=intent.default,
             required=intent.required,
+        )
+    if isinstance(intent, ButtonIntent):
+        return rich_blocks.add_button(
+            intent.text,
+            processid=intent.processid,
+            value=intent.value,
+            confirmmsg=intent.confirmmsg,
+            bgcolor=intent.bgcolor,
+            textcolor=intent.textcolor,
         )
     if isinstance(intent, RawBlockIntent):
         return rich_blocks.Block(
@@ -92,9 +106,27 @@ def intents_to_history_text(intents: list[BlockIntent]) -> str:
             parts.append(f"[입력 요청] {intent.label}")
         elif isinstance(intent, DatePickerIntent):
             parts.append(f"[날짜 선택] {intent.label}")
+        elif isinstance(intent, ButtonIntent):
+            parts.append(f"[버튼] {intent.text}")
         elif isinstance(intent, RawBlockIntent):
             parts.append(f"[richnotification 블록] rows={len(intent.rows)}")
     return "\n".join(parts).strip()
+
+
+def ensure_submit_button(intents: list[BlockIntent]) -> list[BlockIntent]:
+    """입력형 블록이 있는데 ButtonIntent 가 없으면 기본 제출 버튼을 보강한다.
+
+    Cube 는 버튼 셀 클릭 시에만 callbackaddress 로 결과를 POST 하므로,
+    choice/input/date 같은 입력 블록을 보내고 버튼이 없으면 사용자가 값을
+    채워도 서버로 회신될 경로가 없다. LLM 또는 워크플로 코드가 버튼을 빠뜨린
+    경우의 안전장치다.
+    """
+    has_interactive = any(is_interactive_intent(intent) for intent in intents)
+    if not has_interactive:
+        return intents
+    if any(isinstance(intent, ButtonIntent) for intent in intents):
+        return intents
+    return [*intents, ButtonIntent(text=_FALLBACK_SUBMIT_TEXT, processid=_FALLBACK_SUBMIT_PROCESSID)]
 
 
 def intents_to_content_item(
@@ -105,8 +137,13 @@ def intents_to_content_item(
     sequence: str = "1",
     summary: str | list[str] = "",
 ) -> dict:
-    """의도 리스트를 단일 content[] 항목 dict로 변환한다."""
-    blocks = intents_to_blocks(intents)
+    """의도 리스트를 단일 content[] 항목 dict로 변환한다.
+
+    입력형 블록(choice/input/date)이 있으나 ButtonIntent 가 빠져 있으면 기본
+    제출 버튼을 자동으로 덧붙인다. (ensure_submit_button 참고)
+    """
+    safe_intents = ensure_submit_button(intents)
+    blocks = intents_to_blocks(safe_intents)
     return rich_blocks.add_container(
         *blocks,
         callback_address=callback_address,

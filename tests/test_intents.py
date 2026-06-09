@@ -5,6 +5,7 @@ from pydantic import TypeAdapter, ValidationError
 
 from api.cube.intents import (
     BlockIntent,
+    ButtonIntent,
     ChoiceIntent,
     ChoiceOption,
     DatePickerIntent,
@@ -14,6 +15,7 @@ from api.cube.intents import (
     ReplyIntent,
     TableIntent,
     TextIntent,
+    is_interactive_intent,
 )
 
 # Discriminated union을 dict로부터 검증하려면 TypeAdapter 사용
@@ -86,6 +88,18 @@ class TestDiscriminator:
         assert intent.requestid == ["CustomProcess"]
         assert intent.mandatory == []  # default
 
+    def test_button_kind_resolves(self):
+        intent = _block_adapter.validate_python(
+            {
+                "kind": "button",
+                "text": "보내기",
+            }
+        )
+        assert isinstance(intent, ButtonIntent)
+        assert intent.processid == "SendButton"  # default
+        assert intent.value == ""
+        assert intent.confirmmsg == ""
+
     def test_unknown_kind_raises_validation_error(self):
         with pytest.raises(ValidationError):
             _block_adapter.validate_python({"kind": "unknown", "text": "x"})
@@ -136,3 +150,33 @@ class TestReplyIntent:
                     "blocks": [{"kind": "nope"}],
                 }
             )
+
+
+class TestIsInteractiveIntent:
+    def test_choice_is_interactive(self):
+        assert is_interactive_intent(
+            ChoiceIntent(question="Q", options=[ChoiceOption(label="A", value="a")])
+        )
+
+    def test_input_is_interactive(self):
+        assert is_interactive_intent(InputIntent(label="이름"))
+
+    def test_date_is_interactive(self):
+        assert is_interactive_intent(DatePickerIntent(label="출발일"))
+
+    def test_text_is_not_interactive(self):
+        assert not is_interactive_intent(TextIntent(text="hi"))
+
+    def test_table_is_not_interactive(self):
+        assert not is_interactive_intent(TableIntent(headers=["h"], rows=[["v"]]))
+
+    def test_image_is_not_interactive(self):
+        assert not is_interactive_intent(ImageIntent(source_url="http://x"))
+
+    def test_button_is_not_interactive(self):
+        # 버튼 자체는 staged 입력이 아니므로 fallback 보강 대상이 아님
+        assert not is_interactive_intent(ButtonIntent(text="보내기"))
+
+    def test_raw_block_is_not_interactive(self):
+        # raw_block 은 작성자가 직접 버튼을 포함시키는 escape hatch — 자동 보강하지 않음
+        assert not is_interactive_intent(RawBlockIntent(rows=[]))

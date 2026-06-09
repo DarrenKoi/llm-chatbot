@@ -51,6 +51,7 @@ llm_chatbot/
 
 - `api/cube/`
   Cube webhook 입력 처리 계층입니다. `router.py`는 `/api/v1/cube/receiver`를 받고, `service.py`, `queue.py`, `worker.py`가 실제 처리와 큐 소비를 담당합니다.
+  richnotification 응답 작성 규약(특히 사용자 입력을 staged → POST 로 회신받기 위한 `ButtonIntent` 페어링) 은 [`richnotification_intents.md`](./richnotification_intents.md) 에 정리되어 있습니다.
 - `api/file_delivery/`
   업로드, 목록 조회, 다운로드, 이미지 리사이즈를 담당합니다.
 - `api/profile/`
