@@ -2,6 +2,7 @@
 export default defineNuxtConfig({
   ssr: false,
   modules: ['@nuxt/ui'],
+  components: [{ path: '~/components', pathPrefix: false }],
   app: {
     baseURL: '/chat/',
     head: {
