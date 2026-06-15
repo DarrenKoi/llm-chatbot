@@ -92,6 +92,58 @@ def test_extract_cube_request_fields_from_rich_notification_callback():
     assert str(fields["message_id"]).startswith("m1:callback:")
 
 
+def test_extract_cube_request_fields_from_wrapped_callback_with_empty_processdata():
+    """'자세히 보기' 등 후속 버튼 콜백: richnotificationmessage 래퍼 안에
+    processdata는 비어 있고 응답이 result.resultdata에 담겨 온다."""
+    payload = {
+        "richnotificationmessage": {
+            "header": {
+                "from": {
+                    "uniquename": "u1",
+                    "messageid": "m2",
+                    "channelid": 505912193,
+                    "username": "tester",
+                }
+            },
+            "process": {"processdata": ""},
+            "result": {
+                "resultdata": [
+                    {"requestid": "Detail", "value": ["view"], "text": ["자세히 보기"]},
+                ]
+            },
+        }
+    }
+
+    fields = _extract_cube_request_fields(payload)
+
+    assert fields is not None
+    assert fields["user_id"] == "u1"
+    assert fields["channel_id"] == "505912193"
+    assert fields["user_name"] == "tester"
+    # processdata가 비어 있어도 resultdata에서 메시지를 추출해야 한다.
+    assert fields["message"] == "Detail: 자세히 보기 (view)"
+    # messageid가 클릭마다 고유하므로 그대로 사용한다(콜백 해시 합성 X).
+    assert fields["message_id"] == "m2"
+
+
+def test_extract_cube_request_fields_wrapped_processdata_unchanged():
+    """processdata에 텍스트가 있는 일반 메시지는 기존 동작을 유지한다."""
+    payload = {
+        "richnotificationmessage": {
+            "header": {"from": {"uniquename": "u1", "messageid": "m1", "channelid": "c1", "username": "tester"}},
+            "process": {"processdata": "안녕"},
+            "result": {"resultdata": [{"requestid": "Detail", "value": ["view"], "text": ["자세히 보기"]}]},
+        }
+    }
+
+    fields = _extract_cube_request_fields(payload)
+
+    assert fields is not None
+    # processdata가 있으면 resultdata보다 우선한다(폴백은 비어 있을 때만).
+    assert fields["message"] == "안녕"
+    assert fields["message_id"] == "m1"
+
+
 @patch("api.cube.router.accept_cube_message")
 def test_receive_cube_valid(mock_accept_cube_message, client):
     mock_accept_cube_message.return_value = CubeAcceptedMessage(

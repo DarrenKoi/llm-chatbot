@@ -130,12 +130,17 @@ def extract_cube_request_fields(payload: dict[str, Any]) -> dict[str, str | None
         sender = _extract_sender(payload)
         if not isinstance(sender, dict) or not isinstance(process, dict):
             return None
+        message = process.get("processdata")
+        if not (isinstance(message, str) and message.strip()):
+            # '자세히 보기' 등 후속 요청 버튼 콜백은 processdata가 비어 있고
+            # 응답이 richnotificationmessage.result.resultdata에 담겨 온다.
+            message = _extract_callback_message(rich_message)
         return {
             "user_id": user_id,
             "message_id": str(sender.get("messageid") or ""),
             "channel_id": str(sender.get("channelid") or ""),
             "user_name": str(sender.get("username") or ""),
-            "message": process.get("processdata"),
+            "message": message,
         }
 
     sender = _extract_sender(payload)
