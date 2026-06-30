@@ -13,6 +13,7 @@ class UserProfile:
     organization: str = ""
     work_location: str = ""
     role: str = ""
+    responsibility: str = ""
     email: str = ""
     source: str = ""
 
@@ -29,6 +30,8 @@ class UserProfile:
             lines.append(f"- 근무지: {self.work_location}")
         if self.role:
             lines.append(f"- 직무: {self.role}")
+        if self.responsibility:
+            lines.append(f"- 담당 업무: {self.responsibility}")
         if self.source:
             lines.append(f"- 프로필 출처: {self.source}")
         return "\n".join(lines)

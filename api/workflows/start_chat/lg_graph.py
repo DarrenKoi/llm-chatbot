@@ -10,6 +10,7 @@ from langchain_core.messages import AIMessage
 from langgraph.graph import END, StateGraph
 
 from api.workflows.start_chat.lg_state import StartChatState
+from api.workflows.start_chat.member_lookup import member_lookup_node
 
 log = logging.getLogger(__name__)
 
@@ -185,6 +186,7 @@ def build_lg_graph() -> StateGraph:
     builder.add_node("entry", entry_node)
     builder.add_node("classify", classify_node)
     builder.add_node("retrieve_context", retrieve_context_node)
+    builder.add_node("member_lookup", member_lookup_node)
     builder.add_node("generate_reply", generate_reply_node)
 
     # 자식 워크플로 서브그래프
@@ -195,7 +197,8 @@ def build_lg_graph() -> StateGraph:
     builder.set_entry_point("entry")
     builder.add_edge("entry", "classify")
     builder.add_conditional_edges("classify", _route_after_classify)
-    builder.add_edge("retrieve_context", "generate_reply")
+    builder.add_edge("retrieve_context", "member_lookup")
+    builder.add_edge("member_lookup", "generate_reply")
     builder.add_edge("generate_reply", END)
     for workflow_id in handoff_subgraphs:
         builder.add_edge(workflow_id, END)

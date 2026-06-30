@@ -74,6 +74,19 @@ USER_PROFILE_API_TIMEOUT_SECONDS = float(os.environ.get("USER_PROFILE_API_TIMEOU
 USER_PROFILE_REDIS_URL = os.environ.get("USER_PROFILE_REDIS_URL", REDIS_URL)
 USER_PROFILE_REDIS_KEY_PREFIX = os.environ.get("USER_PROFILE_REDIS_KEY_PREFIX", "user:profile")
 
+# member_info (사내 구성원 디렉터리 REST — oss-mcp-fastapi)
+# 빈 BASE_URL이거나 ENABLED=false면 모든 member_info 기능은 무동작(집/테스트 안전).
+MEMBER_INFO_ENABLED = os.environ.get("MEMBER_INFO_ENABLED", "false").strip().lower() in ("1", "true", "yes", "on")
+MEMBER_INFO_BASE_URL = os.environ.get("MEMBER_INFO_BASE_URL", "").strip().rstrip("/")
+MEMBER_INFO_TIMEOUT_SECONDS = float(os.environ.get("MEMBER_INFO_TIMEOUT_SECONDS", "2.0"))
+MEMBER_INFO_RESULT_LIMIT = int(os.environ.get("MEMBER_INFO_RESULT_LIMIT", "5"))
+MEMBER_INFO_INCLUDE_CONTACT = os.environ.get("MEMBER_INFO_INCLUDE_CONTACT", "true").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+    "on",
+)
+
 # Cube queue (shares the primary Redis URL)
 CUBE_QUEUE_REDIS_URL = REDIS_URL
 CUBE_QUEUE_NAME = os.environ.get("CUBE_QUEUE_NAME", "cube:incoming")

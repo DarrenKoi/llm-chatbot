@@ -134,10 +134,11 @@ def _normalize_profile(payload: dict[str, Any], *, user_id: str, default_source:
     organization = _clean_text(payload.get("organization") or payload.get("org_name"))
     work_location = _clean_text(payload.get("work_location") or payload.get("site") or payload.get("location"))
     role = _clean_text(payload.get("role") or payload.get("job_title") or payload.get("position"))
+    responsibility = _clean_text(payload.get("responsibility") or payload.get("resp_cont"))
     email = _clean_text(payload.get("email"))
     source = _clean_text(payload.get("source")) or default_source
 
-    if not any([name, team, organization, work_location, role, email]):
+    if not any([name, team, organization, work_location, role, responsibility, email]):
         return None
 
     return UserProfile(
@@ -147,6 +148,7 @@ def _normalize_profile(payload: dict[str, Any], *, user_id: str, default_source:
         organization=organization,
         work_location=work_location,
         role=role,
+        responsibility=responsibility,
         email=email,
         source=source,
     )
