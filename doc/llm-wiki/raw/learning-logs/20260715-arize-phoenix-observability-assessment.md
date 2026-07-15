@@ -103,7 +103,7 @@ batch exporter가 production에 적합하지만 process 종료 전에 `shutdown(
 | 게이트 | 통과 기준 | 통과하지 못하면 |
 | --- | --- | --- |
 | 실행 플랫폼 | version을 고정한 Phoenix container를 독립 service/pod로 실행 가능 | 운영 도입 불가; 개발자 local Phoenix만 가능 |
-| 데이터베이스 | PostgreSQL 14+ 인스턴스, persistent storage, 자동 backup/PITR 및 restore 테스트 가능 | production에 SQLite 사용하지 말고 보류 |
+| 데이터베이스 | 공식 backend인 PostgreSQL 14+와 backup/restore를 준비하거나, PoC 범위를 단일 process·single-user persistent SQLite로 명시 | MongoDB 대체 불가; shared production 승인은 보류 |
 | 앱→collector 네트워크 | Flask/Cube daemon host에서 internal OTLP HTTP endpoint(`/v1/traces`) 접근 가능 | trace export 불가 |
 | 사용자→UI 네트워크 | 관리자/개발자가 사내 DNS + TLS reverse proxy를 통해 UI 접근 가능 | 운영 조사 효용 저하 |
 | 인증/비밀 | auth, 강한 secret, system API key, 비밀 저장소, 키 교체 절차 가능 | prompt/trace UI 노출 위험 |
@@ -126,6 +126,30 @@ Dev workflow runner ------------> Phoenix development service --> dev SQLite/Pos
 ```
 
 Phoenix는 containerized web UI + OTLP collector + SQL backend로 구성된 앱이다. Flask 앱에 blueprint로 넣거나 uWSGI worker마다 Phoenix server를 띄우면 안 된다. 가장 안전한 구조는 **Phoenix server를 별도 internal cloud service로 배포**하고, 챗봇 프로세스에는 가벼운 OTLP exporter/instrumentor만 두는 것이다. [Phoenix architecture](https://arize.com/docs/phoenix/self-hosting/architecture)
+
+### 현재 uWSGI의 세 번째 daemon으로 실행하는 방안
+
+**기술적으로는 가능하지만, 단일 host·소규모 PoC용으로만 권장한다.** Phoenix는 `pip install arize-phoenix` 후 `phoenix serve`로 독립 long-running server를 실행하는 공식 CLI를 제공한다. 따라서 `wsgi.ini`의 Cube/scheduler와 같은 수준에 개념적으로 다음 daemon을 추가할 수 있다. [Phoenix terminal deployment](https://arize.com/docs/phoenix/self-hosting/deployment-options)
+
+```ini
+# 예시일 뿐이며, 실제 경로는 배포 환경에서 고정한 Phoenix 전용 venv로 변경
+attach-daemon = /project/workSpace/phoenix-venv/bin/phoenix serve
+```
+
+이 방식은 다음 조건을 모두 만족할 때만 적합하다.
+
+- internal cloud가 반드시 **단일 앱 instance**를 유지한다. 앱 instance가 수평 확장되면 각 host의 SQLite/Phoenix로 trace가 분산되고 port·저장소 일관성이 깨진다.
+- `PHOENIX_WORKING_DIR`를 `/project/workSpace/...`와 같은 **재시작 후에도 남는 writable persistent volume**에 둔다. 기본 temporary SQLite 경로를 쓰면 재배포 시 trace가 사라질 수 있다.
+- Phoenix server 패키지는 버전을 고정하고 가능하면 챗봇 venv와 분리한다. Phoenix 서버 의존성이 Flask 앱 의존성을 바꾸는 것을 피한다.
+- Phoenix가 앱과 함께 restart되고 upgrade 시 DB migration도 시작되는 운영 결합을 수용한다. collector 정지는 챗봇 응답을 깨지 않도록 fail-open이어야 한다.
+- port 6006(UI + OTLP HTTP) 또는 4317(OTLP gRPC)의 사내 접근·충돌·방화벽을 확인하고 Phoenix 프로세스의 health/log/disk 사용량을 별도로 감시한다.
+- Phoenix 설정을 배포 플랫폼/비밀 저장소에서 **실제 OS environment**로 주입한다. 현재 `.env`는 `api/config.py:5-17`을 import하는 Python 프로세스에서만 `load_dotenv()`되므로, 독립 `phoenix` CLI가 자동으로 읽는다고 가정하면 안 된다.
+
+### MongoDB를 Phoenix 저장소로 쓸 수 있나
+
+**쓸 수 없다.** Phoenix OSS가 지원하는 database backend는 SQLite와 PostgreSQL 두 개다. 현재 `AFM_MONGO_URI`의 MongoDB는 챗봇 conversation history와 LangGraph checkpoint에 계속 사용하고, Phoenix trace/eval/dataset은 독립 SQLite 파일에 저장해야 한다. MongoDB를 PostgreSQL 대체제로 지정하는 adapter/config는 공식적으로 없다. [Phoenix storage architecture](https://arize.com/docs/phoenix/self-hosting/architecture), [Phoenix configuration](https://arize.com/docs/phoenix/self-hosting/configuration)
+
+PostgreSQL이 없는 현재 조건에서는 **단일 Phoenix daemon + persistent SQLite + 짧은 retention**이 현실적인 사내 PoC 안이다. 다만 공식 문서는 SQLite를 local development/single-user에, PostgreSQL을 production/multi-user/HA에 권장한다. 여러 팀원이 동시 사용하거나 trace 량이 커지거나 app instance를 늘릴 예정이면 PostgreSQL 없이 운영 기준 PASS를 주면 안 된다. [Phoenix storage architecture](https://arize.com/docs/phoenix/self-hosting/architecture)
 
 | 항목 | Production | Devtools |
 | --- | --- | --- |
