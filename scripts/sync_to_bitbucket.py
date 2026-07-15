@@ -42,6 +42,7 @@ INCLUDE = [
     "index.py",
     "cube_worker.py",
     "scheduler_worker.py",
+    "phoenix_worker.py",
 ]
 
 # ──────────────────────────────────────────────

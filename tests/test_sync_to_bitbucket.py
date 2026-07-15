@@ -63,6 +63,7 @@ def test_main_copies_devtools_directory(tmp_path, monkeypatch, capsys):
     (project_root / "index.py").write_text("app = None\n", encoding="utf-8")
     (project_root / "cube_worker.py").write_text("cube = None\n", encoding="utf-8")
     (project_root / "scheduler_worker.py").write_text("scheduler = None\n", encoding="utf-8")
+    (project_root / "phoenix_worker.py").write_text("phoenix = None\n", encoding="utf-8")
 
     monkeypatch.setattr(sync_to_bitbucket, "PROJECT_ROOT", project_root)
     monkeypatch.setattr(sync_to_bitbucket.platform, "system", lambda: "TestOS")
@@ -76,8 +77,9 @@ def test_main_copies_devtools_directory(tmp_path, monkeypatch, capsys):
     sync_to_bitbucket.main()
 
     captured = capsys.readouterr()
-    assert "총 5개 파일 복사 완료" in captured.out
+    assert "총 6개 파일 복사 완료" in captured.out
     assert (destination / "devtools" / "scripts" / "promote.py").exists()
+    assert (destination / "phoenix_worker.py").exists()
 
 
 def test_main_rejects_destination_argument(monkeypatch):
@@ -104,6 +106,7 @@ def test_main_preserves_default_clean_paths_without_overwriting(tmp_path, monkey
     (project_root / "index.py").write_text("app = None\n", encoding="utf-8")
     (project_root / "cube_worker.py").write_text("cube = None\n", encoding="utf-8")
     (project_root / "scheduler_worker.py").write_text("scheduler = None\n", encoding="utf-8")
+    (project_root / "phoenix_worker.py").write_text("phoenix = None\n", encoding="utf-8")
     (destination / "api" / "cube" / "old.py").write_text("old = True\n", encoding="utf-8")
     (destination / "api" / "mcp_client" / "client.py").write_text("custom mcp\n", encoding="utf-8")
     (destination / "api" / "mcp_client" / "custom_only.py").write_text("custom only\n", encoding="utf-8")

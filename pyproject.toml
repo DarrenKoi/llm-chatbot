@@ -37,3 +37,8 @@ banned-module-level-imports = ["api"]
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.pytest.ini_options]
+# Phoenix's optional pytest plugin initializes ~/.phoenix during pytest startup.
+# This service does not use that plugin, so keep tests independent of home-directory writes.
+addopts = "-p no:phoenix"

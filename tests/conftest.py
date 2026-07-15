@@ -7,6 +7,8 @@ import pytest
 # 테스트는 개발자 로컬 .env가 monkeypatch한 환경변수를 덮어쓰지 않도록 dotenv override를 끈다.
 # (config.py의 load_dotenv(override=...) 기본값은 프로덕션용 True)
 os.environ.setdefault("DOTENV_OVERRIDE", "false")
+# 테스트 결과가 개발자별 .env 내용에 좌우되지 않도록 파일 로딩 자체를 비활성화한다.
+os.environ.setdefault("PYTHON_DOTENV_DISABLED", "true")
 
 # Ensure project root is on sys.path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))

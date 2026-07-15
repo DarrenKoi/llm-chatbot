@@ -14,6 +14,9 @@ langchain-openai
 langgraph
 langgraph-checkpoint-mongodb
 
+# Self-hosted Phoenix UI/OTLP server (SQLite by default)
+arize-phoenix==18.0.0
+
 # Test dependencies
 pytest
 pytest-mock
