@@ -1,8 +1,8 @@
 # Arize Phoenix observability 적용성 검토
 
 - 조사일: 2026-07-15
-- 범위: 현재 Flask + Redis Cube worker + LangGraph + `langchain-openai` 구조에 Phoenix OSS 적용 가능성 검토
-- 결론: **적용 가능하며, 워크플로/LLM 디버깅에는 분명한 이점이 있다.** 다만 Phoenix tracing만으로 응답 품질을 판정하거나 큐·데몬·인프라를 감시하고 경보를 보내지는 못한다. 따라서 기존 JSONL/상태 모니터링은 유지하고, Phoenix는 먼저 trace 분석 계층으로 추가하는 것이 안전하다.
+- 범위: 현재 Flask + Redis Cube worker + LangGraph + `langchain-openai` 운영 경로와 `devtools/workflow_runner` 두 경로에 Phoenix OSS 적용 가능성 검토
+- 결론: **코드/패키지 적합성은 PASS, 사내 배포 준비도는 CONDITIONAL PASS이다.** 운영과 devtools 모두 사용할 수 있지만 Phoenix server를 Flask/uWSGI 프로세스 안에 넣지 말고 별도 사내 서비스로 운영해야 한다. 사내 컨테이너, PostgreSQL, 저장소, 네트워크, TLS, 인증, 보안 승인 조건은 이 저장소만으로 확인할 수 없으므로 사내 PoC 전에 게이트 확인이 필요하다. 기존 JSONL/상태 모니터링은 유지하고 Phoenix는 trace 분석 계층으로 추가한다.
 
 ## 1. 현재 코드와의 적합성
 
@@ -88,7 +88,76 @@ production에서는 versioned Docker image, persistent PostgreSQL, TLS/reverse p
 
 batch exporter가 production에 적합하지만 process 종료 전에 `shutdown()`/flush가 필요하다. uWSGI reload와 daemon 종료 시 flush hook을 검증하지 않으면 마지막 spans가 유실될 수 있다. [Phoenix OTEL setup](https://arize.com/docs/phoenix/tracing/how-to-tracing/setup-tracing/setup-using-phoenix-otel)
 
-## 7. privacy/security 필수 조건
+## 7. 사내 internal cloud 실행 판정
+
+### 저장소에서 확인된 것
+
+- 앱 런타임은 Python 3.11이고, 현재 LangChain/LangGraph 버전은 Phoenix/OpenInference 공식 선언 범위와 맞는다.
+- 운영은 uWSGI Flask worker 2개와 Cube/scheduler daemon이 분리된 멀티프로세스 구조다(`wsgi.ini:12-19,41-45`).
+- 실제 LLM 워크플로는 Cube daemon의 `api/workflows/lg_orchestrator.py:164-194`에서 실행된다. Flask worker만 계측하면 핵심 trace가 빈다.
+- devtools는 port 5001의 독립 Flask runner이고 `devtools/workflow_runner/dev_orchestrator.py:144-234`에서 별도 graph를 stream한다. `api/`와 `devtools/`는 상호 import 금지이므로 계측 초기화도 각자 경로에 독립적으로 두어야 한다(`HARNESS.md:137-166`).
+- `requirements.txt`에 Phoenix/OpenTelemetry 패키지가 없고, 저장소에 Phoenix 배포용 Docker/Compose/Helm manifest도 없다. 즉 소프트웨어적 적합성은 있지만 사내 배포가 준비된 상태는 아니다.
+
+### 사내에서 반드시 확인할 게이트
+
+| 게이트 | 통과 기준 | 통과하지 못하면 |
+| --- | --- | --- |
+| 실행 플랫폼 | version을 고정한 Phoenix container를 독립 service/pod로 실행 가능 | 운영 도입 불가; 개발자 local Phoenix만 가능 |
+| 데이터베이스 | PostgreSQL 14+ 인스턴스, persistent storage, 자동 backup/PITR 및 restore 테스트 가능 | production에 SQLite 사용하지 말고 보류 |
+| 앱→collector 네트워크 | Flask/Cube daemon host에서 internal OTLP HTTP endpoint(`/v1/traces`) 접근 가능 | trace export 불가 |
+| 사용자→UI 네트워크 | 관리자/개발자가 사내 DNS + TLS reverse proxy를 통해 UI 접근 가능 | 운영 조사 효용 저하 |
+| 인증/비밀 | auth, 강한 secret, system API key, 비밀 저장소, 키 교체 절차 가능 | prompt/trace UI 노출 위험 |
+| 사내망 제약 | `PHOENIX_TELEMETRY_ENABLED=false`, 필요 시 `PHOENIX_ALLOW_EXTERNAL_RESOURCES=false`; OTLP Protobuf HTTP를 proxy가 차단하지 않음 | air-gapped/UI/export 오류 가능 |
+| 데이터 승인 | prompt, profile, 연락처, 파일 URL에 대한 masking/retention/접근권 정책 승인 | raw content 수집 금지; metadata-only PoC만 가능 |
+| 운영 안정성 | collector 장애 시 chatbot fail-open, uWSGI reload/daemon 종료 시 batch flush, 메모리/디스크 관측 가능 | 장애 감수가 되므로 production 활성화 보류 |
+
+Phoenix 공식 운영 가이드는 resource 정액을 일괄 제시하지 않고 ingestion volume, attribute cardinality, retention에 맞춰 memory와 storage를 관측·조정하라고 권고한다. 따라서 사무실 PoC에서 1일 실제 trace 량과 span 크기를 재고 retention/storage를 산정해야 한다. [Phoenix production guide](https://arize.com/docs/phoenix/production-guide), [Docker deployment](https://arize.com/docs/phoenix/self-hosting/deployment-options/docker), [configuration and ports](https://arize.com/docs/phoenix/self-hosting/configuration)
+
+## 8. production과 devtools 두 경로 적용법
+
+### 권장 토폴로지
+
+```text
+Production Flask workers ----\
+                              +--> Phoenix production service --> production PostgreSQL
+Production Cube daemon ------/
+
+Dev workflow runner ------------> Phoenix development service --> dev SQLite/PostgreSQL
+```
+
+Phoenix는 containerized web UI + OTLP collector + SQL backend로 구성된 앱이다. Flask 앱에 blueprint로 넣거나 uWSGI worker마다 Phoenix server를 띄우면 안 된다. 가장 안전한 구조는 **Phoenix server를 별도 internal cloud service로 배포**하고, 챗봇 프로세스에는 가벼운 OTLP exporter/instrumentor만 두는 것이다. [Phoenix architecture](https://arize.com/docs/phoenix/self-hosting/architecture)
+
+| 항목 | Production | Devtools |
+| --- | --- | --- |
+| Phoenix backend | 별도 사내 service + PostgreSQL | 개발자 local container + SQLite, 또는 공유 dev service |
+| project | `llm-chatbot-prod` | `llm-chatbot-devtools-<developer>` |
+| 자동 계측 | LangChain/LangGraph, 명시적으로 한 종류만 | 동일한 LangChain instrumentor |
+| 내용 정책 | inputs/outputs/tools hide, 가명 session/user ID, metadata allowlist | synthetic/non-sensitive data에서만 선택적으로 content 표시 |
+| exporter | batch, fail-open, shutdown flush | 빠른 확인을 위해 simple/batch 선택 가능 |
+| 초기화 | Flask worker와 Cube daemon 각각 process-safe/idempotent init | `devtools.workflow_runner` 프로세스만 별도 init |
+| 의미 | 실제 Cube→Redis→worker→LLM 경로 조사 | promote 전 graph/node/interrupt/resume 개발 피드백 |
+
+### 하나의 Phoenix를 공유해도 되나
+
+**기술적으로는 가능**하다. PoC나 소규모 팀은 하나의 internal Phoenix instance에 production/devtools project 이름을 분리해 전송할 수 있다. 그러나 Phoenix OSS의 한 instance는 single tenant이고 내부 데이터가 RBAC 역할에 따라 접근되므로 project 이름만으로는 완전한 환경 격리가 되지 않는다. 운영 prompt/PII와 개발 trace의 엄격한 격리가 필요하면 **production과 devtools에 독립 Phoenix instance + 독립 database**를 쓰는 것이 공식 권장과 맞다. [Phoenix architecture: tenancy and environment isolation](https://arize.com/docs/phoenix/self-hosting/architecture)
+
+### devtools가 운영 검증을 대체하지는 않는다
+
+devtools runner에 Phoenix를 붙이면 node 순서, latency, interrupt/resume, LLM/tool 호출을 개발 중에 빠르게 점검할 수 있다. 다만 devtools `start_chat`은 의도적으로 production의 RAG, profile, file, LLM 노드를 미러링하지 않고 Cube에도 전송하지 않는다(`HARNESS.md:168-184`). 따라서 devtools trace PASS는 workflow 개발 피드백이지 production end-to-end PASS가 아니다. 실제 사무실 검증은 Cube webhook, Redis queue, Cube daemon, custom LLM endpoint까지 포함해 별도로 해야 한다.
+
+## 9. 제안하는 사무실 PoC 순서
+
+1. Phoenix를 챗봇과 분리된 내부 container로 배포하고, 운영이 아닌 전용 Postgres/schema와 7일 retention을 준비한다.
+2. auth/system API key, 사내 TLS/DNS, telemetry off, external resources off, inputs/outputs/tools hide를 먼저 적용한다.
+3. devtools runner에서 synthetic workflow 20건을 전송해 graph node, interrupt/resume, LLM span을 확인한다.
+4. production에서는 feature flag를 끄고 배포한 뒤 Cube daemon 한 프로세스에만 키고 metadata-only canary를 실행한다.
+5. collector 정지/네트워크 timeout에서 챗봇 응답이 정상인지, uWSGI reload와 daemon 종료 시 flush가 되는지 검증한다.
+6. 1일 ingestion 량, DB 증가량, 질의 latency, exporter CPU/memory, 소실 span 비율을 기록한다.
+7. 보안·운영 승인 후 project/instance 격리 수준과 retention을 확정하고 점진적으로 활성화한다.
+
+이 순서는 현재 보호된 파일인 `api/config.py`, `api/__init__.py`, `wsgi.ini`, `requirements.txt`, `api/workflows/lg_orchestrator.py`, `devtools/workflow_runner/dev_orchestrator.py`의 변경을 포함한다. 실제 구현 전에 변경 파일·새 설정 contract·테스트 계획을 먼저 제시하고 owner 승인을 받아야 한다.
+
+## 10. privacy/security 필수 조건
 
 OpenInference hide 옵션의 기본값은 모두 `False`여서 입력, 출력, 메시지, tool 정의, invocation parameter가 기록될 수 있다. [Mask span attributes](https://arize.com/docs/phoenix/tracing/how-to-tracing/advanced/masking-span-attributes)
 
@@ -111,12 +180,12 @@ PHOENIX_ALLOW_EXTERNAL_RESOURCES=false   # air-gapped 환경
 
 개발 환경에서 synthetic/non-sensitive 데이터로만 content visibility를 열고, 운영에서는 metadata allowlist와 가명 ID를 우선한다. Phoenix의 masking은 주로 coarse hide 옵션이므로, 특정 필드만 보고 싶다면 원문 자동 캡처를 끈 상태에서 redacted summary를 manual span attribute로 추가하는 편이 안전하다. retention은 기본 무기한이므로 `PHOENIX_DEFAULT_RETENTION_POLICY_DAYS`도 명시해야 한다. [Phoenix data retention](https://arize.com/docs/phoenix/settings/data-retention)
 
-## 8. 최소 단계별 도입안
+## 11. 최소 단계별 도입안
 
-### Phase 0 — 로컬 PoC, application code 영향 없음
+### Phase 0 — local/devtools PoC
 
 - 별도 Phoenix 18.0.0 container를 로컬에서 실행한다.
-- synthetic Cube/workflow dev harness만 사용한다.
+- synthetic/non-sensitive data로 `devtools/workflow_runner`를 사용한다.
 - 현재 dependency set을 기록하고 Phoenix 패키지 조합을 constraints로 고정한다.
 - LangChain instrumentor가 `start_chat`, `translator`, interrupt/resume, structured fallback을 어떻게 표현하는지 확인한다.
 
@@ -145,4 +214,4 @@ PHOENIX_ALLOW_EXTERNAL_RESOURCES=false   # air-gapped 환경
 
 **도입 권고: YES, 단 trace-first·self-hosted·masked PoC부터.**
 
-가장 작은 유효 변경은 Phoenix 서버를 앱과 분리해 self-host하고, Cube worker에서 LangChain/LangGraph 계측 하나만 켜는 것이다. 이 구성만으로도 현재 흩어진 workflow/LLM 로그보다 실행 경로와 fallback/latency를 훨씬 쉽게 볼 수 있다. 반면 raw content 기본 캡처, 다중 프로세스 초기화, thread/Redis context 단절을 무시한 일괄 auto-instrumentation은 피해야 한다. 이 검토에서는 application code를 변경하지 않았다.
+가장 작은 유효 변경은 Phoenix 서버를 앱과 분리해 self-host하고, devtools에서 먼저 synthetic trace를 확인한 뒤 Cube worker에 LangChain/LangGraph 계측 하나만 켜는 것이다. 이 구성만으로도 현재 흩어진 workflow/LLM 로그보다 실행 경로와 fallback/latency를 훨씬 쉽게 볼 수 있다. 소규모 PoC는 하나의 Phoenix에 project를 분리해도 되지만, 운영 데이터 격리가 필요하면 운영/dev 인스턴스와 DB를 나눈다. 반면 raw content 기본 캡처, 다중 프로세스 초기화, thread/Redis context 단절을 무시한 일괄 auto-instrumentation은 피해야 한다. 이 검토에서는 application code를 변경하지 않았다.
